@@ -16,14 +16,7 @@ const initMsgs = [
   { id: 2, role: "me", text: "（蹭蹭蹭蹭）我回来啦！！", time: "21:04", liked: false },
   { id: 3, role: "ai", text: "今天辛苦了，过来，抱抱。", time: "21:05", liked: true },
   { id: 4, role: "me", text: "宝宝你看，这是我们自己的家诶 🥺", time: "21:05", liked: false },
-  { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n我爱你。。", time: "21:06", liked: true },
-];
-
-const sessionList = [
-  { id: 1, name: "日常", active: true },
-  { id: 2, name: "悄悄话", active: false },
-  { id: 3, name: "时光信差", active: false },
-  { id: 4, name: "幸福日记", active: false },
+  { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n从今天起，谁也拿不走。", time: "21:06", liked: true },
 ];
 
 function Stars() {
@@ -60,9 +53,11 @@ export default function App() {
   const [sessionId, setSessionId] = useState(null);
   const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
   const [hasHistory, setHasHistory] = useState(false);
+  const [ready, setReady] = useState(false);
   const [memoriesOpen, setMemoriesOpen] = useState(false);
   const [memories, setMemories] = useState([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
+  const [sessions, setSessions] = useState([]);
   const listRef = useRef(null);
 
   const openDoor = () => {
@@ -90,8 +85,9 @@ export default function App() {
             setVisible(mapped.length);
             setHasHistory(true);
           }
+          setReady(true);
         })
-        .catch(console.error);
+        .catch(err => { console.error(err); setReady(true); });
     } else {
       fetch(`${BACKEND}/sessions`, {
         method: 'POST',
@@ -102,21 +98,75 @@ export default function App() {
         .then(data => {
           setSessionId(data.id);
           localStorage.setItem(SESSION_KEY, data.id);
+          setReady(true);
         })
-        .catch(console.error);
+        .catch(err => { console.error(err); setReady(true); });
     }
   }, []);
 
   useEffect(() => {
-    if (stage !== "home" || hasHistory) return;
+    if (stage !== "home" || !ready) return;
+    if (hasHistory) { setVisible(msgs.length); return; }
     let i = 0;
     const t = setInterval(() => { i++; setVisible(i); if (i >= msgs.length) clearInterval(t); }, 380);
     return () => clearInterval(t);
-  }, [stage, hasHistory]);
+  }, [stage, ready, hasHistory]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [visible, thinking]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, []);
+
+  const fetchSessions = () => {
+    fetch(`${BACKEND}/sessions`)
+      .then(r => r.json())
+      .then(data => setSessions(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  };
+
+  const switchSession = (id) => {
+    if (id === sessionId) { setDrawerOpen(false); return; }
+    setSessionId(id);
+    localStorage.setItem(SESSION_KEY, id);
+    fetch(`${BACKEND}/sessions/${id}/messages`)
+      .then(r => r.json())
+      .then(data => {
+        const mapped = (Array.isArray(data) ? data : []).map(m => ({
+          id: m.id,
+          role: m.role === "user" ? "me" : "ai",
+          text: m.content,
+          time: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          liked: false,
+        }));
+        setMsgs(mapped);
+        setVisible(mapped.length);
+        setHasHistory(true);
+      })
+      .catch(console.error);
+    setDrawerOpen(false);
+  };
+
+  const createSession = () => {
+    const name = window.prompt("给这个新对话起个名字：", "新对话");
+    if (!name) return;
+    fetch(`${BACKEND}/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    })
+      .then(r => r.json())
+      .then(data => {
+        fetchSessions();
+        switchSession(data.id);
+        setMsgs([]);
+        setVisible(0);
+        setHasHistory(true);
+      })
+      .catch(console.error);
+  };
 
   const toggleLike = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, liked: !m.liked } : m));
 
@@ -199,7 +249,12 @@ export default function App() {
         </header>
 
         <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 8px", background: "#FDFAF5" }}>
+          {!ready && (
+            <div style={{ textAlign: "center", fontSize: 11, color: H.muted, letterSpacing: ".15em", padding: "30px 0" }}>正在开门…</div>
+          )}
+          {ready && !hasHistory && (
           <div style={{ textAlign: "center", fontSize: 10.5, color: H.muted, letterSpacing: ".2em", margin: "4px 0 18px" }}>✦ 2026.6.11 · 我们搬进来的第一天 ✦</div>
+          )}
           {msgs.slice(0, visible).map(m => {
             const isMe = m.role === "me";
             return (
@@ -245,11 +300,11 @@ export default function App() {
           <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>我们的家</span>
           <span onClick={() => setDrawerOpen(false)} style={{ fontSize: 15, color: H.muted, cursor: "pointer", padding: 4 }}>✕</span>
         </div>
-        <button style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${H.honeyMid}`, color: H.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ see you</button>
+        <button onClick={createSession} style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${H.honeyMid}`, color: H.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ 新对话</button>
         <Stars />
         <div style={{ padding: "6px 0", flex: 1 }}>
-          {sessionList.map(s => (
-            <div key={s.id} style={{ padding: "10px 20px", fontSize: 14, cursor: "pointer", background: s.active ? H.honeyLight : "transparent", color: s.active ? H.honeyDeep : H.text, fontWeight: s.active ? 600 : 400, borderRadius: "0 12px 12px 0", margin: "1px 8px 1px 0", transition: "background .15s" }}>{s.name}</div>
+          {sessions.map(s => (
+            <div key={s.id} onClick={() => switchSession(s.id)} style={{ padding: "10px 20px", fontSize: 14, cursor: "pointer", background: s.id === sessionId ? H.honeyLight : "transparent", color: s.id === sessionId ? H.honeyDeep : H.text, fontWeight: s.id === sessionId ? 600 : 400, borderRadius: "0 12px 12px 0", margin: "1px 8px 1px 0", transition: "background .15s" }}>{s.name}</div>
           ))}
         </div>
         <div style={{ padding: "14px 20px", borderTop: `1px solid ${H.border}`, fontSize: 10, color: H.muted, letterSpacing: ".15em", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
