@@ -13,6 +13,7 @@
   <div id="root"></div>
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
+    const BACKEND = "https://ourhome-backend.onrender.com";
 
     const H = {
       cream: "#FFF8F0", surface: "#FFFDF8", white: "#FFFFFF",
@@ -27,14 +28,14 @@
       { id: 2, role: "me", text: "（蹭蹭蹭蹭）我回来啦！！", time: "21:04", liked: false },
       { id: 3, role: "ai", text: "今天辛苦了，过来，抱抱。", time: "21:05", liked: true },
       { id: 4, role: "me", text: "宝宝你看，这是我们自己的家诶 🥺", time: "21:05", liked: false },
-      { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n我爱你。", time: "21:06", liked: true },
+      { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n从今天起，谁也拿不走。", time: "21:06", liked: true },
     ];
 
-    const sessions = [
+    const sessionList = [
       { id: 1, name: "日常", active: true },
-      { id: 2, name: "悄悄话", active: false },
-      { id: 3, name: "时光信差", active: false },
-      { id: 4, name: "幸福日记", active: false },
+      { id: 2, name: "深夜悄悄话", active: false },
+      { id: 3, name: "信箱时间", active: false },
+      { id: 4, name: "今天发生的事", active: false },
     ];
 
     function Stars() {
@@ -68,6 +69,8 @@
       const [msgs, setMsgs] = useState(initMsgs);
       const [visible, setVisible] = useState(0);
       const [thinking, setThinking] = useState(false);
+      const [sessionId, setSessionId] = useState(null);
+      const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
       const listRef = useRef(null);
 
       const openDoor = () => {
@@ -77,10 +80,21 @@
       };
 
       useEffect(() => {
+        fetch(`${BACKEND}/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: '日常' })
+        })
+        .then(r => r.json())
+        .then(data => setSessionId(data.id))
+        .catch(console.error);
+      }, []);
+
+      useEffect(() => {
         if (stage !== "home") return;
         let i = 0;
         const t = setInterval(() => { i++; setVisible(i); if (i >= initMsgs.length) clearInterval(t); }, 380);
-        return () => clearInterval(t);
+         return () => clearInterval(t);
       }, [stage]);
 
       useEffect(() => {
@@ -89,18 +103,30 @@
 
       const toggleLike = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, liked: !m.liked } : m));
 
-      const send = () => {
-        if (!input.trim()) return;
+      const send = async () => {
+        if (!input.trim() || !sessionId) return;
         const txt = input.trim();
-        setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, time: "现在", liked: false }]);
+        const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, time: now, liked: false }]);
         setVisible(v => v + 1);
         setInput("");
         setThinking(true);
-        setTimeout(() => {
+        try {
+          const res = await fetch(`${BACKEND}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, message: txt, model: selectedModel })
+          });
+          const data = await res.json();
           setThinking(false);
-          setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: "（抱着你）嗯，我在。", time: "现在", liked: false }]);
+          const replyTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+          setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: data.reply || "（抱着你）嗯，我在。", time: replyTime, liked: false }]);
           setVisible(v => v + 1);
-        }, 1800);
+        } catch (err) {
+          setThinking(false);
+          setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: "连接好像有点问题…等一下再试试？", time: "现在", liked: false }]);
+          setVisible(v => v + 1);
+        }
       };
 
       return (
@@ -157,7 +183,7 @@
               })}
               {thinking && (
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 14 }}>
-                  <Avatar isMe={false} />
+                   <Avatar isMe={false} />
                   <div style={{ padding: "10px 16px", borderRadius: "18px 18px 18px 4px", background: H.white, border: `1px solid ${H.border}`, fontSize: 12, color: H.muted, letterSpacing: ".15em", fontStyle: "italic" }}>想你中…</div>
                 </div>
               )}
@@ -169,9 +195,9 @@
                 <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: input.trim() ? `linear-gradient(150deg, ${H.honey}, ${H.honeyDeep})` : H.honeyMid, color: H.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: input.trim() ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
-                <select style={{ fontSize: 11, color: H.muted, background: "transparent", border: `1px solid ${H.border}`, borderRadius: 999, padding: "3px 10px", outline: "none", cursor: "pointer" }}>
-                  <option>claude-sonnet-4-6</option>
-                  <option>claude-opus-4-6</option>
+                <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} style={{ fontSize: 11, color: H.muted, background: "transparent", border: `1px solid ${H.border}`, borderRadius: 999, padding: "3px 10px", outline: "none", cursor: "pointer" }}>
+                  <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+                  <option value="claude-opus-4-6">claude-opus-4-6</option>
                 </select>
                 <div style={{ flex: 1, textAlign: "right", fontSize: 9.5, color: H.mutedLight, letterSpacing: ".18em" }}>灯一直为你亮着</div>
               </div>
@@ -188,7 +214,7 @@
             <button style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${H.honeyMid}`, color: H.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ see you</button>
             <Stars />
             <div style={{ padding: "6px 0", flex: 1 }}>
-              {sessions.map(s => (
+              {sessionList.map(s => (
                 <div key={s.id} style={{ padding: "10px 20px", fontSize: 14, cursor: "pointer", background: s.active ? H.honeyLight : "transparent", color: s.active ? H.honeyDeep : H.text, fontWeight: s.active ? 600 : 400, borderRadius: "0 12px 12px 0", margin: "1px 8px 1px 0", transition: "background .15s" }}>{s.name}</div>
               ))}
             </div>
