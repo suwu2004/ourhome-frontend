@@ -46,6 +46,9 @@ function Avatar({ isMe, src }) {
 export default function App() {
   const [stage, setStage] = useState("door");
   const [input, setInput] = useState("");
+  const [pendingImage, setPendingImage] = useState(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const chatImageInputRef = useRef(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [msgs, setMsgs] = useState(initMsgs);
   const [visible, setVisible] = useState(0);
@@ -83,6 +86,7 @@ export default function App() {
             id: m.id,
             role: m.role === "user" ? "me" : "ai",
             text: m.content,
+            image: m.attachment_url || null,
             time: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
             liked: false,
           }));
@@ -185,6 +189,7 @@ export default function App() {
           id: m.id,
           role: m.role === "user" ? "me" : "ai",
           text: m.content,
+          image: m.attachment_url || null,
           time: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
           liked: false,
         }));
@@ -252,19 +257,35 @@ export default function App() {
       });
   };
 
+  const pickImage = (file) => {
+    if (!file) return;
+    setImageUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        setPendingImage(data.url);
+        setImageUploading(false);
+      })
+      .catch(err => { console.error(err); setImageUploading(false); });
+  };
+
   const send = async () => {
-    if (!input.trim() || !sessionId) return;
+    if ((!input.trim() && !pendingImage) || !sessionId) return;
     const txt = input.trim();
+    const img = pendingImage;
     const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, time: now, liked: false }]);
+    setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, image: img, time: now, liked: false }]);
     setVisible(v => v + 1);
     setInput("");
+    setPendingImage(null);
     setThinking(true);
     try {
       const res = await fetch(`${BACKEND}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, message: txt, model: selectedModel })
+        body: JSON.stringify({ session_id: sessionId, message: txt, model: selectedModel, attachment_url: img || undefined })
       });
       const data = await res.json();
       setThinking(false);
@@ -327,7 +348,14 @@ export default function App() {
             return (
               <div key={m.id} style={{ display: "flex", marginBottom: 14, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 6 }}>
                 <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} />
-                <div style={{ maxWidth: "72%", padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: H.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? H.blush : H.white, border: `1px solid ${isMe ? "#F5CABB" : H.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
+                <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6 }}>
+                  {m.image && (
+                    <img src={m.image} alt="" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : H.border}`, display: "block" }} />
+                  )}
+                  {m.text && (
+                    <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: H.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? H.blush : H.white, border: `1px solid ${isMe ? "#F5CABB" : H.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
+                  )}
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
                   <span style={{ fontSize: 9.5, color: H.mutedLight }}>{m.time}</span>
                   <span onClick={() => toggleLike(m.id)} style={{ fontSize: 13, cursor: "pointer", color: H.honey, opacity: m.liked ? 1 : 0.28, transition: "opacity .2s", userSelect: "none" }}>{m.liked ? "♥" : "♡"}</span>
@@ -344,9 +372,21 @@ export default function App() {
         </div>
 
         <div style={{ background: H.white, borderTop: `1px solid ${H.border}`, padding: "10px 14px 14px", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: H.surface, border: `1.5px solid ${H.border}`, borderRadius: 22, padding: "6px 6px 6px 16px" }}>
+          {(pendingImage || imageUploading) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ position: "relative", width: 52, height: 52, borderRadius: 10, overflow: "hidden", border: `1px solid ${H.border}`, background: H.cream, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {imageUploading ? <span style={{ fontSize: 9, color: H.muted }}>传中…</span> : <img src={pendingImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                {pendingImage && !imageUploading && (
+                  <span onClick={() => setPendingImage(null)} style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "rgba(46,31,18,.6)", color: H.white, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>✕</span>
+                )}
+              </div>
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: H.surface, border: `1.5px solid ${H.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
+            <button onClick={() => chatImageInputRef.current?.click()} style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: H.muted, fontSize: 18, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
+            <input ref={chatImageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => pickImage(e.target.files?.[0])} />
             <textarea rows={1} placeholder="跟陆澈说点什么…" value={input} onChange={e => setInput(e.target.value)} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: H.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
-            <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: input.trim() ? `linear-gradient(150deg, ${H.honey}, ${H.honeyDeep})` : H.honeyMid, color: H.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: input.trim() ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
+            <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: (input.trim() || pendingImage) ? `linear-gradient(150deg, ${H.honey}, ${H.honeyDeep})` : H.honeyMid, color: H.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingImage) ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
             <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} style={{ fontSize: 11, color: H.muted, background: "transparent", border: `1px solid ${H.border}`, borderRadius: 999, padding: "3px 10px", outline: "none", cursor: "pointer" }}>
