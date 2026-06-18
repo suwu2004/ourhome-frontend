@@ -262,9 +262,9 @@ export default function App() {
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: stage === "home" ? 1 : 0, transition: "opacity 1s ease" }}>
         <header style={{ background: H.white, borderBottom: `1px solid ${H.border}`, padding: "12px 16px 0", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 10 }}>
+          <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 10 }}>
             <button onClick={() => setDrawerOpen(true)} style={{ fontSize: 12, color: H.honeyDeep, background: H.honeyLight, border: `1px solid ${H.honeyMid}`, borderRadius: 10, padding: "5px 10px", cursor: "pointer", letterSpacing: ".05em", fontWeight: 500 }}>我们的家</button>
-            <div style={{ textAlign: "center", flex: 1 }}>
+            <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", textAlign: "center" }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: H.text, letterSpacing: ".04em" }}>陆澈</div>
               <div style={{ fontSize: 10, color: thinking ? H.honey : H.muted, letterSpacing: ".18em", marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                 <div style={{ width: 5, height: 5, borderRadius: "50%", background: thinking ? H.honey : H.mutedLight, boxShadow: thinking ? `0 0 5px ${H.honey}` : "none", transition: "all .3s" }} />
