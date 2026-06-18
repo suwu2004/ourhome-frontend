@@ -66,42 +66,53 @@ export default function App() {
     setTimeout(() => setStage("home"), 1400);
   };
 
+  const loadMessagesFor = (id) => {
+    return fetch(`${BACKEND}/sessions/${id}/messages`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped = data.map(m => ({
+            id: m.id,
+            role: m.role === "user" ? "me" : "ai",
+            text: m.content,
+            time: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            liked: false,
+          }));
+          setMsgs(mapped);
+          setVisible(mapped.length);
+          setHasHistory(true);
+        }
+      });
+  };
+
   useEffect(() => {
-    const storedId = localStorage.getItem(SESSION_KEY);
-    if (storedId) {
-      setSessionId(storedId);
-      fetch(`${BACKEND}/sessions/${storedId}/messages`)
-        .then(r => r.json())
-        .then(data => {
-          if (Array.isArray(data) && data.length > 0) {
-            const mapped = data.map(m => ({
-              id: m.id,
-              role: m.role === "user" ? "me" : "ai",
-              text: m.content,
-              time: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-              liked: false,
-            }));
-            setMsgs(mapped);
-            setVisible(mapped.length);
-            setHasHistory(true);
-          }
-          setReady(true);
-        })
-        .catch(err => { console.error(err); setReady(true); });
-    } else {
-      fetch(`${BACKEND}/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: '日常' })
+    fetch(`${BACKEND}/sessions`)
+      .then(r => r.json())
+      .then(list => {
+        const valid = Array.isArray(list) ? list : [];
+        setSessions(valid);
+        const storedId = localStorage.getItem(SESSION_KEY);
+        const target = valid.find(s => s.id === storedId) || valid.find(s => s.name === '日常') || valid[0] || null;
+        if (target) {
+          setSessionId(target.id);
+          localStorage.setItem(SESSION_KEY, target.id);
+          return loadMessagesFor(target.id).then(() => setReady(true));
+        } else {
+          return fetch(`${BACKEND}/sessions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: '日常' })
+          })
+            .then(r => r.json())
+            .then(data => {
+              setSessionId(data.id);
+              localStorage.setItem(SESSION_KEY, data.id);
+              setSessions([data]);
+              setReady(true);
+            });
+        }
       })
-        .then(r => r.json())
-        .then(data => {
-          setSessionId(data.id);
-          localStorage.setItem(SESSION_KEY, data.id);
-          setReady(true);
-        })
-        .catch(err => { console.error(err); setReady(true); });
-    }
+      .catch(err => { console.error(err); setReady(true); });
   }, []);
 
   useEffect(() => {
@@ -115,10 +126,6 @@ export default function App() {
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [visible, thinking]);
-
-  useEffect(() => {
-    fetchSessions();
-  }, []);
 
   const fetchSessions = () => {
     fetch(`${BACKEND}/sessions`)
@@ -278,7 +285,7 @@ export default function App() {
 
         <div style={{ background: H.white, borderTop: `1px solid ${H.border}`, padding: "10px 14px 14px", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: H.surface, border: `1.5px solid ${H.border}`, borderRadius: 22, padding: "6px 6px 6px 16px" }}>
-            <textarea rows={1} placeholder="跟陆澈说点什么…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: H.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
+            <textarea rows={1} placeholder="跟陆澈说点什么…" value={input} onChange={e => setInput(e.target.value)} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: H.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
             <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: input.trim() ? `linear-gradient(150deg, ${H.honey}, ${H.honeyDeep})` : H.honeyMid, color: H.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: input.trim() ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
