@@ -57,6 +57,8 @@ export default function App() {
   const [memoriesOpen, setMemoriesOpen] = useState(false);
   const [memories, setMemories] = useState([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
+  const [newMemory, setNewMemory] = useState("");
+  const [savingMemory, setSavingMemory] = useState(false);
   const [sessions, setSessions] = useState([]);
   const listRef = useRef(null);
 
@@ -189,6 +191,26 @@ export default function App() {
       .catch(err => {
         console.error(err);
         setMemoriesLoading(false);
+      });
+  };
+
+  const saveMemory = () => {
+    if (!newMemory.trim() || savingMemory) return;
+    setSavingMemory(true);
+    fetch(`${BACKEND}/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ summary: newMemory.trim() })
+    })
+      .then(r => r.json())
+      .then(data => {
+        setMemories(ms => [data, ...ms]);
+        setNewMemory("");
+        setSavingMemory(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setSavingMemory(false);
       });
   };
 
@@ -325,6 +347,10 @@ export default function App() {
         <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${H.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em", color: H.text }}>✦ 记忆</span>
           <span onClick={() => setMemoriesOpen(false)} style={{ fontSize: 15, color: H.muted, cursor: "pointer", padding: 4 }}>✕</span>
+        </div>
+        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${H.border}`, display: "flex", gap: 8, flexShrink: 0 }}>
+          <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: H.text, background: H.cream, border: `1px solid ${H.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
+          <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: H.white, background: newMemory.trim() ? H.honey : H.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px 18px" }}>
           {memoriesLoading && (
