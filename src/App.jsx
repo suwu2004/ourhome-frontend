@@ -59,6 +59,7 @@ export default function App() {
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [newMemory, setNewMemory] = useState("");
   const [savingMemory, setSavingMemory] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [sessions, setSessions] = useState([]);
   const listRef = useRef(null);
 
@@ -271,7 +272,7 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-              {["记忆", "设置"].map(t => (<button key={t} onClick={t === "记忆" ? openMemories : undefined} style={{ fontSize: 10.5, color: H.honeyDeep, background: H.honeyLight, border: `1px solid ${H.honeyMid}`, borderRadius: 999, padding: "3px 10px", cursor: "pointer", letterSpacing: ".08em" }}>{t}</button>))}
+              {["记忆", "设置"].map(t => (<button key={t} onClick={t === "记忆" ? openMemories : () => setSettingsOpen(true)} style={{ fontSize: 10.5, color: H.honeyDeep, background: H.honeyLight, border: `1px solid ${H.honeyMid}`, borderRadius: 999, padding: "3px 10px", cursor: "pointer", letterSpacing: ".08em" }}>{t}</button>))}
             </div>
           </div>
           <Stars />
@@ -369,6 +370,18 @@ export default function App() {
               <div style={{ fontSize: 13.5, lineHeight: 1.7, color: H.text, whiteSpace: "pre-wrap" }}>{m.summary}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div onClick={() => setSettingsOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: settingsOpen ? 1 : 0, pointerEvents: settingsOpen ? "auto" : "none", transition: "opacity .25s" }} />
+      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "82%", maxWidth: 360, transform: settingsOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: settingsOpen ? 1 : 0, pointerEvents: settingsOpen ? "auto" : "none", transition: "all .22s ease", background: H.surface, borderRadius: 18, border: `1px solid ${H.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${H.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em", color: H.text }}>⚙ 设置</span>
+          <span onClick={() => setSettingsOpen(false)} style={{ fontSize: 15, color: H.muted, cursor: "pointer", padding: 4 }}>✕</span>
+        </div>
+        <div style={{ padding: "16px 18px" }}>
+          <button onClick={() => window.open(`${BACKEND}/export`, '_blank')} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${H.honeyMid}`, color: H.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
+          <div style={{ fontSize: 11, color: H.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
         </div>
       </div>
     </div>
