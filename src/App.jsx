@@ -29,16 +29,16 @@ function Stars() {
   );
 }
 
-function Avatar({ isMe }) {
+function Avatar({ isMe, src }) {
   return (
     <div style={{
-      width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+      width: 30, height: 30, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
       display: "flex", alignItems: "center", justifyContent: "center",
       fontSize: 12, fontWeight: 700, color: H.white,
       background: isMe ? `linear-gradient(150deg, #F2AFA2, ${H.blushDeep})` : `linear-gradient(150deg, #E8B45A, ${H.honeyDeep})`,
       boxShadow: `0 2px 6px ${isMe ? "rgba(232,144,122,.3)" : "rgba(185,122,31,.25)"}`,
     }}>
-      {isMe ? "檀" : "澈"}
+      {src ? <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (isMe ? "檀" : "澈")}
     </div>
   );
 }
@@ -60,6 +60,11 @@ export default function App() {
   const [newMemory, setNewMemory] = useState("");
   const [savingMemory, setSavingMemory] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [myAvatar, setMyAvatar] = useState(null);
+  const [partnerAvatar, setPartnerAvatar] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(null);
+  const myAvatarInputRef = useRef(null);
+  const partnerAvatarInputRef = useRef(null);
   const [sessions, setSessions] = useState([]);
   const listRef = useRef(null);
 
@@ -129,6 +134,38 @@ export default function App() {
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [visible, thinking]);
+
+  useEffect(() => {
+    fetch(`${BACKEND}/settings`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.my_avatar_url) setMyAvatar(data.my_avatar_url);
+        if (data?.partner_avatar_url) setPartnerAvatar(data.partner_avatar_url);
+      })
+      .catch(console.error);
+  }, []);
+
+  const uploadAvatar = (file, who) => {
+    if (!file) return;
+    setUploadingAvatar(who);
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        const field = who === 'me' ? 'my_avatar_url' : 'partner_avatar_url';
+        return fetch(`${BACKEND}/settings`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [field]: data.url }),
+        }).then(() => {
+          if (who === 'me') setMyAvatar(data.url);
+          else setPartnerAvatar(data.url);
+          setUploadingAvatar(null);
+        });
+      })
+      .catch(err => { console.error(err); setUploadingAvatar(null); });
+  };
 
   const fetchSessions = () => {
     fetch(`${BACKEND}/sessions`)
@@ -289,7 +326,7 @@ export default function App() {
             const isMe = m.role === "me";
             return (
               <div key={m.id} style={{ display: "flex", marginBottom: 14, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 6 }}>
-                <Avatar isMe={isMe} />
+                <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} />
                 <div style={{ maxWidth: "72%", padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: H.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? H.blush : H.white, border: `1px solid ${isMe ? "#F5CABB" : H.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
                   <span style={{ fontSize: 9.5, color: H.mutedLight }}>{m.time}</span>
@@ -300,7 +337,7 @@ export default function App() {
           })}
           {thinking && (
             <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 14 }}>
-              <Avatar isMe={false} />
+              <Avatar isMe={false} src={partnerAvatar} />
               <div style={{ padding: "10px 16px", borderRadius: "18px 18px 18px 4px", background: H.white, border: `1px solid ${H.border}`, fontSize: 12, color: H.muted, letterSpacing: ".15em", fontStyle: "italic" }}>想你中…</div>
             </div>
           )}
@@ -380,6 +417,23 @@ export default function App() {
           <span onClick={() => setSettingsOpen(false)} style={{ fontSize: 15, color: H.muted, cursor: "pointer", padding: 4 }}>✕</span>
         </div>
         <div style={{ padding: "16px 18px" }}>
+          <div style={{ fontSize: 12, color: H.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
+          <div style={{ display: "flex", gap: 20, marginBottom: 18 }}>
+            <div style={{ textAlign: "center" }}>
+              <div onClick={() => myAvatarInputRef.current?.click()} style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", margin: "0 auto 6px", cursor: "pointer", background: `linear-gradient(150deg, #F2AFA2, ${H.blushDeep})`, display: "flex", alignItems: "center", justifyContent: "center", color: H.white, fontSize: 18, fontWeight: 700 }}>
+                {uploadingAvatar === 'me' ? <span style={{ fontSize: 10 }}>传中…</span> : myAvatar ? <img src={myAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "檀"}
+              </div>
+              <span style={{ fontSize: 11, color: H.muted }}>我的头像</span>
+              <input ref={myAvatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadAvatar(e.target.files?.[0], 'me')} />
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div onClick={() => partnerAvatarInputRef.current?.click()} style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", margin: "0 auto 6px", cursor: "pointer", background: `linear-gradient(150deg, #E8B45A, ${H.honeyDeep})`, display: "flex", alignItems: "center", justifyContent: "center", color: H.white, fontSize: 18, fontWeight: 700 }}>
+                {uploadingAvatar === 'partner' ? <span style={{ fontSize: 10 }}>传中…</span> : partnerAvatar ? <img src={partnerAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "澈"}
+              </div>
+              <span style={{ fontSize: 11, color: H.muted }}>陆澈的头像</span>
+              <input ref={partnerAvatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadAvatar(e.target.files?.[0], 'partner')} />
+            </div>
+          </div>
           <button onClick={() => window.open(`${BACKEND}/export`, '_blank')} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${H.honeyMid}`, color: H.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
           <div style={{ fontSize: 11, color: H.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
         </div>
