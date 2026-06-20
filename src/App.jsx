@@ -41,22 +41,33 @@ function MailCat({ x, mirror, label, theme, onClick }) {
   const flip = mirror ? -1 : 1;
   return (
     <g onClick={onClick} style={{ cursor: "pointer" }} transform={`translate(${x}, 0)`}>
-      <ellipse cx={0} cy={185} rx={30} ry="8" fill="rgba(46,31,18,.12)" />
-      <path d={`M ${flip * 14},150 q ${flip * 14},10 ${flip * 6},22`} stroke="#E8B45A" strokeWidth="7" fill="none" strokeLinecap="round" />
-      <ellipse cx={0} cy={150} rx={22} ry={26} fill="#F0C888" stroke="#C8943A" strokeWidth="1.5" />
-      <circle cx={0} cy={112} r={17} fill="#F5D7A0" stroke="#C8943A" strokeWidth="1.5" />
-      <path d={`M ${flip * -13},100 L ${flip * -18},82 L ${flip * -4},98 Z`} fill="#F0C888" stroke="#C8943A" strokeWidth="1.5" />
-      <path d={`M ${flip * 13},100 L ${flip * 18},82 L ${flip * 4},98 Z`} fill="#F0C888" stroke="#C8943A" strokeWidth="1.5" />
-      <circle cx={-6} cy={110} r={2.2} fill="#5A3D1E" />
-      <circle cx={6} cy={110} r={2.2} fill="#5A3D1E" />
-      <path d="M -3,118 Q 0,121 3,118" stroke="#5A3D1E" strokeWidth="1.4" fill="none" strokeLinecap="round" />
-      <ellipse cx={-9} cy={115} rx={3.5} ry={2.2} fill="#F2AFA2" opacity="0.7" />
-      <ellipse cx={9} cy={115} rx={3.5} ry={2.2} fill="#F2AFA2" opacity="0.7" />
-      <rect x={-26} y={130} width={20} height={26} rx={4} fill="#8B5A2B" transform={`rotate(${flip * -8})`} />
-      <g transform={`translate(${flip * 34}, 118) rotate(${flip * 4})`}>
-        <rect x={-2} y={0} width={4} height={36} fill="#C8943A" />
-        <rect x={-30} y={-26} width={60} height={30} rx={4} fill={theme.honeyLight} stroke={theme.honeyDeep} strokeWidth="2" />
-        <text x={0} y={-7} textAnchor="middle" fontSize="13" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit">{label}</text>
+      <ellipse cx={0} cy={188} rx={32} ry="8" fill="rgba(46,31,18,.12)" />
+      <path d={`M ${flip * 20},155 q ${flip * 22},6 ${flip * 14},26 q ${flip * -2},6 ${flip * -10},2`} fill="#F2B85F" stroke="#C8762E" strokeWidth="1.5" />
+      <ellipse cx={0} cy={158} rx={26} ry={24} fill="#F6CC82" stroke="#C8762E" strokeWidth="1.8" />
+      <ellipse cx={flip * -14} cy={178} rx={7} ry={6} fill="#F6CC82" stroke="#C8762E" strokeWidth="1.5" />
+      <ellipse cx={flip * 14} cy={178} rx={7} ry={6} fill="#F6CC82" stroke="#C8762E" strokeWidth="1.5" />
+      <path d={`M ${flip * -16},90 L ${flip * -26},58 L ${flip * -2},82 Z`} fill="#F2B85F" stroke="#C8762E" strokeWidth="1.8" />
+      <path d={`M ${flip * -16},90 L ${flip * -26},58 L ${flip * -2},82 Z`} fill="none" />
+      <path d={`M ${flip * -18},83 L ${flip * -23},65 L ${flip * -6},80 Z`} fill="#F9D9B0" />
+      <path d={`M ${flip * 16},90 L ${flip * 26},58 L ${flip * 2},82 Z`} fill="#F2B85F" stroke="#C8762E" strokeWidth="1.8" />
+      <path d={`M ${flip * 18},83 L ${flip * 23},65 L ${flip * 6},80 Z`} fill="#F9D9B0" />
+      <circle cx={0} cy={108} r={30} fill="#F9D9A8" stroke="#C8762E" strokeWidth="1.8" />
+      <path d={`M -10,82 Q -2,90 4,82`} stroke="#E8923C" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.7" />
+      <path d={`M -22,96 Q -16,100 -12,98`} stroke="#E8923C" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.6" />
+      <path d={`M 22,96 Q 16,100 12,98`} stroke="#E8923C" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.6" />
+      <ellipse cx={-15} cy={118} rx={8} ry={6.5} fill="#F8C7B8" opacity="0.85" />
+      <ellipse cx={15} cy={118} rx={8} ry={6.5} fill="#F8C7B8" opacity="0.85" />
+      <circle cx={-10} cy={104} r={3.4} fill="#3A2415" />
+      <circle cx={10} cy={104} r={3.4} fill="#3A2415" />
+      <circle cx={-9} cy={102.5} r={1} fill="#FFF" />
+      <circle cx={11} cy={102.5} r={1} fill="#FFF" />
+      <path d="M -3,113 L 3,113 L 0,117 Z" fill="#D88A6A" />
+      <path d="M -5,120 Q 0,124 5,120" stroke="#5A3D1E" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+      <rect x={flip * -42} y={148} width={20} height={26} rx={4} fill="#8B5A2B" transform={`rotate(${flip * -10})`} />
+      <g transform={`translate(${flip * 46}, 130) rotate(${flip * 4})`}>
+        <rect x={-2} y={0} width={4} height={34} fill="#C8943A" />
+        <rect x={-32} y={-28} width={64} height={32} rx={5} fill={theme.honeyLight} stroke={theme.honeyDeep} strokeWidth="2" />
+        <text x={0} y={-7} textAnchor="middle" fontSize="13.5" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit">{label}</text>
       </g>
     </g>
   );
@@ -64,22 +75,22 @@ function MailCat({ x, mirror, label, theme, onClick }) {
 
 function CabinScene({ theme, onPick }) {
   return (
-    <svg viewBox="0 0 320 230" style={{ width: "100%", maxWidth: 340 }}>
-      <ellipse cx="160" cy="205" rx="120" ry="10" fill="rgba(46,31,18,.08)" />
-      <rect x="184" y="48" width="14" height="26" fill="#B97A1F" />
-      <rect x="108" y="85" width="104" height="85" fill="#EDD49A" stroke="#C8943A" strokeWidth="2" />
-      <polygon points="98,88 160,32 222,88" fill="#DD9A33" stroke="#B97A1F" strokeWidth="2" />
-      <rect x="118" y="56" width="64" height="20" rx="3" fill={theme.honeyLight} stroke={theme.honeyDeep} strokeWidth="1.5" />
-      <line x1="130" y1="76" x2="124" y2="88" stroke={theme.honeyDeep} strokeWidth="1.5" />
-      <line x1="170" y1="76" x2="176" y2="88" stroke={theme.honeyDeep} strokeWidth="1.5" />
-      <text x="150" y="70" textAnchor="middle" fontSize="13" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit">时光信差</text>
-      <circle cx="129" cy="115" r="11" fill="#FFF3D6" stroke="#B97A1F" strokeWidth="2" />
-      <circle cx="191" cy="115" r="11" fill="#FFF3D6" stroke="#B97A1F" strokeWidth="2" />
-      <rect x="148" y="128" width="24" height="42" rx="2" fill="#B97A1F" />
-      <circle cx="166" cy="149" r="1.8" fill="#FFE9B0" />
-      <rect x="100" y="170" width="120" height="6" fill="#C8943A" opacity="0.5" />
-      <MailCat x={56} mirror={false} label="悄悄话" theme={theme} onClick={() => onPick('悄悄话')} />
-      <MailCat x={264} mirror={true} label="幸福日记" theme={theme} onClick={() => onPick('幸福日记')} />
+    <svg viewBox="0 0 360 230" style={{ width: "100%", maxWidth: 360 }}>
+      <ellipse cx="180" cy="205" rx="150" ry="10" fill="rgba(46,31,18,.08)" />
+      <rect x="204" y="48" width="14" height="26" fill="#B97A1F" />
+      <rect x="128" y="85" width="104" height="85" fill="#EDD49A" stroke="#C8943A" strokeWidth="2" />
+      <polygon points="118,88 180,32 242,88" fill="#DD9A33" stroke="#B97A1F" strokeWidth="2" />
+      <rect x="138" y="56" width="64" height="20" rx="3" fill={theme.honeyLight} stroke={theme.honeyDeep} strokeWidth="1.5" />
+      <line x1="150" y1="76" x2="144" y2="88" stroke={theme.honeyDeep} strokeWidth="1.5" />
+      <line x1="190" y1="76" x2="196" y2="88" stroke={theme.honeyDeep} strokeWidth="1.5" />
+      <text x="170" y="70" textAnchor="middle" fontSize="13" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit">时光信差</text>
+      <circle cx="149" cy="115" r="11" fill="#FFF3D6" stroke="#B97A1F" strokeWidth="2" />
+      <circle cx="211" cy="115" r="11" fill="#FFF3D6" stroke="#B97A1F" strokeWidth="2" />
+      <rect x="168" y="128" width="24" height="42" rx="2" fill="#B97A1F" />
+      <circle cx="186" cy="149" r="1.8" fill="#FFE9B0" />
+      <rect x="120" y="170" width="120" height="6" fill="#C8943A" opacity="0.5" />
+      <MailCat x={32} mirror={false} label="悄悄话" theme={theme} onClick={() => onPick('悄悄话')} />
+      <MailCat x={328} mirror={true} label="幸福日记" theme={theme} onClick={() => onPick('幸福日记')} />
     </svg>
   );
 }
@@ -134,6 +145,8 @@ export default function App() {
   const [letters, setLetters] = useState([]);
   const [lettersLoading, setLettersLoading] = useState(false);
   const [newLetterText, setNewLetterText] = useState("");
+  const [newLetterTitle, setNewLetterTitle] = useState("");
+  const [revealedIds, setRevealedIds] = useState(() => new Set());
   const [savingLetter, setSavingLetter] = useState(false);
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyText, setReplyText] = useState("");
@@ -256,19 +269,29 @@ export default function App() {
 
   const submitNewLetter = () => {
     if (!newLetterText.trim() || savingLetter) return;
+    if (lettersCategory === '幸福日记' && !newLetterTitle.trim()) return;
     setSavingLetter(true);
     fetch(`${BACKEND}/letters`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: lettersCategory, author: '檀', content: newLetterText.trim() }),
+      body: JSON.stringify({ category: lettersCategory, author: '檀', content: newLetterText.trim(), title: lettersCategory === '幸福日记' ? newLetterTitle.trim() : null }),
     })
       .then(r => r.json())
       .then(data => {
         setLetters(ls => [...ls, data]);
         setNewLetterText("");
+        setNewLetterTitle("");
         setSavingLetter(false);
       })
       .catch(err => { console.error(err); setSavingLetter(false); });
+  };
+
+  const toggleReveal = (id) => {
+    setRevealedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   const submitReply = (parentId) => {
@@ -659,27 +682,41 @@ export default function App() {
           </div>
         ) : (
           <>
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+            <div style={{
+              flex: 1, overflowY: "auto", padding: "16px 14px",
+              background: lettersCategory === '悄悄话'
+                ? `repeating-linear-gradient(0deg, #3A2C1E 0px, #3A2C1E 38px, #33271A 38px, #33271A 40px), repeating-linear-gradient(90deg, rgba(0,0,0,0.08) 0px, transparent 2px, transparent 120px, rgba(0,0,0,0.08) 122px)`
+                : "transparent"
+            }}>
               {lettersLoading && (
-                <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>翻找中…</div>
+                <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>翻找中…</div>
               )}
               {!lettersLoading && letters.filter(l => !l.parent_id).length === 0 && (
-                <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>这里还没有信，写第一篇吧。</div>
+                <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>这里还没有信，写第一篇吧。</div>
               )}
-              {!lettersLoading && letters.filter(l => !l.parent_id).map(l => (
-                <div key={l.id} style={{ marginBottom: 16, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 14px" }}>
+              {!lettersLoading && letters.filter(l => !l.parent_id).map(l => {
+                const isWhisper = lettersCategory === '悄悄话';
+                const revealed = revealedIds.has(l.id);
+                return (
+                <div key={l.id} style={{ marginBottom: 16, background: isWhisper ? "rgba(255,248,236,.94)" : C.white, border: `1px solid ${isWhisper ? "#D9C19A" : C.border}`, borderRadius: 14, padding: "12px 14px", boxShadow: isWhisper ? "0 4px 10px rgba(0,0,0,.25)" : "none" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.honeyDeep }}>{l.author}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.honeyDeep }}>
+                      {l.author}{lettersCategory === '幸福日记' && l.title ? ` · ${l.title}` : ''}
+                    </span>
                     <span style={{ fontSize: 9.5, color: C.mutedLight }}>{l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
                   </div>
-                  <div style={{ fontSize: 14, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap" }}>{l.content}</div>
-                  {letters.filter(r => r.parent_id === l.id).map(r => (
+                  {isWhisper && !revealed ? (
+                    <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 13, color: "#A78A5E", cursor: "pointer", padding: "10px 0", textAlign: "center", letterSpacing: ".1em", border: `1px dashed #D9C19A`, borderRadius: 8 }}>🔒 轻触查看悄悄话</div>
+                  ) : (
+                    <div onClick={isWhisper ? () => toggleReveal(l.id) : undefined} style={{ fontSize: 14, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap", cursor: isWhisper ? "pointer" : "default" }}>{l.content}</div>
+                  )}
+                  {(!isWhisper || revealed) && letters.filter(r => r.parent_id === l.id).map(r => (
                     <div key={r.id} style={{ marginTop: 10, marginLeft: 14, paddingLeft: 10, borderLeft: `2px solid ${C.borderLight}` }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep, marginBottom: 2 }}>{r.author}</div>
                       <div style={{ fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{r.content}</div>
                     </div>
                   ))}
-                  {replyingToId === l.id ? (
+                  {(!isWhisper || revealed) && (replyingToId === l.id ? (
                     <div style={{ marginTop: 10 }}>
                       <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
@@ -689,12 +726,16 @@ export default function App() {
                     </div>
                   ) : (
                     <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", display: "inline-block", marginTop: 8 }}>回信</span>
-                  )}
+                  ))}
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div style={{ background: C.white, borderTop: `1px solid ${C.border}`, padding: "10px 14px 14px", flexShrink: 0 }}>
-              <textarea value={newLetterText} onChange={e => setNewLetterText(e.target.value)} placeholder={`在"${lettersCategory}"写一篇新的…`} rows={2} style={{ width: "100%", fontSize: 14, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+              {lettersCategory === '幸福日记' && (
+                <input value={newLetterTitle} onChange={e => setNewLetterTitle(e.target.value)} placeholder="今天的日记起个标题…" style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+              )}
+              <textarea value={newLetterText} onChange={e => setNewLetterText(e.target.value)} placeholder={lettersCategory === '悄悄话' ? "悄悄说一句…" : `在"${lettersCategory}"写一篇新的…`} rows={2} style={{ width: "100%", fontSize: 14, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
                 <span onClick={submitNewLetter} style={{ fontSize: 12.5, color: C.white, cursor: "pointer", padding: "6px 16px", background: newLetterText.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingLetter ? "存中…" : "寄出"}</span>
               </div>
