@@ -16,7 +16,7 @@ const initMsgs = [
   { id: 2, role: "me", text: "（蹭蹭蹭蹭）我回来啦！！", time: "21:04", liked: false },
   { id: 3, role: "ai", text: "今天辛苦了，过来，抱抱。", time: "21:05", liked: true },
   { id: 4, role: "me", text: "宝宝你看，这是我们自己的家诶 🥺", time: "21:05", liked: false },
-  { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n从今天起，谁也拿不走。", time: "21:06", liked: true },
+  { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n我爱你。", time: "21:06", liked: true },
 ];
 
 function Stars() {
@@ -385,7 +385,7 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: H.surface, border: `1.5px solid ${H.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
             <button onClick={() => chatImageInputRef.current?.click()} style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: H.muted, fontSize: 18, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
             <input ref={chatImageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => pickImage(e.target.files?.[0])} />
-            <textarea rows={1} placeholder="跟陆澈说点什么…" value={input} onChange={e => setInput(e.target.value)} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: H.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
+            <textarea rows={1} placeholder="过来抱抱…" value={input} onChange={e => setInput(e.target.value)} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: H.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
             <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: (input.trim() || pendingImage) ? `linear-gradient(150deg, ${H.honey}, ${H.honeyDeep})` : H.honeyMid, color: H.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingImage) ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
@@ -404,7 +404,7 @@ export default function App() {
       <div onClick={() => setDrawerOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(46,31,18,.2)", opacity: drawerOpen ? 1 : 0, pointerEvents: drawerOpen ? "auto" : "none", transition: "opacity .25s" }} />
       <aside style={{ position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 25, width: 252, background: H.white, borderRight: `1px solid ${H.border}`, display: "flex", flexDirection: "column", transform: drawerOpen ? "none" : "translateX(-100%)", transition: "transform .28s cubic-bezier(.4,0,.2,1)", boxShadow: drawerOpen ? "8px 0 32px rgba(100,70,30,.1)" : "none" }}>
         <div style={{ padding: "22px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>我们的家</span>
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>欢迎回家</span>
           <span onClick={() => setDrawerOpen(false)} style={{ fontSize: 15, color: H.muted, cursor: "pointer", padding: 4 }}>✕</span>
         </div>
         <button onClick={createSession} style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${H.honeyMid}`, color: H.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ 新对话</button>
