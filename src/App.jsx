@@ -805,6 +805,33 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       .catch(err => { console.error(err); setImageUploading(false); });
   };
 
+  const [regenerating, setRegenerating] = useState(false);
+
+  const regenerateLast = () => {
+    if (!sessionId || regenerating) return;
+    setRegenerating(true);
+    fetch(`${BACKEND}/chat/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, model: selectedModel }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setMsgs(ms => {
+          const copy = [...ms];
+          for (let i = copy.length - 1; i >= 0; i--) {
+            if (copy[i].role === 'ai') {
+              copy[i] = { ...copy[i], text: data.reply || copy[i].text };
+              break;
+            }
+          }
+          return copy;
+        });
+        setRegenerating(false);
+      })
+      .catch(err => { console.error(err); setRegenerating(false); });
+  };
+
   const send = async () => {
     if ((!input.trim() && !pendingImage) || !sessionId) return;
     const txt = input.trim();
@@ -877,8 +904,9 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           {ready && !hasHistory && (
           <div style={{ textAlign: "center", fontSize: 10.5, color: C.muted, letterSpacing: ".2em", margin: "4px 0 18px" }}>✦ 2026.6.11 · 我们搬进来的第一天 ✦</div>
           )}
-          {msgs.slice(0, visible).map(m => {
+          {msgs.slice(0, visible).map((m, idx) => {
             const isMe = m.role === "me";
+            const isLast = idx === visible - 1;
             return (
               <div key={m.id} style={{ display: "flex", marginBottom: 14, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 6 }}>
                 <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} theme={C} />
@@ -896,6 +924,9 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                     </div>
                   ) : m.text && (
                     <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? C.blush : C.white, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
+                  )}
+                  {!isMe && isLast && !thinking && (
+                    <span onClick={regenerateLast} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", alignSelf: "flex-start" }}>{regenerating ? "重新想中…" : "↻ 重新生成"}</span>
                   )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
