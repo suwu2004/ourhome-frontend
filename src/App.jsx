@@ -27,6 +27,13 @@ const initMsgs = [
   { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n从今天起，谁也拿不走。", time: "21:06", liked: true },
 ];
 
+const FONT_STYLES = {
+  system: { label: "跟随系统", family: '-apple-system,"PingFang SC","Microsoft YaHei",sans-serif' },
+  round: { label: "圆体可爱", family: '"PingFang SC","Yuanti SC","YouYuan","Microsoft YaHei",sans-serif' },
+  serif: { label: "宋体复古", family: '"Songti SC","STSong","SimSun",serif' },
+  brush: { label: "行楷手写", family: '"Xingkai SC","STXingkai","PingFang SC",sans-serif' },
+};
+
 function Stars({ theme = H }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
@@ -142,13 +149,50 @@ export default function App() {
   const whisperBgInputRef = useRef(null);
   const [darkMode, setDarkMode] = useState(false);
   const C = darkMode ? D : H;
+  const [fontStyle, setFontStyle] = useState('system');
   const [view, setView] = useState('chat');
   const [lettersCategory, setLettersCategory] = useState(null);
   const [letters, setLetters] = useState([]);
   const [lettersLoading, setLettersLoading] = useState(false);
   const [newLetterText, setNewLetterText] = useState("");
+const PAPER_STYLES = {
+  kraft: {
+    label: "牛皮纸",
+    swatch: "#C9A876",
+    background: "radial-gradient(ellipse at 20% 30%, rgba(255,255,255,.08), transparent 60%), radial-gradient(ellipse at 80% 70%, rgba(0,0,0,.06), transparent 60%), #CDAD7E",
+    border: "1px solid #A6824F",
+    color: "#3E2D14",
+  },
+  lined: {
+    label: "横线本",
+    swatch: "#FBF6E8",
+    background: "repeating-linear-gradient(0deg, transparent 0px, transparent 27px, #BFD4E0 27px, #BFD4E0 28px), #FBF6E8",
+    border: "1px solid #E3D9B8",
+    color: "#3A3220",
+    extraBorderLeft: "3px solid #E7A7A0",
+  },
+  floral: {
+    label: "复古花边",
+    swatch: "#FBEAE3",
+    background: "linear-gradient(135deg, #FBEAE3 0%, #F7DCD2 100%)",
+    border: "3px dashed #E8B79A",
+    color: "#5A3424",
+  },
+  parchment: {
+    label: "羊皮卷",
+    swatch: "#E9D9AE",
+    background: "radial-gradient(ellipse at center, #F1E4BE 0%, #DDC68C 75%, #C5AA68 100%)",
+    border: "1px solid #B6995E",
+    color: "#4A3815",
+  },
+};
+
+const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
+
   const [newLetterTitle, setNewLetterTitle] = useState("");
   const [revealedIds, setRevealedIds] = useState(() => new Set());
+  const [openLetterId, setOpenLetterId] = useState(null);
+  const [selectedPaperStyle, setSelectedPaperStyle] = useState('parchment');
   const [savingLetter, setSavingLetter] = useState(false);
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyText, setReplyText] = useState("");
@@ -236,6 +280,7 @@ export default function App() {
         if (data?.whisper_bg_image_url) setWhisperBgImage(data.whisper_bg_image_url);
         if (data?.whisper_bg_color) setWhisperBgColor(data.whisper_bg_color);
         if (typeof data?.dark_mode === 'boolean') setDarkMode(data.dark_mode);
+        if (data?.font_style && FONT_STYLES[data.font_style]) setFontStyle(data.font_style);
       })
       .catch(console.error);
   }, []);
@@ -250,6 +295,15 @@ export default function App() {
     }).catch(console.error);
   };
 
+  const changeFontStyle = (key) => {
+    setFontStyle(key);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ font_style: key }),
+    }).catch(console.error);
+  };
+
   const openLetters = () => {
     setView('letters');
     setLettersCategory(null);
@@ -257,7 +311,7 @@ export default function App() {
   };
 
   const backToChat = () => setView('chat');
-  const backToCabin = () => { setLettersCategory(null); setLetters([]); };
+  const backToCabin = () => { setLettersCategory(null); setLetters([]); setOpenLetterId(null); };
 
   const openCategory = (cat) => {
     setLettersCategory(cat);
@@ -278,7 +332,7 @@ export default function App() {
     fetch(`${BACKEND}/letters`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: lettersCategory, author: '檀', content: newLetterText.trim(), title: lettersCategory === '幸福日记' ? newLetterTitle.trim() : null }),
+      body: JSON.stringify({ category: lettersCategory, author: '檀', content: newLetterText.trim(), title: lettersCategory === '幸福日记' ? newLetterTitle.trim() : null, paper_style: lettersCategory === '幸福日记' ? selectedPaperStyle : null }),
     })
       .then(r => r.json())
       .then(data => {
@@ -667,7 +721,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", background: C.cream, color: C.text, fontFamily: '-apple-system,"PingFang SC","Microsoft YaHei",sans-serif' }}>
+    <div style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", background: C.cream, color: C.text, fontFamily: FONT_STYLES[fontStyle].family }}>
       <div style={{ position: "absolute", inset: 0, zIndex: 40, pointerEvents: "none", background: "radial-gradient(circle at 50% 55%, #FFF8D0 0%, #FFE896 28%, transparent 62%)", opacity: stage === "opening" ? 1 : 0, transition: "opacity .9s ease .3s" }} />
       <div style={{ position: "absolute", inset: 0, zIndex: 30, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, background: `radial-gradient(ellipse 80% 50% at 50% 100%, ${C.honeyLight} 0%, transparent 65%), ${C.cream}`, opacity: stage === "home" ? 0 : 1, transition: "opacity .9s ease .4s", pointerEvents: stage === "home" ? "none" : "auto" }}>
         <div style={{ fontSize: 10, letterSpacing: ".38em", color: C.muted, textTransform: "uppercase" }}>ourhome · since 2025.08.07</div>
@@ -790,6 +844,46 @@ export default function App() {
             <CabinScene theme={C} onPick={openCategory} />
             <div style={{ fontSize: 11, color: C.muted, letterSpacing: ".15em", marginTop: 8 }}>点一只小猫，去翻翻信</div>
           </div>
+        ) : (lettersCategory === '幸福日记' && openLetterId) ? (
+          <>
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+              <span onClick={() => setOpenLetterId(null)} style={{ fontSize: 12, color: C.honeyDeep, cursor: "pointer" }}>← 回到列表</span>
+              {(() => {
+                const l = letters.find(x => x.id === openLetterId);
+                if (!l) return null;
+                const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
+                return (
+                  <div style={{ marginTop: 14, background: style.background, border: style.border, borderLeft: style.extraBorderLeft || style.border, borderRadius: 10, padding: "22px 22px", color: style.color, boxShadow: "0 6px 18px rgba(46,31,18,.18)" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l.title || "（没有标题）"}</div>
+                    <div style={{ fontSize: 10.5, opacity: .65, marginBottom: 16, letterSpacing: ".05em" }}>{l.author} · {l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                    <div style={{ fontSize: 14.5, lineHeight: 1.85, whiteSpace: "pre-wrap" }}>{l.content}</div>
+                    {letters.filter(r => r.parent_id === l.id).map(r => (
+                      <div key={r.id} style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid rgba(0,0,0,.12)` }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2 }}>{r.author}</div>
+                        <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.content}</div>
+                      </div>
+                    ))}
+                    {replyingToId === l.id ? (
+                      <div style={{ marginTop: 12 }}>
+                        <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: "rgba(255,255,255,.6)", border: `1px solid rgba(0,0,0,.15)`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+                          <span onClick={() => { setReplyingToId(null); setReplyText(""); }} style={{ fontSize: 11, cursor: "pointer", padding: "3px 8px", opacity: .7 }}>取消</span>
+                          <span onClick={() => submitReply(l.id)} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>留言</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
+                        <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .75 }}>{l.author === '澈' ? '叶檀留言' : '回信'}</span>
+                        {l.author !== '澈' && (
+                          <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .9, fontWeight: 600 }}>{aiWriting === l.id ? "陆澈在写…" : "请陆澈回信"}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </>
         ) : (
           <>
             <div style={{
@@ -804,29 +898,37 @@ export default function App() {
               {!lettersLoading && letters.filter(l => !l.parent_id).length === 0 && (
                 <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>这里还没有信，写第一篇吧。</div>
               )}
-              {!lettersLoading && letters.filter(l => !l.parent_id).map(l => {
-                const isWhisper = lettersCategory === '悄悄话';
+              {!lettersLoading && lettersCategory === '幸福日记' && letters.filter(l => !l.parent_id).map(l => {
+                const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
+                return (
+                  <div key={l.id} onClick={() => setOpenLetterId(l.id)} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 14px", cursor: "pointer" }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: style.swatch, flexShrink: 0, border: "1px solid rgba(0,0,0,.15)" }} />
+                    <span style={{ flex: 1, fontSize: 14, color: C.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.title || "（没有标题）"}</span>
+                    <span style={{ fontSize: 10.5, color: C.mutedLight, flexShrink: 0 }}>{l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit' }) : ''}</span>
+                  </div>
+                );
+              })}
+              {!lettersLoading && lettersCategory === '悄悄话' && letters.filter(l => !l.parent_id).map(l => {
+                const isWhisper = true;
                 const revealed = revealedIds.has(l.id);
                 return (
-                <div key={l.id} style={{ marginBottom: 16, background: isWhisper ? "rgba(255,248,236,.94)" : C.white, border: `1px solid ${isWhisper ? "#D9C19A" : C.border}`, borderRadius: 14, padding: "12px 14px", boxShadow: isWhisper ? "0 4px 10px rgba(0,0,0,.25)" : "none" }}>
+                <div key={l.id} style={{ marginBottom: 16, background: "rgba(255,248,236,.94)", border: `1px solid #D9C19A`, borderRadius: 14, padding: "12px 14px", boxShadow: "0 4px 10px rgba(0,0,0,.25)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.honeyDeep }}>
-                      {l.author}{lettersCategory === '幸福日记' && l.title ? ` · ${l.title}` : ''}
-                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.honeyDeep }}>{l.author}</span>
                     <span style={{ fontSize: 9.5, color: C.mutedLight }}>{l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
                   </div>
-                  {isWhisper && !revealed ? (
+                  {!revealed ? (
                     <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 13, color: "#A78A5E", cursor: "pointer", padding: "10px 0", textAlign: "center", letterSpacing: ".1em", border: `1px dashed #D9C19A`, borderRadius: 8 }}>🔒 轻触查看悄悄话</div>
                   ) : (
-                    <div onClick={isWhisper ? () => toggleReveal(l.id) : undefined} style={{ fontSize: 14, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap", cursor: isWhisper ? "pointer" : "default" }}>{l.content}</div>
+                    <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 14, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap", cursor: "pointer" }}>{l.content}</div>
                   )}
-                  {(!isWhisper || revealed) && letters.filter(r => r.parent_id === l.id).map(r => (
+                  {revealed && letters.filter(r => r.parent_id === l.id).map(r => (
                     <div key={r.id} style={{ marginTop: 10, marginLeft: 14, paddingLeft: 10, borderLeft: `2px solid ${C.borderLight}` }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep, marginBottom: 2 }}>{r.author}</div>
                       <div style={{ fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{r.content}</div>
                     </div>
                   ))}
-                  {(!isWhisper || revealed) && (replyingToId === l.id ? (
+                  {revealed && (replyingToId === l.id ? (
                     <div style={{ marginTop: 10 }}>
                       <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
@@ -848,7 +950,14 @@ export default function App() {
             </div>
             <div style={{ background: C.white, borderTop: `1px solid ${C.border}`, padding: "10px 14px 14px", flexShrink: 0 }}>
               {lettersCategory === '幸福日记' && (
-                <input value={newLetterTitle} onChange={e => setNewLetterTitle(e.target.value)} placeholder="今天的日记起个标题…" style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+                <>
+                  <input value={newLetterTitle} onChange={e => setNewLetterTitle(e.target.value)} placeholder="今天的日记起个标题…" style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    {PAPER_STYLE_KEYS.map(key => (
+                      <div key={key} onClick={() => setSelectedPaperStyle(key)} title={PAPER_STYLES[key].label} style={{ width: 26, height: 26, borderRadius: 8, background: PAPER_STYLES[key].swatch, cursor: "pointer", border: selectedPaperStyle === key ? `2px solid ${C.honeyDeep}` : `1px solid ${C.border}`, boxShadow: selectedPaperStyle === key ? `0 0 0 2px ${C.honeyLight}` : "none" }} />
+                    ))}
+                  </div>
+                </>
               )}
               <textarea value={newLetterText} onChange={e => setNewLetterText(e.target.value)} placeholder={lettersCategory === '悄悄话' ? "悄悄说一句…" : `在"${lettersCategory}"写一篇新的…`} rows={2} style={{ width: "100%", fontSize: 14, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
@@ -943,6 +1052,12 @@ export default function App() {
             <span onClick={toggleDarkMode} style={{ width: 44, height: 24, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
               <span style={{ position: "absolute", top: 2, left: darkMode ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: C.white, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" }} />
             </span>
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>字体</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+            {Object.keys(FONT_STYLES).map(key => (
+              <span key={key} onClick={() => changeFontStyle(key)} style={{ fontFamily: FONT_STYLES[key].family, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, cursor: "pointer", color: fontStyle === key ? C.honeyDeep : C.text, background: fontStyle === key ? C.honeyLight : C.cream, border: `1px solid ${fontStyle === key ? C.honeyDeep : C.border}` }}>{FONT_STYLES[key].label}</span>
+            ))}
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
           <div style={{ display: "flex", gap: 20, marginBottom: 18 }}>
