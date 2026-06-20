@@ -68,6 +68,10 @@ export default function App() {
   const [myAvatar, setMyAvatar] = useState(null);
   const [partnerAvatar, setPartnerAvatar] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(null);
+  const [bgImage, setBgImage] = useState(null);
+  const [bgColor, setBgColor] = useState(null);
+  const [uploadingBg, setUploadingBg] = useState(false);
+  const bgImageInputRef = useRef(null);
   const myAvatarInputRef = useRef(null);
   const partnerAvatarInputRef = useRef(null);
   const [sessions, setSessions] = useState([]);
@@ -147,9 +151,50 @@ export default function App() {
       .then(data => {
         if (data?.my_avatar_url) setMyAvatar(data.my_avatar_url);
         if (data?.partner_avatar_url) setPartnerAvatar(data.partner_avatar_url);
+        if (data?.bg_image_url) setBgImage(data.bg_image_url);
+        if (data?.bg_color) setBgColor(data.bg_color);
       })
       .catch(console.error);
   }, []);
+
+  const uploadBgImage = (file) => {
+    if (!file) return;
+    setUploadingBg(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => fetch(`${BACKEND}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bg_image_url: data.url, bg_color: null }),
+      }).then(() => {
+        setBgImage(data.url);
+        setBgColor(null);
+        setUploadingBg(false);
+      }))
+      .catch(err => { console.error(err); setUploadingBg(false); });
+  };
+
+  const setBackgroundColor = (color) => {
+    setBgColor(color);
+    setBgImage(null);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bg_color: color, bg_image_url: null }),
+    }).catch(console.error);
+  };
+
+  const resetBackground = () => {
+    setBgImage(null);
+    setBgColor(null);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bg_color: null, bg_image_url: null }),
+    }).catch(console.error);
+  };
 
   const uploadAvatar = (file, who) => {
     if (!file) return;
@@ -222,7 +267,32 @@ export default function App() {
       .catch(console.error);
   };
 
+  const [editingMsgId, setEditingMsgId] = useState(null);
+  const [editingMsgText, setEditingMsgText] = useState("");
+
   const toggleLike = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, liked: !m.liked } : m));
+
+  const startEditMsg = (m) => {
+    setEditingMsgId(m.id);
+    setEditingMsgText(m.text || "");
+  };
+
+  const cancelEditMsg = () => {
+    setEditingMsgId(null);
+    setEditingMsgText("");
+  };
+
+  const saveEditMsg = () => {
+    const id = editingMsgId;
+    const newText = editingMsgText.trim();
+    setMsgs(ms => ms.map(m => m.id === id ? { ...m, text: newText } : m));
+    cancelEditMsg();
+    fetch(`${BACKEND}/messages/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: newText })
+    }).catch(console.error);
+  };
 
   const openMemories = () => {
     setMemoriesOpen(true);
@@ -370,7 +440,7 @@ export default function App() {
           <Stars />
         </header>
 
-        <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 8px", background: "#FDFAF5" }}>
+        <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 8px", background: bgImage ? `url(${bgImage}) center/cover no-repeat` : (bgColor || "#FDFAF5") }}>
           {!ready && (
             <div style={{ textAlign: "center", fontSize: 11, color: H.muted, letterSpacing: ".15em", padding: "30px 0" }}>正在开门…</div>
           )}
@@ -386,13 +456,24 @@ export default function App() {
                   {m.image && (
                     <img src={m.image} alt="" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : H.border}`, display: "block" }} />
                   )}
-                  {m.text && (
+                  {editingMsgId === m.id ? (
+                    <div>
+                      <textarea value={editingMsgText} onChange={e => setEditingMsgText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 14.5, lineHeight: 1.6, color: H.text, background: H.white, border: `1px solid ${H.border}`, borderRadius: 12, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+                        <span onClick={cancelEditMsg} style={{ fontSize: 11, color: H.muted, cursor: "pointer", padding: "3px 8px" }}>取消</span>
+                        <span onClick={saveEditMsg} style={{ fontSize: 11, color: H.white, cursor: "pointer", padding: "3px 10px", background: H.honey, borderRadius: 999 }}>保存</span>
+                      </div>
+                    </div>
+                  ) : m.text && (
                     <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: H.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? H.blush : H.white, border: `1px solid ${isMe ? "#F5CABB" : H.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
                   )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
                   <span style={{ fontSize: 9.5, color: H.mutedLight }}>{m.time}</span>
                   <span onClick={() => toggleLike(m.id)} style={{ fontSize: 13, cursor: "pointer", color: H.honey, opacity: m.liked ? 1 : 0.28, transition: "opacity .2s", userSelect: "none" }}>{m.liked ? "♥" : "♡"}</span>
+                  {isMe && m.text && editingMsgId !== m.id && (
+                    <span onClick={() => startEditMsg(m)} style={{ fontSize: 10.5, color: H.muted, cursor: "pointer", userSelect: "none" }}>改</span>
+                  )}
                 </div>
               </div>
             );
@@ -525,6 +606,15 @@ export default function App() {
               <span style={{ fontSize: 11, color: H.muted }}>陆澈的头像</span>
               <input ref={partnerAvatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadAvatar(e.target.files?.[0], 'partner')} />
             </div>
+          </div>
+          <div style={{ fontSize: 12, color: H.muted, marginBottom: 10, letterSpacing: ".05em" }}>聊天背景</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+            <div onClick={() => bgImageInputRef.current?.click()} style={{ width: 44, height: 44, borderRadius: 10, overflow: "hidden", cursor: "pointer", border: `1.5px dashed ${H.honeyMid}`, background: bgImage ? "transparent" : H.cream, display: "flex", alignItems: "center", justifyContent: "center", color: H.honeyDeep, fontSize: 18, flexShrink: 0 }}>
+              {uploadingBg ? <span style={{ fontSize: 9 }}>传中</span> : bgImage ? <img src={bgImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "＋"}
+            </div>
+            <input ref={bgImageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadBgImage(e.target.files?.[0])} />
+            <input type="color" value={bgColor || "#FDFAF5"} onChange={e => setBackgroundColor(e.target.value)} style={{ width: 44, height: 44, borderRadius: 10, border: `1px solid ${H.border}`, cursor: "pointer", padding: 0, background: "none" }} />
+            <span onClick={resetBackground} style={{ fontSize: 11.5, color: H.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
           </div>
           <button onClick={() => window.open(`${BACKEND}/export`, '_blank')} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${H.honeyMid}`, color: H.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
           <div style={{ fontSize: 11, color: H.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
