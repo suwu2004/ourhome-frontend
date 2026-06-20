@@ -372,6 +372,57 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       .catch(console.error);
   };
 
+  const [editingMoodId, setEditingMoodId] = useState(null);
+  const [editingMoodText, setEditingMoodText] = useState("");
+  const [aiMoodWriting, setAiMoodWriting] = useState(false);
+
+  const startEditMood = (e) => { setEditingMoodId(e.id); setEditingMoodText(e.content); };
+  const cancelEditMood = () => { setEditingMoodId(null); setEditingMoodText(""); };
+
+  const saveEditMood = () => {
+    const id = editingMoodId;
+    const text = editingMoodText.trim();
+    if (!text) return;
+    fetch(`${BACKEND}/calendar/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: text }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setDayEntries(es => es.map(x => x.id === id ? data : x));
+        cancelEditMood();
+      })
+      .catch(console.error);
+  };
+
+  const deleteMoodEntry = (id) => {
+    if (!window.confirm("确定要删掉这条留言吗？")) return;
+    fetch(`${BACKEND}/calendar/${id}`, { method: 'DELETE' })
+      .then(() => {
+        setDayEntries(es => es.filter(x => x.id !== id));
+        fetchMonthEntries(calendarMonth);
+      })
+      .catch(console.error);
+  };
+
+  const askAiWriteMood = () => {
+    if (!calendarDayOpen) return;
+    setAiMoodWriting(true);
+    fetch(`${BACKEND}/calendar/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: calendarDayOpen }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setDayEntries(es => [...es, data]);
+        setAiMoodWriting(false);
+        fetchMonthEntries(calendarMonth);
+      })
+      .catch(err => { console.error(err); setAiMoodWriting(false); });
+  };
+
   const backToChat = () => setView('chat');
   const backToCabin = () => { setLettersCategory(null); setLetters([]); setOpenLetterId(null); };
 
@@ -1089,11 +1140,29 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           )}
           {!dayEntriesLoading && dayEntries.map(e => (
             <div key={e.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${C.borderLight}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                {e.mood && <span style={{ fontSize: 14 }}>{e.mood}</span>}
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>{e.author}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {e.mood && <span style={{ fontSize: 14 }}>{e.mood}</span>}
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>{e.author}</span>
+                </div>
+                {editingMoodId !== e.id && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <span onClick={() => startEditMood(e)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer" }}>改</span>
+                    <span onClick={() => deleteMoodEntry(e.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer" }}>删</span>
+                  </div>
+                )}
               </div>
-              <div style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{e.content}</div>
+              {editingMoodId === e.id ? (
+                <div>
+                  <textarea value={editingMoodText} onChange={ev => setEditingMoodText(ev.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+                    <span onClick={cancelEditMood} style={{ fontSize: 11, color: C.muted, cursor: "pointer", padding: "3px 8px" }}>取消</span>
+                    <span onClick={saveEditMood} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{e.content}</div>
+              )}
             </div>
           ))}
         </div>
@@ -1104,7 +1173,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             ))}
           </div>
           <textarea value={newMoodText} onChange={e => setNewMoodText(e.target.value)} placeholder="这天想留点什么…" rows={2} style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+            <span onClick={askAiWriteMood} style={{ fontSize: 11.5, color: C.honeyDeep, cursor: "pointer" }}>{aiMoodWriting ? "陆澈在写…" : "✦ 请陆澈写一句"}</span>
             <span onClick={submitMoodEntry} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: newMoodText.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>记下</span>
           </div>
         </div>
