@@ -481,6 +481,55 @@ export default function App() {
       .catch(console.error);
   };
 
+  const renameSession = (id, currentName) => {
+    const name = window.prompt("改成什么名字：", currentName);
+    if (!name || !name.trim()) return;
+    fetch(`${BACKEND}/sessions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() })
+    })
+      .then(() => fetchSessions())
+      .catch(console.error);
+  };
+
+  const deleteSession = (id) => {
+    if (!window.confirm("确定要删掉这个对话吗？里面的聊天记录也会一起删掉，不能恢复。")) return;
+    fetch(`${BACKEND}/sessions/${id}`, { method: 'DELETE' })
+      .then(() => {
+        fetchSessions();
+        if (id === sessionId) {
+          localStorage.removeItem(SESSION_KEY);
+          fetch(`${BACKEND}/sessions`)
+            .then(r => r.json())
+            .then(list => {
+              const valid = Array.isArray(list) ? list : [];
+              const next = valid.find(s => s.name === '日常') || valid[0];
+              if (next) {
+                switchSession(next.id);
+              } else {
+                setMsgs([]);
+                setVisible(0);
+                setHasHistory(false);
+                setSessionId(null);
+                fetch(`${BACKEND}/sessions`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: '日常' })
+                })
+                  .then(r => r.json())
+                  .then(data => {
+                    setSessionId(data.id);
+                    localStorage.setItem(SESSION_KEY, data.id);
+                    fetchSessions();
+                  });
+              }
+            });
+        }
+      })
+      .catch(console.error);
+  };
+
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [editingMsgText, setEditingMsgText] = useState("");
 
@@ -787,8 +836,10 @@ export default function App() {
                     </div>
                   ) : (
                     <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                      <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>回信</span>
-                      <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>{aiWriting === l.id ? "陆澈在写…" : "请陆澈回信"}</span>
+                      <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>{l.author === '澈' ? '叶檀留言' : '回信'}</span>
+                      {l.author !== '澈' && (
+                        <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>{aiWriting === l.id ? "陆澈在写…" : "请陆澈回信"}</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -819,7 +870,11 @@ export default function App() {
         <Stars theme={C} />
         <div style={{ padding: "6px 0", flex: 1 }}>
           {sessions.map(s => (
-            <div key={s.id} onClick={() => switchSession(s.id)} style={{ padding: "10px 20px", fontSize: 14, cursor: "pointer", background: s.id === sessionId ? C.honeyLight : "transparent", color: s.id === sessionId ? C.honeyDeep : C.text, fontWeight: s.id === sessionId ? 600 : 400, borderRadius: "0 12px 12px 0", margin: "1px 8px 1px 0", transition: "background .15s" }}>{s.name}</div>
+            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px 10px 20px", background: s.id === sessionId ? C.honeyLight : "transparent", borderRadius: "0 12px 12px 0", margin: "1px 8px 1px 0", transition: "background .15s" }}>
+              <span onClick={() => switchSession(s.id)} style={{ flex: 1, fontSize: 14, cursor: "pointer", color: s.id === sessionId ? C.honeyDeep : C.text, fontWeight: s.id === sessionId ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+              <span onClick={() => renameSession(s.id, s.name)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", flexShrink: 0 }}>改</span>
+              <span onClick={() => deleteSession(s.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", flexShrink: 0 }}>删</span>
+            </div>
           ))}
         </div>
         <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.muted, letterSpacing: ".15em", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
