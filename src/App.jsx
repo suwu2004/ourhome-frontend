@@ -151,6 +151,16 @@ export default function App() {
   const C = darkMode ? D : H;
   const [fontStyle, setFontStyle] = useState('system');
   const [view, setView] = useState('chat');
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [monthEntries, setMonthEntries] = useState([]);
+  const [calendarDayOpen, setCalendarDayOpen] = useState(null);
+  const [dayEntries, setDayEntries] = useState([]);
+  const [dayEntriesLoading, setDayEntriesLoading] = useState(false);
+  const [newMoodText, setNewMoodText] = useState("");
+  const [selectedMood, setSelectedMood] = useState(null);
   const [lettersCategory, setLettersCategory] = useState(null);
   const [letters, setLetters] = useState([]);
   const [lettersLoading, setLettersLoading] = useState(false);
@@ -308,6 +318,58 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     setView('letters');
     setLettersCategory(null);
     setDrawerOpen(false);
+  };
+
+  const fetchMonthEntries = (month) => {
+    fetch(`${BACKEND}/calendar?month=${month}`)
+      .then(r => r.json())
+      .then(data => setMonthEntries(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  };
+
+  const openCalendar = () => {
+    setView('calendar');
+    setDrawerOpen(false);
+    fetchMonthEntries(calendarMonth);
+  };
+
+  const changeMonth = (delta) => {
+    const [y, m] = calendarMonth.split('-').map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    setCalendarMonth(next);
+    fetchMonthEntries(next);
+  };
+
+  const openDay = (dateStr) => {
+    setCalendarDayOpen(dateStr);
+    setDayEntriesLoading(true);
+    setSelectedMood(null);
+    setNewMoodText("");
+    fetch(`${BACKEND}/calendar/${dateStr}`)
+      .then(r => r.json())
+      .then(data => {
+        setDayEntries(Array.isArray(data) ? data : []);
+        setDayEntriesLoading(false);
+      })
+      .catch(err => { console.error(err); setDayEntriesLoading(false); });
+  };
+
+  const submitMoodEntry = () => {
+    if (!newMoodText.trim() || !calendarDayOpen) return;
+    fetch(`${BACKEND}/calendar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: calendarDayOpen, author: '檀', mood: selectedMood, content: newMoodText.trim() }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setDayEntries(es => [...es, data]);
+        setNewMoodText("");
+        setSelectedMood(null);
+        fetchMonthEntries(calendarMonth);
+      })
+      .catch(console.error);
   };
 
   const backToChat = () => setView('chat');
@@ -968,6 +1030,86 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           </>
         )}
       </div>
+
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "calendar") ? 1 : 0, pointerEvents: (stage === "home" && view === "calendar") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
+        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          <span onClick={backToChat} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>心情日历</span>
+        </header>
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginBottom: 16 }}>
+            <span onClick={() => changeMonth(-1)} style={{ fontSize: 16, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>‹</span>
+            <span style={{ fontSize: 14.5, fontWeight: 700, color: C.text }}>{calendarMonth.replace('-', '年')}月</span>
+            <span onClick={() => changeMonth(1)} style={{ fontSize: 16, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>›</span>
+          </div>
+          {(() => {
+            const [y, m] = calendarMonth.split('-').map(Number);
+            const firstDay = new Date(y, m - 1, 1).getDay();
+            const daysInMonth = new Date(y, m, 0).getDate();
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const cells = [];
+            for (let i = 0; i < firstDay; i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+                {['日', '一', '二', '三', '四', '五', '六'].map(w => (
+                  <div key={w} style={{ textAlign: "center", fontSize: 11, color: C.muted, paddingBottom: 4 }}>{w}</div>
+                ))}
+                {cells.map((d, idx) => {
+                  if (d === null) return <div key={idx} />;
+                  const dateStr = `${calendarMonth}-${String(d).padStart(2, '0')}`;
+                  const dayMoods = monthEntries.filter(e => e.date === dateStr);
+                  const isToday = dateStr === todayStr;
+                  return (
+                    <div key={idx} onClick={() => openDay(dateStr)} style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", background: isToday ? C.honeyLight : C.white, border: `1px solid ${isToday ? C.honeyDeep : C.border}`, gap: 2 }}>
+                      <span style={{ fontSize: 13, color: isToday ? C.honeyDeep : C.text, fontWeight: isToday ? 700 : 400 }}>{d}</span>
+                      {dayMoods.length > 0 && <span style={{ fontSize: 12 }}>{dayMoods[0].mood || '✦'}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      <div onClick={() => setCalendarDayOpen(null)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: calendarDayOpen ? 1 : 0, pointerEvents: calendarDayOpen ? "auto" : "none", transition: "opacity .25s" }} />
+      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "82%", maxWidth: 360, maxHeight: "70vh", transform: calendarDayOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: calendarDayOpen ? 1 : 0, pointerEvents: calendarDayOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: ".04em", color: C.text }}>{calendarDayOpen}</span>
+          <span onClick={() => setCalendarDayOpen(null)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
+          {dayEntriesLoading && (
+            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "16px 0" }}>翻找中…</div>
+          )}
+          {!dayEntriesLoading && dayEntries.length === 0 && (
+            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "16px 0" }}>这天还没有留言。</div>
+          )}
+          {!dayEntriesLoading && dayEntries.map(e => (
+            <div key={e.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${C.borderLight}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                {e.mood && <span style={{ fontSize: 14 }}>{e.mood}</span>}
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>{e.author}</span>
+              </div>
+              <div style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{e.content}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: "10px 18px 16px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            {['😊', '🥰', '😢', '😡', '😴', '😐'].map(em => (
+              <span key={em} onClick={() => setSelectedMood(em === selectedMood ? null : em)} style={{ fontSize: 16, cursor: "pointer", padding: 4, borderRadius: 8, background: selectedMood === em ? C.honeyLight : "transparent" }}>{em}</span>
+            ))}
+          </div>
+          <textarea value={newMoodText} onChange={e => setNewMoodText(e.target.value)} placeholder="这天想留点什么…" rows={2} style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+            <span onClick={submitMoodEntry} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: newMoodText.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>记下</span>
+          </div>
+        </div>
+      </div>
+
       <div onClick={() => setDrawerOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(46,31,18,.2)", opacity: drawerOpen ? 1 : 0, pointerEvents: drawerOpen ? "auto" : "none", transition: "opacity .25s" }} />
       <aside style={{ position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 25, width: 252, background: C.white, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", transform: drawerOpen ? "none" : "translateX(-100%)", transition: "transform .28s cubic-bezier(.4,0,.2,1)", boxShadow: drawerOpen ? "8px 0 32px rgba(100,70,30,.1)" : "none" }}>
         <div style={{ padding: "22px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -976,6 +1118,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         </div>
         <button onClick={createSession} style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ 新对话</button>
         <div onClick={openLetters} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'letters' ? C.honeyLight : "transparent", color: view === 'letters' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>✉ 时光信差</div>
+        <div onClick={openCalendar} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'calendar' ? C.honeyLight : "transparent", color: view === 'calendar' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>🗓 心情日历</div>
         <Stars theme={C} />
         <div style={{ padding: "6px 0", flex: 1 }}>
           {sessions.map(s => (
