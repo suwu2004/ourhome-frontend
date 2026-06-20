@@ -37,38 +37,48 @@ function Stars({ theme = H }) {
   );
 }
 
-function MailCat({ x, mirror, label, theme, onClick }) {
-  const flip = mirror ? -1 : 1;
+function MysteryBox({ x, category, color, ribbon, theme, onOpen }) {
+  const [phase, setPhase] = useState('closed');
+  const handleClick = () => {
+    if (phase !== 'closed') return;
+    setPhase('shake');
+    setTimeout(() => setPhase('open'), 320);
+    setTimeout(() => onOpen(category), 760);
+  };
+  const lidStyle = {
+    transform: phase === 'open' ? 'translateY(-66px) rotate(-32deg)' : phase === 'shake' ? 'rotate(-4deg)' : 'rotate(0deg)',
+    opacity: phase === 'open' ? 0 : 1,
+    transformOrigin: '0px 90px',
+    transition: phase === 'open' ? 'transform .42s cubic-bezier(.3,.6,.4,1), opacity .42s ease .15s' : 'transform .11s ease-in-out',
+  };
+  const bodyStyle = {
+    transform: phase === 'shake' ? 'rotate(3deg)' : 'rotate(0deg)',
+    transformOrigin: '0px 168px',
+    transition: 'transform .11s ease-in-out',
+  };
   return (
-    <g onClick={onClick} style={{ cursor: "pointer" }} transform={`translate(${x}, 0)`}>
-      <ellipse cx={0} cy={188} rx={32} ry="8" fill="rgba(46,31,18,.12)" />
-      <path d={`M ${flip * 20},155 q ${flip * 22},6 ${flip * 14},26 q ${flip * -2},6 ${flip * -10},2`} fill="#F2B85F" stroke="#C8762E" strokeWidth="1.5" />
-      <ellipse cx={0} cy={158} rx={26} ry={24} fill="#F6CC82" stroke="#C8762E" strokeWidth="1.8" />
-      <ellipse cx={flip * -14} cy={178} rx={7} ry={6} fill="#F6CC82" stroke="#C8762E" strokeWidth="1.5" />
-      <ellipse cx={flip * 14} cy={178} rx={7} ry={6} fill="#F6CC82" stroke="#C8762E" strokeWidth="1.5" />
-      <path d={`M ${flip * -16},90 L ${flip * -26},58 L ${flip * -2},82 Z`} fill="#F2B85F" stroke="#C8762E" strokeWidth="1.8" />
-      <path d={`M ${flip * -16},90 L ${flip * -26},58 L ${flip * -2},82 Z`} fill="none" />
-      <path d={`M ${flip * -18},83 L ${flip * -23},65 L ${flip * -6},80 Z`} fill="#F9D9B0" />
-      <path d={`M ${flip * 16},90 L ${flip * 26},58 L ${flip * 2},82 Z`} fill="#F2B85F" stroke="#C8762E" strokeWidth="1.8" />
-      <path d={`M ${flip * 18},83 L ${flip * 23},65 L ${flip * 6},80 Z`} fill="#F9D9B0" />
-      <circle cx={0} cy={108} r={30} fill="#F9D9A8" stroke="#C8762E" strokeWidth="1.8" />
-      <path d={`M -10,82 Q -2,90 4,82`} stroke="#E8923C" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.7" />
-      <path d={`M -22,96 Q -16,100 -12,98`} stroke="#E8923C" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.6" />
-      <path d={`M 22,96 Q 16,100 12,98`} stroke="#E8923C" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.6" />
-      <ellipse cx={-15} cy={118} rx={8} ry={6.5} fill="#F8C7B8" opacity="0.85" />
-      <ellipse cx={15} cy={118} rx={8} ry={6.5} fill="#F8C7B8" opacity="0.85" />
-      <circle cx={-10} cy={104} r={3.4} fill="#3A2415" />
-      <circle cx={10} cy={104} r={3.4} fill="#3A2415" />
-      <circle cx={-9} cy={102.5} r={1} fill="#FFF" />
-      <circle cx={11} cy={102.5} r={1} fill="#FFF" />
-      <path d="M -3,113 L 3,113 L 0,117 Z" fill="#D88A6A" />
-      <path d="M -5,120 Q 0,124 5,120" stroke="#5A3D1E" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-      <rect x={flip * -42} y={148} width={20} height={26} rx={4} fill="#8B5A2B" transform={`rotate(${flip * -10})`} />
-      <g transform={`translate(${flip * 46}, 130) rotate(${flip * 4})`}>
-        <rect x={-2} y={0} width={4} height={34} fill="#C8943A" />
-        <rect x={-32} y={-28} width={64} height={32} rx={5} fill={theme.honeyLight} stroke={theme.honeyDeep} strokeWidth="2" />
-        <text x={0} y={-7} textAnchor="middle" fontSize="13.5" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit">{label}</text>
+    <g transform={`translate(${x}, 0)`} onClick={handleClick} style={{ cursor: phase === 'closed' ? 'pointer' : 'default' }}>
+      <ellipse cx="0" cy="172" rx="58" ry="9" fill="rgba(46,31,18,.12)" />
+      {phase === 'open' && (
+        <>
+          <circle cx="0" cy="95" r="42" fill={theme.honeyLight} opacity="0.55" />
+          {["✦", "✧", "✦", "✧", "✦"].map((s, i) => {
+            const ang = (i / 5) * Math.PI * 2 - Math.PI / 2;
+            return <text key={i} x={Math.cos(ang) * 50} y={95 + Math.sin(ang) * 46} fontSize="14" fill={theme.honeyDeep} textAnchor="middle" opacity="0.9">{s}</text>;
+          })}
+        </>
+      )}
+      <rect x="-50" y="90" width="100" height="78" rx="10" fill={color} stroke={theme.honeyDeep} strokeWidth="2.5" style={bodyStyle} />
+      <rect x="-50" y="122" width="100" height="12" fill="rgba(0,0,0,.08)" style={bodyStyle} />
+      <rect x="-9" y="90" width="18" height="78" fill={ribbon} style={bodyStyle} />
+      <g style={lidStyle}>
+        <rect x="-56" y="74" width="112" height="22" rx="7" fill={color} stroke={theme.honeyDeep} strokeWidth="2.5" />
+        <rect x="-9" y="74" width="18" height="22" fill={ribbon} />
+        <path d="M -9,74 Q -18,58 -9,46 Q -3,58 -9,74" fill={ribbon} />
+        <path d="M 9,74 Q 18,58 9,46 Q 3,58 9,74" fill={ribbon} />
+        <circle cx="0" cy="58" r="8" fill={ribbon} />
       </g>
+      <text x="0" y="200" textAnchor="middle" fontSize="13.5" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit">{category}</text>
     </g>
   );
 }
@@ -76,21 +86,9 @@ function MailCat({ x, mirror, label, theme, onClick }) {
 function CabinScene({ theme, onPick }) {
   return (
     <svg viewBox="0 0 360 230" style={{ width: "100%", maxWidth: 360 }}>
-      <ellipse cx="180" cy="205" rx="150" ry="10" fill="rgba(46,31,18,.08)" />
-      <rect x="204" y="48" width="14" height="26" fill="#B97A1F" />
-      <rect x="128" y="85" width="104" height="85" fill="#EDD49A" stroke="#C8943A" strokeWidth="2" />
-      <polygon points="118,88 180,32 242,88" fill="#DD9A33" stroke="#B97A1F" strokeWidth="2" />
-      <rect x="138" y="56" width="64" height="20" rx="3" fill={theme.honeyLight} stroke={theme.honeyDeep} strokeWidth="1.5" />
-      <line x1="150" y1="76" x2="144" y2="88" stroke={theme.honeyDeep} strokeWidth="1.5" />
-      <line x1="190" y1="76" x2="196" y2="88" stroke={theme.honeyDeep} strokeWidth="1.5" />
-      <text x="170" y="70" textAnchor="middle" fontSize="13" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit">时光信差</text>
-      <circle cx="149" cy="115" r="11" fill="#FFF3D6" stroke="#B97A1F" strokeWidth="2" />
-      <circle cx="211" cy="115" r="11" fill="#FFF3D6" stroke="#B97A1F" strokeWidth="2" />
-      <rect x="168" y="128" width="24" height="42" rx="2" fill="#B97A1F" />
-      <circle cx="186" cy="149" r="1.8" fill="#FFE9B0" />
-      <rect x="120" y="170" width="120" height="6" fill="#C8943A" opacity="0.5" />
-      <MailCat x={32} mirror={false} label="悄悄话" theme={theme} onClick={() => onPick('悄悄话')} />
-      <MailCat x={328} mirror={true} label="幸福日记" theme={theme} onClick={() => onPick('幸福日记')} />
+      <text x="180" y="26" textAnchor="middle" fontSize="13" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit" letterSpacing="2">时光信差</text>
+      <MysteryBox x={92} category="悄悄话" color={theme.blush} ribbon={theme.blushDeep} theme={theme} onOpen={onPick} />
+      <MysteryBox x={268} category="幸福日记" color={theme.honeyLight} ribbon={theme.honey} theme={theme} onOpen={onPick} />
     </svg>
   );
 }
@@ -138,6 +136,10 @@ export default function App() {
   const [bgColor, setBgColor] = useState(null);
   const [uploadingBg, setUploadingBg] = useState(false);
   const bgImageInputRef = useRef(null);
+  const [whisperBgImage, setWhisperBgImage] = useState(null);
+  const [whisperBgColor, setWhisperBgColor] = useState(null);
+  const [uploadingWhisperBg, setUploadingWhisperBg] = useState(false);
+  const whisperBgInputRef = useRef(null);
   const [darkMode, setDarkMode] = useState(false);
   const C = darkMode ? D : H;
   const [view, setView] = useState('chat');
@@ -231,6 +233,8 @@ export default function App() {
         if (data?.partner_avatar_url) setPartnerAvatar(data.partner_avatar_url);
         if (data?.bg_image_url) setBgImage(data.bg_image_url);
         if (data?.bg_color) setBgColor(data.bg_color);
+        if (data?.whisper_bg_image_url) setWhisperBgImage(data.whisper_bg_image_url);
+        if (data?.whisper_bg_color) setWhisperBgColor(data.whisper_bg_color);
         if (typeof data?.dark_mode === 'boolean') setDarkMode(data.dark_mode);
       })
       .catch(console.error);
@@ -310,6 +314,24 @@ export default function App() {
       .catch(console.error);
   };
 
+  const [aiWriting, setAiWriting] = useState(null);
+
+  const askAiWrite = (parentId) => {
+    setAiWriting(parentId || 'new');
+    fetch(`${BACKEND}/letters/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: lettersCategory, parent_id: parentId || null }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setLetters(ls => [...ls, data]);
+        setAiWriting(null);
+        if (parentId) { setReplyingToId(null); setReplyText(""); }
+      })
+      .catch(err => { console.error(err); setAiWriting(null); });
+  };
+
   const uploadBgImage = (file) => {
     if (!file) return;
     setUploadingBg(true);
@@ -336,6 +358,45 @@ export default function App() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bg_color: color, bg_image_url: null }),
+    }).catch(console.error);
+  };
+
+  const uploadWhisperBg = (file) => {
+    if (!file) return;
+    setUploadingWhisperBg(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    fetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => fetch(`${BACKEND}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ whisper_bg_image_url: data.url, whisper_bg_color: null }),
+      }).then(() => {
+        setWhisperBgImage(data.url);
+        setWhisperBgColor(null);
+        setUploadingWhisperBg(false);
+      }))
+      .catch(err => { console.error(err); setUploadingWhisperBg(false); });
+  };
+
+  const setWhisperBackgroundColor = (color) => {
+    setWhisperBgColor(color);
+    setWhisperBgImage(null);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ whisper_bg_color: color, whisper_bg_image_url: null }),
+    }).catch(console.error);
+  };
+
+  const resetWhisperBackground = () => {
+    setWhisperBgImage(null);
+    setWhisperBgColor(null);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ whisper_bg_color: null, whisper_bg_image_url: null }),
     }).catch(console.error);
   };
 
@@ -685,7 +746,7 @@ export default function App() {
             <div style={{
               flex: 1, overflowY: "auto", padding: "16px 14px",
               background: lettersCategory === '悄悄话'
-                ? `repeating-linear-gradient(0deg, #3A2C1E 0px, #3A2C1E 38px, #33271A 38px, #33271A 40px), repeating-linear-gradient(90deg, rgba(0,0,0,0.08) 0px, transparent 2px, transparent 120px, rgba(0,0,0,0.08) 122px)`
+                ? (whisperBgImage ? `url(${whisperBgImage}) center/cover no-repeat` : (whisperBgColor || "#3A2C1E"))
                 : "transparent"
             }}>
               {lettersLoading && (
@@ -725,7 +786,10 @@ export default function App() {
                       </div>
                     </div>
                   ) : (
-                    <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", display: "inline-block", marginTop: 8 }}>回信</span>
+                    <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                      <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>回信</span>
+                      <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>{aiWriting === l.id ? "陆澈在写…" : "请陆澈回信"}</span>
+                    </div>
                   ))}
                 </div>
                 );
@@ -736,7 +800,8 @@ export default function App() {
                 <input value={newLetterTitle} onChange={e => setNewLetterTitle(e.target.value)} placeholder="今天的日记起个标题…" style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
               )}
               <textarea value={newLetterText} onChange={e => setNewLetterText(e.target.value)} placeholder={lettersCategory === '悄悄话' ? "悄悄说一句…" : `在"${lettersCategory}"写一篇新的…`} rows={2} style={{ width: "100%", fontSize: 14, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                <span onClick={() => askAiWrite(null)} style={{ fontSize: 12, color: C.honeyDeep, cursor: "pointer" }}>{aiWriting === 'new' ? "陆澈在写…" : "✦ 请陆澈写一篇"}</span>
                 <span onClick={submitNewLetter} style={{ fontSize: 12.5, color: C.white, cursor: "pointer", padding: "6px 16px", background: newLetterText.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingLetter ? "存中…" : "寄出"}</span>
               </div>
             </div>
@@ -849,6 +914,15 @@ export default function App() {
             <input ref={bgImageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadBgImage(e.target.files?.[0])} />
             <input type="color" value={bgColor || "#FDFAF5"} onChange={e => setBackgroundColor(e.target.value)} style={{ width: 44, height: 44, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
             <span onClick={resetBackground} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>悄悄话墙面</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+            <div onClick={() => whisperBgInputRef.current?.click()} style={{ width: 44, height: 44, borderRadius: 10, overflow: "hidden", cursor: "pointer", border: `1.5px dashed ${C.honeyMid}`, background: whisperBgImage ? "transparent" : C.cream, display: "flex", alignItems: "center", justifyContent: "center", color: C.honeyDeep, fontSize: 18, flexShrink: 0 }}>
+              {uploadingWhisperBg ? <span style={{ fontSize: 9 }}>传中</span> : whisperBgImage ? <img src={whisperBgImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "＋"}
+            </div>
+            <input ref={whisperBgInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadWhisperBg(e.target.files?.[0])} />
+            <input type="color" value={whisperBgColor || "#3A2C1E"} onChange={e => setWhisperBackgroundColor(e.target.value)} style={{ width: 44, height: 44, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
+            <span onClick={resetWhisperBackground} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
           </div>
           <button onClick={() => window.open(`${BACKEND}/export`, '_blank')} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
