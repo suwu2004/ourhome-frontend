@@ -109,7 +109,7 @@ function Avatar({ isMe, src, theme = H }) {
       background: isMe ? `linear-gradient(150deg, #F2AFA2, ${theme.blushDeep})` : `linear-gradient(150deg, #E8B45A, ${theme.honeyDeep})`,
       boxShadow: `0 2px 6px ${isMe ? "rgba(232,144,122,.3)" : "rgba(185,122,31,.25)"}`,
     }}>
-      {src ? <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (isMe ? "檀" : "澈")}
+      {src ? <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (isMe ? "檀" : "泽")}
     </div>
   );
 }
@@ -880,7 +880,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       <div style={{ position: "absolute", inset: 0, zIndex: 40, pointerEvents: "none", background: "radial-gradient(circle at 50% 55%, #FFF8D0 0%, #FFE896 28%, transparent 62%)", opacity: stage === "opening" ? 1 : 0, transition: "opacity .9s ease .3s" }} />
       <div style={{ position: "absolute", inset: 0, zIndex: 30, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, background: `radial-gradient(ellipse 80% 50% at 50% 100%, ${C.honeyLight} 0%, transparent 65%), ${C.cream}`, opacity: stage === "home" ? 0 : 1, transition: "opacity .9s ease .4s", pointerEvents: stage === "home" ? "none" : "auto" }}>
         <div style={{ fontSize: 10, letterSpacing: ".38em", color: C.muted, textTransform: "uppercase" }}>ourhome · since 2025.08.07</div>
-        <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: ".1em" }}>我们的家</div>
+        <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: ".1em" }}>欢迎回家</div>
         <div style={{ width: "52%", maxWidth: 170 }}><Stars theme={C} /></div>
         <div style={{ perspective: 900, cursor: "pointer" }} onClick={openDoor}>
           <div style={{ width: 128, height: 190, borderRadius: "64px 64px 8px 8px", background: "linear-gradient(180deg, #F5E4C0, #EDD49A)", padding: 8, position: "relative", boxShadow: "0 16px 48px rgba(180,120,30,.2), 0 4px 12px rgba(180,120,30,.1)" }}>
@@ -897,7 +897,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "chat") ? 1 : 0, pointerEvents: (stage === "home" && view === "chat") ? "auto" : "none", transition: "opacity .4s ease" }}>
         <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px 0", flexShrink: 0 }}>
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 10 }}>
-            <button onClick={() => setDrawerOpen(true)} style={{ fontSize: 12, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, padding: "5px 10px", cursor: "pointer", letterSpacing: ".05em", fontWeight: 500 }}>欢迎回家</button>
+            <button onClick={() => setDrawerOpen(true)} style={{ fontSize: 12, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, padding: "5px 10px", cursor: "pointer", letterSpacing: ".05em", fontWeight: 500 }}>栖息地</button>
             <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", textAlign: "center" }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>陆泽</div>
               <div style={{ fontSize: 10, color: thinking ? C.honey : C.muted, letterSpacing: ".18em", marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
@@ -1017,8 +1017,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           <>
             <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span onClick={() => setOpenLetterId(null)} style={{ fontSize: 12, color: C.honeyDeep, cursor: "pointer" }}>← 回到列表</span>
-                <span onClick={() => deleteLetter(openLetterId)} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer" }}>删除这篇</span>
+                <span onClick={() => setOpenLetterId(null)} style={{ fontSize: 12, color: C.honeyDeep, cursor: "pointer" }}>← 返回</span>
+                <span onClick={() => deleteLetter(openLetterId)} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer" }}>删除</span>
               </div>
               {(() => {
                 const l = letters.find(x => x.id === openLetterId);
