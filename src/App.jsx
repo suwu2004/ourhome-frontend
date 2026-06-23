@@ -227,6 +227,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             role: m.role === "user" ? "me" : "ai",
             text: m.content,
             image: m.attachment_url || null,
+            thinking: m.reasoning_content || null,
+            thinkingOpen: false,
             time: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
             liked: false,
           }));
@@ -481,6 +483,16 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       .catch(console.error);
   };
 
+  const deleteLetter = (id) => {
+    if (!window.confirm("确定要删掉这篇吗？里面的留言也会一起删掉，不能恢复。")) return;
+    fetch(`${BACKEND}/letters/${id}`, { method: 'DELETE' })
+      .then(() => {
+        setLetters(ls => ls.filter(x => x.id !== id && x.parent_id !== id));
+        if (openLetterId === id) setOpenLetterId(null);
+      })
+      .catch(console.error);
+  };
+
   const [aiWriting, setAiWriting] = useState(null);
 
   const askAiWrite = (parentId) => {
@@ -618,6 +630,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           role: m.role === "user" ? "me" : "ai",
           text: m.content,
           image: m.attachment_url || null,
+          thinking: m.reasoning_content || null,
+          thinkingOpen: false,
           time: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
           liked: false,
         }));
@@ -701,6 +715,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
   const [editingMsgText, setEditingMsgText] = useState("");
 
   const toggleLike = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, liked: !m.liked } : m));
+  const toggleThinking = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, thinkingOpen: !m.thinkingOpen } : m));
 
   const startEditMsg = (m) => {
     setEditingMsgId(m.id);
@@ -821,7 +836,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           const copy = [...ms];
           for (let i = copy.length - 1; i >= 0; i--) {
             if (copy[i].role === 'ai') {
-              copy[i] = { ...copy[i], text: data.reply || copy[i].text };
+              copy[i] = { ...copy[i], text: data.reply || copy[i].text, thinking: data.thinking || null, thinkingOpen: false };
               break;
             }
           }
@@ -851,7 +866,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       const data = await res.json();
       setThinking(false);
       const replyTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: data.reply || "（抱着你）嗯，我在。", time: replyTime, liked: false }]);
+      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: data.reply || "（抱着你）嗯，我在。", thinking: data.thinking || null, thinkingOpen: false, time: replyTime, liked: false }]);
       setVisible(v => v + 1);
     } catch (err) {
       setThinking(false);
@@ -913,6 +928,16 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                 <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6 }}>
                   {m.image && (
                     <img src={m.image} alt="" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, display: "block" }} />
+                  )}
+                  {!isMe && m.thinking && (
+                    <div>
+                      <span onClick={() => toggleThinking(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                        💭 想了想{m.thinkingOpen ? " ▲" : " ▼"}
+                      </span>
+                      {m.thinkingOpen && (
+                        <div style={{ fontSize: 12, lineHeight: 1.6, color: C.muted, background: C.borderLight, borderRadius: 10, padding: "8px 12px", marginTop: 4, whiteSpace: "pre-wrap", fontStyle: "italic" }}>{m.thinking}</div>
+                      )}
+                    </div>
                   )}
                   {editingMsgId === m.id ? (
                     <div>
@@ -991,7 +1016,10 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         ) : (lettersCategory === '幸福日记' && openLetterId) ? (
           <>
             <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
-              <span onClick={() => setOpenLetterId(null)} style={{ fontSize: 12, color: C.honeyDeep, cursor: "pointer" }}>← 回到列表</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span onClick={() => setOpenLetterId(null)} style={{ fontSize: 12, color: C.honeyDeep, cursor: "pointer" }}>← 回到列表</span>
+                <span onClick={() => deleteLetter(openLetterId)} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer" }}>删除这篇</span>
+              </div>
               {(() => {
                 const l = letters.find(x => x.id === openLetterId);
                 if (!l) return null;
@@ -1059,7 +1087,10 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                 <div key={l.id} style={{ marginBottom: 16, background: "rgba(255,248,236,.94)", border: `1px solid #D9C19A`, borderRadius: 14, padding: "12px 14px", boxShadow: "0 4px 10px rgba(0,0,0,.25)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: C.honeyDeep }}>{l.author}</span>
-                    <span style={{ fontSize: 9.5, color: C.mutedLight }}>{l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 9.5, color: C.mutedLight }}>{l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                      {revealed && <span onClick={() => deleteLetter(l.id)} style={{ fontSize: 10.5, color: "#A78A5E", cursor: "pointer" }}>删除</span>}
+                    </div>
                   </div>
                   {!revealed ? (
                     <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 13, color: "#A78A5E", cursor: "pointer", padding: "10px 0", textAlign: "center", letterSpacing: ".1em", border: `1px dashed #D9C19A`, borderRadius: 8 }}>🔒 轻触查看悄悄话</div>
