@@ -1114,7 +1114,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                     </div>
                   ) : (
                     <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                      <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>{l.author === '泽' ? '叶檀留言' : '回信'}</span>
+                      <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>{l.author === '泽'? '叶檀留言' : '回信'}</span>
                       {l.author !== '泽' && (
                         <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>{aiWriting === l.id ? "陆泽在写…" : "请陆泽回信"}</span>
                       )}
