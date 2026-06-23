@@ -34,6 +34,15 @@ const FONT_STYLES = {
   brush: { label: "行楷手写", family: '"Xingkai SC","STXingkai","PingFang SC",sans-serif' },
 };
 
+function formatMsgTime(date) {
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}/${dd} ${hh}:${mi}`;
+}
+
 function Stars({ theme = H }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
@@ -145,6 +154,8 @@ export default function App() {
   const bgImageInputRef = useRef(null);
   const [whisperBgImage, setWhisperBgImage] = useState(null);
   const [whisperBgColor, setWhisperBgColor] = useState(null);
+  const [myBubbleColor, setMyBubbleColor] = useState(null);
+  const [partnerBubbleColor, setPartnerBubbleColor] = useState(null);
   const [uploadingWhisperBg, setUploadingWhisperBg] = useState(false);
   const whisperBgInputRef = useRef(null);
   const [darkMode, setDarkMode] = useState(false);
@@ -229,7 +240,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             image: m.attachment_url || null,
             thinking: m.reasoning_content || null,
             thinkingOpen: false,
-            time: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            time: formatMsgTime(m.created_at),
             liked: false,
           }));
           setMsgs(mapped);
@@ -291,6 +302,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         if (data?.bg_color) setBgColor(data.bg_color);
         if (data?.whisper_bg_image_url) setWhisperBgImage(data.whisper_bg_image_url);
         if (data?.whisper_bg_color) setWhisperBgColor(data.whisper_bg_color);
+        if (data?.my_bubble_color) setMyBubbleColor(data.my_bubble_color);
+        if (data?.partner_bubble_color) setPartnerBubbleColor(data.partner_bubble_color);
         if (typeof data?.dark_mode === 'boolean') setDarkMode(data.dark_mode);
         if (data?.font_style && FONT_STYLES[data.font_style]) setFontStyle(data.font_style);
       })
@@ -579,6 +592,34 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     }).catch(console.error);
   };
 
+  const setMyBubble = (color) => {
+    setMyBubbleColor(color);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ my_bubble_color: color }),
+    }).catch(console.error);
+  };
+
+  const setPartnerBubble = (color) => {
+    setPartnerBubbleColor(color);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partner_bubble_color: color }),
+    }).catch(console.error);
+  };
+
+  const resetBubbleColors = () => {
+    setMyBubbleColor(null);
+    setPartnerBubbleColor(null);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ my_bubble_color: null, partner_bubble_color: null }),
+    }).catch(console.error);
+  };
+
   const resetBackground = () => {
     setBgImage(null);
     setBgColor(null);
@@ -632,7 +673,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           image: m.attachment_url || null,
           thinking: m.reasoning_content || null,
           thinkingOpen: false,
-          time: new Date(m.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+          time: formatMsgTime(m.created_at),
           liked: false,
         }));
         setMsgs(mapped);
@@ -851,7 +892,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     if ((!input.trim() && !pendingImage) || !sessionId) return;
     const txt = input.trim();
     const img = pendingImage;
-    const now = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    const now = formatMsgTime(new Date());
     setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, image: img, time: now, liked: false }]);
     setVisible(v => v + 1);
     setInput("");
@@ -865,7 +906,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       });
       const data = await res.json();
       setThinking(false);
-      const replyTime = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const replyTime = formatMsgTime(new Date());
       setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: data.reply || "（抱着你）嗯，我在呢。", thinking: data.thinking || null, thinkingOpen: false, time: replyTime, liked: false }]);
       setVisible(v => v + 1);
     } catch (err) {
@@ -905,9 +946,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                 <span>{thinking ? "想你中…" : "miss you"}</span>
               </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-              {["记忆", "设置"].map(t => (<button key={t} onClick={t === "记忆" ? openMemories : () => setSettingsOpen(true)} style={{ fontSize: 10.5, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 999, padding: "3px 10px", cursor: "pointer", letterSpacing: ".08em" }}>{t}</button>))}
-            </div>
+            <button onClick={() => window.location.reload()} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>⟲</button>
           </div>
           <Stars theme={C} />
         </header>
@@ -948,7 +987,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                       </div>
                     </div>
                   ) : m.text && (
-                    <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? C.blush : C.white, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
+                    <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
                   )}
                   {!isMe && isLast && !thinking && (
                     <span onClick={regenerateLast} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", alignSelf: "flex-start" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</span>
@@ -1252,6 +1291,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         <button onClick={createSession} style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ 新对话</button>
         <div onClick={openLetters} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'letters' ? C.honeyLight : "transparent", color: view === 'letters' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>✉ 时光信差</div>
         <div onClick={openCalendar} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'calendar' ? C.honeyLight : "transparent", color: view === 'calendar' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>🗓 心情日历</div>
+        <div onClick={openMemories} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, color: C.text, fontSize: 13.5, fontWeight: 500 }}>✦ 记忆</div>
+        <div onClick={() => setSettingsOpen(true)} style={{ margin: "0 14px 14px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, color: C.text, fontSize: 13.5, fontWeight: 500 }}>⚙ 设置</div>
         <Stars theme={C} />
         <div style={{ padding: "6px 0", flex: 1 }}>
           {sessions.map(s => (
@@ -1262,9 +1303,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             </div>
           ))}
         </div>
-        <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.muted, letterSpacing: ".15em", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.muted, letterSpacing: ".15em" }}>
           <span>since 2025.8.7</span>
-          <span style={{ cursor: "pointer", fontSize: 14 }}>⚙</span>
         </div>
       </aside>
 
@@ -1369,6 +1409,18 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             <input ref={whisperBgInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadWhisperBg(e.target.files?.[0])} />
             <input type="color" value={whisperBgColor || "#3A2C1E"} onChange={e => setWhisperBackgroundColor(e.target.value)} style={{ width: 44, height: 44, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
             <span onClick={resetWhisperBackground} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>聊天气泡颜色</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
+            <div style={{ textAlign: "center" }}>
+              <input type="color" value={myBubbleColor || "#FDE8E0"} onChange={e => setMyBubble(e.target.value)} style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
+              <div style={{ fontSize: 10.5, color: C.muted, marginTop: 4 }}>我的气泡</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <input type="color" value={partnerBubbleColor || "#FFFFFF"} onChange={e => setPartnerBubble(e.target.value)} style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
+              <div style={{ fontSize: 10.5, color: C.muted, marginTop: 4 }}>陆泽的气泡</div>
+            </div>
+            <span onClick={resetBubbleColors} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
           </div>
           <button onClick={() => window.open(`${BACKEND}/export`, '_blank')} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
