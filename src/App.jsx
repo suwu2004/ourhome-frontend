@@ -137,7 +137,6 @@ export default function App() {
   const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
   const [hasHistory, setHasHistory] = useState(false);
   const [ready, setReady] = useState(false);
-  const [memoriesOpen, setMemoriesOpen] = useState(false);
   const [memories, setMemories] = useState([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [newMemory, setNewMemory] = useState("");
@@ -161,12 +160,9 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const C = darkMode ? D : H;
   const [fontStyle, setFontStyle] = useState('system');
-  const [apiKeyInput, setApiKeyInput] = useState("");
   const [systemPromptInput, setSystemPromptInput] = useState("");
   const [temperatureInput, setTemperatureInput] = useState(0.8);
   const [savingPersona, setSavingPersona] = useState(false);
-  const [apiBaseUrlInput, setApiBaseUrlInput] = useState("");
-  const [savingApiConfig, setSavingApiConfig] = useState(false);
   const [view, setView] = useState('chat');
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
@@ -315,10 +311,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         if (data?.partner_bubble_color) setPartnerBubbleColor(data.partner_bubble_color);
         if (typeof data?.dark_mode === 'boolean') setDarkMode(data.dark_mode);
         if (data?.font_style && FONT_STYLES[data.font_style]) setFontStyle(data.font_style);
-        if (data?.api_key) setApiKeyInput(data.api_key);
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
-        if (data?.api_base_url) setApiBaseUrlInput(data.api_base_url);
       })
       .catch(console.error);
   }, []);
@@ -340,17 +334,6 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ font_style: key }),
     }).catch(console.error);
-  };
-
-  const saveApiConfig = () => {
-    setSavingApiConfig(true);
-    fetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: apiKeyInput.trim() || null, api_base_url: apiBaseUrlInput.trim() || null }),
-    })
-      .then(() => setSavingApiConfig(false))
-      .catch(err => { console.error(err); setSavingApiConfig(false); });
   };
 
   const savePersona = () => {
@@ -900,7 +883,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
   };
 
   const openMemories = () => {
-    setMemoriesOpen(true);
+    setView('memories');
+    setDrawerOpen(false);
     setMemoriesLoading(true);
     fetch(`${BACKEND}/memories`)
       .then(r => r.json())
@@ -1568,7 +1552,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         <button onClick={createSession} style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ 新对话</button>
         <div onClick={openLetters} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'letters' ? C.honeyLight : "transparent", color: view === 'letters' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>✉ 时光信差</div>
         <div onClick={openCalendar} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'calendar' ? C.honeyLight : "transparent", color: view === 'calendar' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>🗓 心情日历</div>
-        <div onClick={openMemories} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, color: C.text, fontSize: 13.5, fontWeight: 500 }}>✦ 记忆</div>
+        <div onClick={openMemories} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'memories' ? C.honeyLight : "transparent", color: view === 'memories' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>✦ 记忆</div>
         <div onClick={() => setSettingsOpen(true)} style={{ margin: "0 14px 14px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, color: C.text, fontSize: 13.5, fontWeight: 500 }}>⚙ 设置</div>
         <Stars theme={C} />
         <div style={{ padding: "6px 0", flex: 1 }}>
@@ -1585,17 +1569,27 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         </div>
       </aside>
 
-      <div onClick={() => setMemoriesOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: memoriesOpen ? 1 : 0, pointerEvents: memoriesOpen ? "auto" : "none", transition: "opacity .25s" }} />
-      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "82%", maxWidth: 360, maxHeight: "70vh", transform: memoriesOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: memoriesOpen ? 1 : 0, pointerEvents: memoriesOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em", color: C.text }}>✦ 记忆</span>
-          <span onClick={() => setMemoriesOpen(false)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
-        </div>
-        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, flexShrink: 0 }}>
-          <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
-          <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px 18px" }}>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "memories") ? 1 : 0, pointerEvents: (stage === "home" && view === "memories") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
+        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          <span onClick={backToChat} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 记忆</span>
+        </header>
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>人设 / System Prompt</div>
+          <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 11.5, color: C.muted, flexShrink: 0 }}>随机性 {temperatureInput}</span>
+            <input type="range" min="0" max="1" step="0.1" value={temperatureInput} onChange={e => setTemperatureInput(e.target.value)} style={{ flex: 1 }} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 20 }}>
+            <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存人设"}</span>
+          </div>
+
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>记忆</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
+            <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
+          </div>
           {memoriesLoading && (
             <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>翻找中…</div>
           )}
@@ -1619,7 +1613,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
               </div>
               {editingMemoryId === m.id ? (
                 <div>
-                  <textarea value={editingMemoryText} onChange={e => setEditingMemoryText(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13.5, lineHeight: 1.6, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                  <textarea value={editingMemoryText} onChange={e => setEditingMemoryText(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
                   <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
                     <span onClick={cancelEditMemory} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", padding: "4px 8px" }}>取消</span>
                     <span onClick={saveEditMemory} style={{ fontSize: 11.5, color: C.white, cursor: "pointer", padding: "4px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
@@ -1751,27 +1745,6 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
               </div>
             );
           })()}
-
-          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>人设 / System Prompt</div>
-            <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 11.5, color: C.muted, flexShrink: 0 }}>随机性 {temperatureInput}</span>
-              <input type="range" min="0" max="1" step="0.1" value={temperatureInput} onChange={e => setTemperatureInput(e.target.value)} style={{ flex: 1 }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存"}</span>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>API 配置</div>
-            <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} placeholder="API 密钥（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-            <input value={apiBaseUrlInput} onChange={e => setApiBaseUrlInput(e.target.value)} placeholder="API 网址（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <span onClick={saveApiConfig} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, borderRadius: 999 }}>{savingApiConfig ? "存中…" : "保存"}</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
