@@ -161,6 +161,12 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const C = darkMode ? D : H;
   const [fontStyle, setFontStyle] = useState('system');
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [systemPromptInput, setSystemPromptInput] = useState("");
+  const [temperatureInput, setTemperatureInput] = useState(0.8);
+  const [savingPersona, setSavingPersona] = useState(false);
+  const [apiBaseUrlInput, setApiBaseUrlInput] = useState("");
+  const [savingApiConfig, setSavingApiConfig] = useState(false);
   const [view, setView] = useState('chat');
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
@@ -240,6 +246,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
             file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
             thinking: m.reasoning_content || null,
+            inputTokens: m.input_tokens || 0,
+            outputTokens: m.output_tokens || 0,
             thinkingOpen: false,
             time: formatMsgTime(m.created_at),
             liked: false,
@@ -307,6 +315,10 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         if (data?.partner_bubble_color) setPartnerBubbleColor(data.partner_bubble_color);
         if (typeof data?.dark_mode === 'boolean') setDarkMode(data.dark_mode);
         if (data?.font_style && FONT_STYLES[data.font_style]) setFontStyle(data.font_style);
+        if (data?.api_key) setApiKeyInput(data.api_key);
+        if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
+        if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
+        if (data?.api_base_url) setApiBaseUrlInput(data.api_base_url);
       })
       .catch(console.error);
   }, []);
@@ -330,6 +342,29 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     }).catch(console.error);
   };
 
+  const saveApiConfig = () => {
+    setSavingApiConfig(true);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: apiKeyInput.trim() || null, api_base_url: apiBaseUrlInput.trim() || null }),
+    })
+      .then(() => setSavingApiConfig(false))
+      .catch(err => { console.error(err); setSavingApiConfig(false); });
+  };
+
+  const savePersona = () => {
+    if (!systemPromptInput.trim()) return;
+    setSavingPersona(true);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ system_prompt: systemPromptInput, temperature: Number(temperatureInput) }),
+    })
+      .then(() => setSavingPersona(false))
+      .catch(err => { console.error(err); setSavingPersona(false); });
+  };
+
   const openLetters = () => {
     setView('letters');
     setLettersCategory(null);
@@ -348,6 +383,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     setDrawerOpen(false);
     fetchMonthEntries(calendarMonth);
     fetchSchedule();
+    fetchWishes();
   };
 
   const [scheduleEvents, setScheduleEvents] = useState([]);
@@ -383,6 +419,48 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
   const deleteScheduleEvent = (id) => {
     fetch(`${BACKEND}/schedule/${id}`, { method: 'DELETE' })
       .then(() => setScheduleEvents(es => es.filter(e => e.id !== id)))
+      .catch(console.error);
+  };
+
+  const [wishes, setWishes] = useState([]);
+  const [newWishText, setNewWishText] = useState("");
+
+  const fetchWishes = () => {
+    fetch(`${BACKEND}/wishes`)
+      .then(r => r.json())
+      .then(data => setWishes(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  };
+
+  const addWish = () => {
+    if (!newWishText.trim()) return;
+    fetch(`${BACKEND}/wishes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: newWishText.trim(), author: '檀' }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setWishes(ws => [...ws, data]);
+        setNewWishText("");
+      })
+      .catch(console.error);
+  };
+
+  const toggleWish = (id, done) => {
+    fetch(`${BACKEND}/wishes/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ done: !done }),
+    })
+      .then(r => r.json())
+      .then(data => setWishes(ws => ws.map(w => w.id === id ? data : w)))
+      .catch(console.error);
+  };
+
+  const deleteWish = (id) => {
+    fetch(`${BACKEND}/wishes/${id}`, { method: 'DELETE' })
+      .then(() => setWishes(ws => ws.filter(w => w.id !== id)))
       .catch(console.error);
   };
 
@@ -711,6 +789,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
           file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
           thinking: m.reasoning_content || null,
+            inputTokens: m.input_tokens || 0,
+            outputTokens: m.output_tokens || 0,
           thinkingOpen: false,
           time: formatMsgTime(m.created_at),
           liked: false,
@@ -985,7 +1065,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           const copy = [...ms];
           for (let i = copy.length - 1; i >= 0; i--) {
             if (copy[i].role === 'ai') {
-              copy[i] = { ...copy[i], text: data.reply || copy[i].text, thinking: data.thinking || null, thinkingOpen: false };
+              copy[i] = { ...copy[i], text: data.reply || copy[i].text, thinking: data.thinking || null, thinkingOpen: false, inputTokens: data.inputTokens || 0, outputTokens: data.outputTokens || 0 };
               break;
             }
           }
@@ -1016,7 +1096,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       const data = await res.json();
       setThinking(false);
       const replyTime = formatMsgTime(new Date());
-      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: data.reply || "（抱着你）嗯，我在呢。", thinking: data.thinking || null, thinkingOpen: false, time: replyTime, liked: false }]);
+      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: data.reply || "（抱着你）嗯，我在呢。", thinking: data.thinking || null, thinkingOpen: false, inputTokens: data.inputTokens || 0, outputTokens: data.outputTokens || 0, time: replyTime, liked: false }]);
       setVisible(v => v + 1);
     } catch (err) {
       setThinking(false);
@@ -1402,6 +1482,25 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
               </div>
             )}
           </div>
+
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>✦ 心愿单</div>
+            {wishes.length === 0 && (
+              <div style={{ fontSize: 11.5, color: C.muted, padding: "8px 0" }}>还没有心愿，写第一个吧。</div>
+            )}
+            {wishes.map(w => (
+              <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "8px 12px" }}>
+                <span onClick={() => toggleWish(w.id, w.done)} style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${w.done ? C.honey : C.border}`, background: w.done ? C.honey : "transparent", color: C.white, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{w.done ? "✓" : ""}</span>
+                <span style={{ flex: 1, fontSize: 13, color: w.done ? C.mutedLight : C.text, textDecoration: w.done ? "line-through" : "none" }}>{w.content}</span>
+                <span style={{ fontSize: 10, color: C.mutedLight, flexShrink: 0 }}>{w.author}</span>
+                <span onClick={() => deleteWish(w.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", flexShrink: 0 }}>删</span>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <input value={newWishText} onChange={e => setNewWishText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addWish(); }} placeholder="想一起做的事…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
+              <button onClick={addWish} style={{ fontSize: 12, color: C.white, background: newWishText.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: "pointer" }}>加</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1631,6 +1730,48 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           </div>
           <button onClick={() => window.open(`${BACKEND}/export`, '_blank')} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
+
+          {(() => {
+            const totalChars = msgs.reduce((sum, m) => sum + (m.text?.length || 0), 0);
+            const totalTokens = msgs.reduce((sum, m) => sum + (m.inputTokens || 0) + (m.outputTokens || 0), 0);
+            return (
+              <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>当前对话用量</div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1, textAlign: "center", background: C.cream, borderRadius: 10, padding: "8px 4px" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.honeyDeep }}>{totalChars}</div>
+                    <div style={{ fontSize: 10, color: C.mutedLight }}>字</div>
+                  </div>
+                  <div style={{ flex: 1, textAlign: "center", background: C.cream, borderRadius: 10, padding: "8px 4px" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.honeyDeep }}>{totalTokens}</div>
+                    <div style={{ fontSize: 10, color: C.mutedLight }}>tokens</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: C.mutedLight, marginTop: 6, lineHeight: 1.5 }}>tokens只统计有真实回复记录的部分，是当前打开的这个对话的累计用量。</div>
+              </div>
+            );
+          })()}
+
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>人设 / System Prompt</div>
+            <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 11.5, color: C.muted, flexShrink: 0 }}>随机性 {temperatureInput}</span>
+              <input type="range" min="0" max="1" step="0.1" value={temperatureInput} onChange={e => setTemperatureInput(e.target.value)} style={{ flex: 1 }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存"}</span>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>API 配置</div>
+            <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} placeholder="API 密钥（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+            <input value={apiBaseUrlInput} onChange={e => setApiBaseUrlInput(e.target.value)} placeholder="API 网址（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <span onClick={saveApiConfig} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, borderRadius: 999 }}>{savingApiConfig ? "存中…" : "保存"}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
