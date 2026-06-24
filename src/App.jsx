@@ -901,6 +901,28 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
   };
 
   const [regenerating, setRegenerating] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+
+  const performSearch = () => {
+    if (!searchQuery.trim()) { setSearchResults([]); return; }
+    setSearching(true);
+    fetch(`${BACKEND}/messages/search?q=${encodeURIComponent(searchQuery.trim())}`)
+      .then(r => r.json())
+      .then(data => {
+        setSearchResults(Array.isArray(data) ? data : []);
+        setSearching(false);
+      })
+      .catch(err => { console.error(err); setSearching(false); });
+  };
+
+  const jumpToSearchResult = (r) => {
+    setSearchOpen(false);
+    switchSession(r.session_id);
+  };
+
   const [notifStatus, setNotifStatus] = useState('default');
   const [subscribing, setSubscribing] = useState(false);
 
@@ -1033,7 +1055,10 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                 <span>{thinking ? "想你中…" : "miss you"}</span>
               </div>
             </div>
-            <button onClick={() => window.location.reload()} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>⟲</button>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setSearchResults([]); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
+              <button onClick={() => window.location.reload()} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>⟲</button>
+            </div>
           </div>
           <Stars theme={C} />
         </header>
@@ -1336,12 +1361,12 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             return (
               <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
                 <div style={{ flex: 1, textAlign: "center", background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px" }}>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>和陆泽宝宝在一起第</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>认识第</div>
                   <div style={{ fontSize: 22, fontWeight: 700, color: C.honeyDeep }}>{dayDiff(knowSince)}</div>
                   <div style={{ fontSize: 10.5, color: C.mutedLight, marginTop: 2 }}>天 · 2025.3.7</div>
                 </div>
                 <div style={{ flex: 1, textAlign: "center", background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px" }}>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>和陆澈宝宝在一起第</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>在一起第</div>
                   <div style={{ fontSize: 22, fontWeight: 700, color: C.honeyDeep }}>{dayDiff(togetherSince)}</div>
                   <div style={{ fontSize: 10.5, color: C.mutedLight, marginTop: 2 }}>天 · 2025.8.7</div>
                 </div>
@@ -1368,7 +1393,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
               <input value={newScheduleTitle} onChange={e => setNewScheduleTitle(e.target.value)} placeholder="要提醒什么事…" style={{ width: "100%", fontSize: 13, color: C.text, background: "transparent", border: "none", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
               <input type="datetime-local" value={newScheduleTime} onChange={e => setNewScheduleTime(e.target.value)} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <span onClick={createScheduleEvent} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: (newScheduleTitle.trim() && newScheduleTime) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingSchedule ? "保存中…" : "加提醒"}</span>
+                <span onClick={createScheduleEvent} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: (newScheduleTitle.trim() && newScheduleTime) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingSchedule ? "存中…" : "加提醒"}</span>
               </div>
             </div>
             {notifStatus !== 'granted' && (
@@ -1504,6 +1529,35 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
               ) : (
                 <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap" }}>{m.summary}</div>
               )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div onClick={() => setSearchOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: searchOpen ? 1 : 0, pointerEvents: searchOpen ? "auto" : "none", transition: "opacity .25s" }} />
+      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "82%", maxWidth: 360, maxHeight: "70vh", transform: searchOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: searchOpen ? 1 : 0, pointerEvents: searchOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em", color: C.text }}>🔍 搜索聊天记录</span>
+          <span onClick={() => setSearchOpen(false)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
+        </div>
+        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, flexShrink: 0 }}>
+          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") performSearch(); }} placeholder="搜点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
+          <button onClick={performSearch} style={{ fontSize: 12, color: C.white, background: C.honey, border: "none", borderRadius: 999, padding: "0 16px", cursor: "pointer", letterSpacing: ".05em" }}>{searching ? "搜中…" : "搜"}</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px 18px" }}>
+          {searching && (
+            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>翻找中…</div>
+          )}
+          {!searching && searchQuery.trim() && searchResults.length === 0 && (
+            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>没找到相关的内容。</div>
+          )}
+          {!searching && searchResults.map(r => (
+            <div key={r.id} onClick={() => jumpToSearchResult(r)} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${C.borderLight}`, cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep }}>{r.role === 'user' ? '檀' : '泽'} · {r.sessions?.name || ''}</span>
+                <span style={{ fontSize: 9.5, color: C.mutedLight }}>{new Date(r.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{r.content}</div>
             </div>
           ))}
         </div>
