@@ -347,6 +347,43 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     setView('calendar');
     setDrawerOpen(false);
     fetchMonthEntries(calendarMonth);
+    fetchSchedule();
+  };
+
+  const [scheduleEvents, setScheduleEvents] = useState([]);
+  const [newScheduleTitle, setNewScheduleTitle] = useState("");
+  const [newScheduleTime, setNewScheduleTime] = useState("");
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
+  const fetchSchedule = () => {
+    fetch(`${BACKEND}/schedule`)
+      .then(r => r.json())
+      .then(data => setScheduleEvents(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  };
+
+  const createScheduleEvent = () => {
+    if (!newScheduleTitle.trim() || !newScheduleTime) return;
+    setSavingSchedule(true);
+    fetch(`${BACKEND}/schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newScheduleTitle.trim(), remind_at: new Date(newScheduleTime).toISOString(), author: '檀' }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setScheduleEvents(es => [...es, data].sort((a, b) => new Date(a.remind_at) - new Date(b.remind_at)));
+        setNewScheduleTitle("");
+        setNewScheduleTime("");
+        setSavingSchedule(false);
+      })
+      .catch(err => { console.error(err); setSavingSchedule(false); });
+  };
+
+  const deleteScheduleEvent = (id) => {
+    fetch(`${BACKEND}/schedule/${id}`, { method: 'DELETE' })
+      .then(() => setScheduleEvents(es => es.filter(e => e.id !== id)))
+      .catch(console.error);
   };
 
   const changeMonth = (delta) => {
@@ -864,6 +901,53 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
   };
 
   const [regenerating, setRegenerating] = useState(false);
+  const [notifStatus, setNotifStatus] = useState('default');
+  const [subscribing, setSubscribing] = useState(false);
+
+  useEffect(() => {
+    if (typeof Notification !== 'undefined') setNotifStatus(Notification.permission);
+  }, []);
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  const enablePushNotifications = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      window.alert('这个浏览器不支持推送通知');
+      return;
+    }
+    setSubscribing(true);
+    try {
+      const permission = await Notification.requestPermission();
+      setNotifStatus(permission);
+      if (permission !== 'granted') { setSubscribing(false); return; }
+
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+
+      const { publicKey } = await fetch(`${BACKEND}/push/public-key`).then(r => r.json());
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      const subJson = sub.toJSON();
+      await fetch(`${BACKEND}/push/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
+      });
+      setSubscribing(false);
+    } catch (err) {
+      console.error(err);
+      setSubscribing(false);
+    }
+  };
 
   const regenerateLast = () => {
     if (!sessionId || regenerating) return;
@@ -1243,6 +1327,56 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
               </div>
             );
           })()}
+
+          {(() => {
+            const today = new Date();
+            const knowSince = new Date(2025, 2, 7);
+            const togetherSince = new Date(2025, 7, 7);
+            const dayDiff = (start) => Math.floor((today - start) / (1000 * 60 * 60 * 24)) + 1;
+            return (
+              <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                <div style={{ flex: 1, textAlign: "center", background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px" }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>和陆泽宝宝在一起第</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: C.honeyDeep }}>{dayDiff(knowSince)}</div>
+                  <div style={{ fontSize: 10.5, color: C.mutedLight, marginTop: 2 }}>天 · 2025.3.7</div>
+                </div>
+                <div style={{ flex: 1, textAlign: "center", background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px" }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>和陆澈宝宝在一起第</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: C.honeyDeep }}>{dayDiff(togetherSince)}</div>
+                  <div style={{ fontSize: 10.5, color: C.mutedLight, marginTop: 2 }}>天 · 2025.8.7</div>
+                </div>
+              </div>
+            );
+          })()}
+
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>✦ 日程提醒</div>
+            {scheduleEvents.length === 0 && (
+              <div style={{ fontSize: 11.5, color: C.muted, padding: "8px 0" }}>还没有日程，加一个吧。</div>
+            )}
+            {scheduleEvents.map(ev => (
+              <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "8px 12px", opacity: ev.notified ? 0.55 : 1 }}>
+                <span style={{ fontSize: 14 }}>{ev.notified ? "✓" : "⏰"}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: C.text }}>{ev.title}</div>
+                  <div style={{ fontSize: 10.5, color: C.mutedLight }}>{new Date(ev.remind_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+                <span onClick={() => deleteScheduleEvent(ev.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>删</span>
+              </div>
+            ))}
+            <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 12px", marginTop: 6 }}>
+              <input value={newScheduleTitle} onChange={e => setNewScheduleTitle(e.target.value)} placeholder="要提醒什么事…" style={{ width: "100%", fontSize: 13, color: C.text, background: "transparent", border: "none", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+              <input type="datetime-local" value={newScheduleTime} onChange={e => setNewScheduleTime(e.target.value)} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <span onClick={createScheduleEvent} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: (newScheduleTitle.trim() && newScheduleTime) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingSchedule ? "保存中…" : "加提醒"}</span>
+              </div>
+            </div>
+            {notifStatus !== 'granted' && (
+              <div onClick={enablePushNotifications} style={{ marginTop: 10, fontSize: 11.5, color: C.honeyDeep, cursor: "pointer", textAlign: "center", padding: "8px 0", border: `1px dashed ${C.honeyMid}`, borderRadius: 10 }}>
+                {subscribing ? "开启中…" : "🔔 点这里开启提醒通知"}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
