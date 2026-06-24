@@ -126,7 +126,7 @@ function Avatar({ isMe, src, theme = H }) {
 export default function App() {
   const [stage, setStage] = useState("door");
   const [input, setInput] = useState("");
-  const [pendingImage, setPendingImage] = useState(null);
+  const [pendingFile, setPendingFile] = useState(null);
   const [imageUploading, setImageUploading] = useState(false);
   const chatImageInputRef = useRef(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -237,7 +237,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             id: m.id,
             role: m.role === "user" ? "me" : "ai",
             text: m.content,
-            image: m.attachment_url || null,
+            image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
+            file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
             thinking: m.reasoning_content || null,
             thinkingOpen: false,
             time: formatMsgTime(m.created_at),
@@ -670,7 +671,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           id: m.id,
           role: m.role === "user" ? "me" : "ai",
           text: m.content,
-          image: m.attachment_url || null,
+          image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
+          file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
           thinking: m.reasoning_content || null,
           thinkingOpen: false,
           time: formatMsgTime(m.created_at),
@@ -847,7 +849,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       .catch(console.error);
   };
 
-  const pickImage = (file) => {
+  const pickFile = (file) => {
     if (!file) return;
     setImageUploading(true);
     const formData = new FormData();
@@ -855,7 +857,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     fetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
       .then(r => r.json())
       .then(data => {
-        setPendingImage(data.url);
+        setPendingFile({ url: data.url, type: data.type, name: data.name });
         setImageUploading(false);
       })
       .catch(err => { console.error(err); setImageUploading(false); });
@@ -889,20 +891,21 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
   };
 
   const send = async () => {
-    if ((!input.trim() && !pendingImage) || !sessionId) return;
+    if ((!input.trim() && !pendingFile) || !sessionId) return;
     const txt = input.trim();
-    const img = pendingImage;
+    const fileToSend = pendingFile;
+    const isImg = fileToSend && fileToSend.type && fileToSend.type.startsWith('image/');
     const now = formatMsgTime(new Date());
-    setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, image: img, time: now, liked: false }]);
+    setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, image: isImg ? fileToSend.url : null, file: (fileToSend && !isImg) ? { url: fileToSend.url, name: fileToSend.name } : null, time: now, liked: false }]);
     setVisible(v => v + 1);
     setInput("");
-    setPendingImage(null);
+    setPendingFile(null);
     setThinking(true);
     try {
       const res = await fetch(`${BACKEND}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, message: txt, model: selectedModel, attachment_url: img || undefined })
+        body: JSON.stringify({ session_id: sessionId, message: txt, model: selectedModel, attachment_url: fileToSend?.url || undefined, attachment_type: fileToSend?.type || undefined, attachment_name: fileToSend?.name || undefined })
       });
       const data = await res.json();
       setThinking(false);
@@ -968,6 +971,12 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                   {m.image && (
                     <img src={m.image} alt="" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, display: "block" }} />
                   )}
+                  {m.file && (
+                    <a href={m.file.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 14, background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, textDecoration: "none", color: C.text, maxWidth: "100%" }}>
+                      <span style={{ fontSize: 20 }}>📄</span>
+                      <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.file.name}</span>
+                    </a>
+                  )}
                   {!isMe && m.thinking && (
                     <div>
                       <span onClick={() => toggleThinking(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }}>
@@ -1012,21 +1021,31 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         </div>
 
         <div style={{ background: C.white, borderTop: `1px solid ${C.border}`, padding: "10px 14px 14px", flexShrink: 0 }}>
-          {(pendingImage || imageUploading) && (
+          {(pendingFile || imageUploading) && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ position: "relative", width: 52, height: 52, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}`, background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {imageUploading ? <span style={{ fontSize: 9, color: C.muted }}>上传中…</span> : <img src={pendingImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
-                {pendingImage && !imageUploading && (
-                  <span onClick={() => setPendingImage(null)} style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "rgba(46,31,18,.6)", color: C.white, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>✕</span>
-                )}
-              </div>
+              {imageUploading ? (
+                <div style={{ width: 52, height: 52, borderRadius: 10, border: `1px solid ${C.border}`, background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 9, color: C.muted }}>上传中…</span>
+                </div>
+              ) : pendingFile && pendingFile.type && pendingFile.type.startsWith('image/') ? (
+                <div style={{ position: "relative", width: 52, height: 52, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
+                  <img src={pendingFile.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <span onClick={() => setPendingFile(null)} style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "rgba(46,31,18,.6)", color: C.white, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>✕</span>
+                </div>
+              ) : pendingFile && (
+                <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.cream, maxWidth: "80%" }}>
+                  <span style={{ fontSize: 16 }}>📄</span>
+                  <span style={{ fontSize: 11.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pendingFile.name}</span>
+                  <span onClick={() => setPendingFile(null)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", marginLeft: 4 }}>✕</span>
+                </div>
+              )}
             </div>
           )}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
             <button onClick={() => chatImageInputRef.current?.click()} style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
-            <input ref={chatImageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => pickImage(e.target.files?.[0])} />
+            <input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} />
             <textarea rows={1} placeholder="跟陆泽说点什么…" value={input} onChange={e => setInput(e.target.value)} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
-            <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: (input.trim() || pendingImage) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingImage) ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
+            <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: (input.trim() || pendingFile) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
             <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} style={{ fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "3px 10px", outline: "none", cursor: "pointer" }}>
