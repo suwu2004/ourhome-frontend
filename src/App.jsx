@@ -143,7 +143,6 @@ export default function App() {
   const [editingMemoryId, setEditingMemoryId] = useState(null);
   const [editingMemoryText, setEditingMemoryText] = useState("");
   const [savingMemory, setSavingMemory] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [myAvatar, setMyAvatar] = useState(null);
   const [partnerAvatar, setPartnerAvatar] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(null);
@@ -1549,7 +1548,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         <div onClick={openLetters} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'letters' ? C.honeyLight : "transparent", color: view === 'letters' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>✉ 时光信差</div>
         <div onClick={openCalendar} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'calendar' ? C.honeyLight : "transparent", color: view === 'calendar' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>🗓 心情日历</div>
         <div onClick={openMemories} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'memories' ? C.honeyLight : "transparent", color: view === 'memories' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>✦ 记忆</div>
-        <div onClick={() => setSettingsOpen(true)} style={{ margin: "0 14px 14px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, color: C.text, fontSize: 13.5, fontWeight: 500 }}>⚙ 设置</div>
+        <div onClick={() => { setView('settings'); setDrawerOpen(false); }} style={{ margin: "0 14px 14px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'settings' ? C.honeyLight : "transparent", color: view === 'settings' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>⚙ 设置</div>
         <Stars theme={C} />
         <div style={{ padding: "6px 0", flex: 1 }}>
           {sessions.map(s => (
@@ -1652,13 +1651,12 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         </div>
       </div>
 
-      <div onClick={() => setSettingsOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: settingsOpen ? 1 : 0, pointerEvents: settingsOpen ? "auto" : "none", transition: "opacity .25s" }} />
-      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "82%", maxWidth: 360, transform: settingsOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: settingsOpen ? 1 : 0, pointerEvents: settingsOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em", color: C.text }}>⚙ 设置</span>
-          <span onClick={() => setSettingsOpen(false)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
-        </div>
-        <div style={{ padding: "16px 18px" }}>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "settings") ? 1 : 0, pointerEvents: (stage === "home" && view === "settings") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
+        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          <span onClick={backToChat} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>⚙ 设置</span>
+        </header>
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <span style={{ fontSize: 13, color: C.text }}>{darkMode ? "🌙 夜间模式" : "☀️ 日间模式"}</span>
             <span onClick={toggleDarkMode} style={{ width: 44, height: 24, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
