@@ -160,6 +160,9 @@ export default function App() {
   const C = darkMode ? D : H;
   const [fontStyle, setFontStyle] = useState('system');
   const [systemPromptInput, setSystemPromptInput] = useState("");
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiBaseUrlInput, setApiBaseUrlInput] = useState("");
+  const [savingApiConfig, setSavingApiConfig] = useState(false);
   const [temperatureInput, setTemperatureInput] = useState(0.8);
   const [savingPersona, setSavingPersona] = useState(false);
   const [view, setView] = useState('chat');
@@ -311,6 +314,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         if (typeof data?.dark_mode === 'boolean') setDarkMode(data.dark_mode);
         if (data?.font_style && FONT_STYLES[data.font_style]) setFontStyle(data.font_style);
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
+        if (data?.api_key) setApiKeyInput(data.api_key);
+        if (data?.api_base_url) setApiBaseUrlInput(data.api_base_url);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
       })
       .catch(console.error);
@@ -345,6 +350,17 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     })
       .then(() => setSavingPersona(false))
       .catch(err => { console.error(err); setSavingPersona(false); });
+  };
+
+  const saveApiConfig = () => {
+    setSavingApiConfig(true);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: apiKeyInput.trim() || null, api_base_url: apiBaseUrlInput.trim() || null }),
+    })
+      .then(() => setSavingApiConfig(false))
+      .catch(err => { console.error(err); setSavingApiConfig(false); });
   };
 
   const openLetters = () => {
@@ -1739,6 +1755,15 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
               </div>
             );
           })()}
+
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>API 配置</div>
+            <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} placeholder="API 密钥（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+            <input value={apiBaseUrlInput} onChange={e => setApiBaseUrlInput(e.target.value)} placeholder="API 网址（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <span onClick={saveApiConfig} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, borderRadius: 999 }}>{savingApiConfig ? "存中…" : "保存"}</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
