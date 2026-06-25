@@ -1732,8 +1732,6 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             </div>
             <span onClick={resetBubbleColors} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
           </div>
-          <button onClick={() => window.open(`${BACKEND}/export`, '_blank')} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
 
           {(() => {
             const totalChars = msgs.reduce((sum, m) => sum + (m.text?.length || 0), 0);
@@ -1763,6 +1761,11 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <span onClick={saveApiConfig} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, borderRadius: 999 }}>{savingApiConfig ? "存中…" : "保存"}</span>
             </div>
+          </div>
+
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <button onClick={() => window.open(`${BACKEND}/export`, '_blank')} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
           </div>
         </div>
       </div>
