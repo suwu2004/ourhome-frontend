@@ -1223,10 +1223,6 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
             <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} style={{ fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "3px 10px", outline: "none", cursor: "pointer" }}>
               <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-              <option value="claude-opus-4-7">claude-opus-4-7</option>
-              <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
-              <option value="claude-opus-4-5-20251101">claude-opus-4-5</option>
-              <option value="gpt-4o">gpt-4o</option>
             </select>
             <div style={{ flex: 1, textAlign: "right", fontSize: 9.5, color: C.mutedLight, letterSpacing: ".18em" }}>在云端漫步</div>
           </div>
