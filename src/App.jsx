@@ -10,7 +10,6 @@ const H = {
   text: "#2E1F12", muted: "#B89A6A", mutedLight: "#D4BC94",
   border: "#EFE4CC", borderLight: "#F7EDD8",
 };
-
 const D = {
   cream: "#1C140C", surface: "#241B12", white: "#2A2018",
   honey: "#E8B45A", honeyDeep: "#F0C878", honeyLight: "#3A2C18",
@@ -163,6 +162,12 @@ export default function App() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiBaseUrlInput, setApiBaseUrlInput] = useState("");
   const [savingApiConfig, setSavingApiConfig] = useState(false);
+  // ↓↓↓ 自定义API开关 + 模型拉取，新增的4个状态 ↓↓↓
+  const [useCustomApi, setUseCustomApi] = useState(false);
+  const [availableModels, setAvailableModels] = useState([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [modelsFetchError, setModelsFetchError] = useState("");
+  // ↑↑↑ 新增结束 ↑↑↑
   const [temperatureInput, setTemperatureInput] = useState(0.8);
   const [savingPersona, setSavingPersona] = useState(false);
   const [view, setView] = useState('chat');
@@ -180,40 +185,39 @@ export default function App() {
   const [letters, setLetters] = useState([]);
   const [lettersLoading, setLettersLoading] = useState(false);
   const [newLetterText, setNewLetterText] = useState("");
-const PAPER_STYLES = {
-  kraft: {
-    label: "牛皮纸",
-    swatch: "#C9A876",
-    background: "radial-gradient(ellipse at 20% 30%, rgba(255,255,255,.08), transparent 60%), radial-gradient(ellipse at 80% 70%, rgba(0,0,0,.06), transparent 60%), #CDAD7E",
-    border: "1px solid #A6824F",
-    color: "#3E2D14",
-  },
-  lined: {
-    label: "横线本",
-    swatch: "#FBF6E8",
-    background: "repeating-linear-gradient(0deg, transparent 0px, transparent 27px, #BFD4E0 27px, #BFD4E0 28px), #FBF6E8",
-    border: "1px solid #E3D9B8",
-    color: "#3A3220",
-    extraBorderLeft: "3px solid #E7A7A0",
-  },
-  floral: {
-    label: "复古花边",
-    swatch: "#FBEAE3",
-    background: "linear-gradient(135deg, #FBEAE3 0%, #F7DCD2 100%)",
-    border: "3px dashed #E8B79A",
-    color: "#5A3424",
-  },
-  parchment: {
-    label: "羊皮卷",
-    swatch: "#E9D9AE",
-    background: "radial-gradient(ellipse at center, #F1E4BE 0%, #DDC68C 75%, #C5AA68 100%)",
-    border: "1px solid #B6995E",
-    color: "#4A3815",
-  },
-};
 
-const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
-
+  const PAPER_STYLES = {
+    kraft: {
+      label: "牛皮纸",
+      swatch: "#C9A876",
+      background: "radial-gradient(ellipse at 20% 30%, rgba(255,255,255,.08), transparent 60%), radial-gradient(ellipse at 80% 70%, rgba(0,0,0,.06), transparent 60%), #CDAD7E",
+      border: "1px solid #A6824F",
+      color: "#3E2D14",
+    },
+    lined: {
+      label: "横线本",
+      swatch: "#FBF6E8",
+      background: "repeating-linear-gradient(0deg, transparent 0px, transparent 27px, #BFD4E0 27px, #BFD4E0 28px), #FBF6E8",
+      border: "1px solid #E3D9B8",
+      color: "#3A3220",
+      extraBorderLeft: "3px solid #E7A7A0",
+    },
+    floral: {
+      label: "复古花边",
+      swatch: "#FBEAE3",
+      background: "linear-gradient(135deg, #FBEAE3 0%, #F7DCD2 100%)",
+      border: "3px dashed #E8B79A",
+      color: "#5A3424",
+    },
+    parchment: {
+      label: "羊皮卷",
+      swatch: "#E9D9AE",
+      background: "radial-gradient(ellipse at center, #F1E4BE 0%, #DDC68C 75%, #C5AA68 100%)",
+      border: "1px solid #B6995E",
+      color: "#4A3815",
+    },
+  };
+  const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
   const [newLetterTitle, setNewLetterTitle] = useState("");
   const [revealedIds, setRevealedIds] = useState(() => new Set());
   const [openLetterId, setOpenLetterId] = useState(null);
@@ -316,6 +320,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
         if (data?.api_key) setApiKeyInput(data.api_key);
         if (data?.api_base_url) setApiBaseUrlInput(data.api_base_url);
+        if (typeof data?.use_custom_api === 'boolean') setUseCustomApi(data.use_custom_api);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
       })
       .catch(console.error);
@@ -351,6 +356,31 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
       .then(() => setSavingPersona(false))
       .catch(err => { console.error(err); setSavingPersona(false); });
   };
+
+  // ↓↓↓ 新增：自定义API开关 + 拉取模型列表 ↓↓↓
+  const toggleUseCustomApi = () => {
+    const next = !useCustomApi;
+    setUseCustomApi(next);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ use_custom_api: next }),
+    }).catch(console.error);
+  };
+
+  const fetchAvailableModels = () => {
+    setFetchingModels(true);
+    setModelsFetchError("");
+    fetch(`${BACKEND}/settings/models`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { setModelsFetchError(data.error); setAvailableModels([]); }
+        else { setAvailableModels(Array.isArray(data.models) ? data.models : []); }
+        setFetchingModels(false);
+      })
+      .catch(err => { console.error(err); setModelsFetchError("网络错误，拉取失败"); setFetchingModels(false); });
+  };
+  // ↑↑↑ 新增结束 ↑↑↑
 
   const saveApiConfig = () => {
     setSavingApiConfig(true);
@@ -507,7 +537,6 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
 
   const startEditMood = (e) => { setEditingMoodId(e.id); setEditingMoodText(e.content); };
   const cancelEditMood = () => { setEditingMoodId(null); setEditingMoodText(""); };
-
   const saveEditMood = () => {
     const id = editingMoodId;
     const text = editingMoodText.trim();
@@ -621,7 +650,6 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
   };
 
   const [aiWriting, setAiWriting] = useState(null);
-
   const askAiWrite = (parentId) => {
     setAiWriting(parentId || 'new');
     fetch(`${BACKEND}/letters/generate`, {
@@ -787,8 +815,8 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
           file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
           thinking: m.reasoning_content || null,
-            inputTokens: m.input_tokens || 0,
-            outputTokens: m.output_tokens || 0,
+          inputTokens: m.input_tokens || 0,
+          outputTokens: m.output_tokens || 0,
           thinkingOpen: false,
           time: formatMsgTime(m.created_at),
           liked: false,
@@ -871,7 +899,6 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
 
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [editingMsgText, setEditingMsgText] = useState("");
-
   const toggleLike = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, liked: !m.liked } : m));
   const toggleThinking = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, thinkingOpen: !m.thinkingOpen } : m));
 
@@ -879,12 +906,10 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     setEditingMsgId(m.id);
     setEditingMsgText(m.text || "");
   };
-
   const cancelEditMsg = () => {
     setEditingMsgId(null);
     setEditingMsgText("");
   };
-
   const saveEditMsg = () => {
     const id = editingMsgId;
     const newText = editingMsgText.trim();
@@ -937,12 +962,10 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
     setEditingMemoryId(m.id);
     setEditingMemoryText(m.summary);
   };
-
   const cancelEditMemory = () => {
     setEditingMemoryId(null);
     setEditingMemoryText("");
   };
-
   const saveEditMemory = () => {
     if (!editingMemoryText.trim()) return;
     fetch(`${BACKEND}/memories/${editingMemoryId}`, {
@@ -1147,7 +1170,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
             <div style={{ textAlign: "center", fontSize: 11, color: C.muted, letterSpacing: ".15em", padding: "30px 0" }}>正在开门…</div>
           )}
           {ready && !hasHistory && (
-          <div style={{ textAlign: "center", fontSize: 10.5, color: C.muted, letterSpacing: ".2em", margin: "4px 0 18px" }}>✦ 2026.6.11 · 我们搬进来的第一天 ✦</div>
+            <div style={{ textAlign: "center", fontSize: 10.5, color: C.muted, letterSpacing: ".2em", margin: "4px 0 18px" }}>✦ 2026.6.11 · 我们搬进来的第一天 ✦</div>
           )}
           {msgs.slice(0, visible).map((m, idx) => {
             const isMe = m.role === "me";
@@ -1237,7 +1260,11 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
             <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} style={{ fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "3px 10px", outline: "none", cursor: "pointer" }}>
-              <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+              {availableModels.length > 0 ? (
+                availableModels.map(m => <option key={m} value={m}>{m}</option>)
+              ) : (
+                <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+              )}
             </select>
             <div style={{ flex: 1, textAlign: "right", fontSize: 9.5, color: C.mutedLight, letterSpacing: ".18em" }}>在云端漫步</div>
           </div>
@@ -1287,7 +1314,7 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                       </div>
                     ) : (
                       <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
-                        <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .75 }}>{l.author === '泽'  ? '叶檀留言' : '回信'}</span>
+                        <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .75 }}>{l.author === '泽' ? '叶檀留言' : '回信'}</span>
                         {l.author !== '泽' && (
                           <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .9, fontWeight: 600 }}>{aiWriting === l.id ? "陆泽在写…" : "请陆泽回信"}</span>
                         )}
@@ -1324,45 +1351,44 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
                 );
               })}
               {!lettersLoading && lettersCategory === '悄悄话' && letters.filter(l => !l.parent_id).map(l => {
-                const isWhisper = true;
                 const revealed = revealedIds.has(l.id);
                 return (
-                <div key={l.id} style={{ marginBottom: 16, background: "rgba(255,248,236,.94)", border: `1px solid #D9C19A`, borderRadius: 14, padding: "12px 14px", boxShadow: "0 4px 10px rgba(0,0,0,.25)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.honeyDeep }}>{l.author}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 9.5, color: C.mutedLight }}>{l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
-                      {revealed && <span onClick={() => deleteLetter(l.id)} style={{ fontSize: 10.5, color: "#A78A5E", cursor: "pointer" }}>删除</span>}
-                    </div>
-                  </div>
-                  {!revealed ? (
-                    <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 13, color: "#A78A5E", cursor: "pointer", padding: "10px 0", textAlign: "center", letterSpacing: ".1em", border: `1px dashed #D9C19A`, borderRadius: 8 }}>🔒 轻触查看悄悄话</div>
-                  ) : (
-                    <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 14, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap", cursor: "pointer" }}>{l.content}</div>
-                  )}
-                  {revealed && letters.filter(r => r.parent_id === l.id).map(r => (
-                    <div key={r.id} style={{ marginTop: 10, marginLeft: 14, paddingLeft: 10, borderLeft: `2px solid ${C.borderLight}` }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep, marginBottom: 2 }}>{r.author}</div>
-                      <div style={{ fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{r.content}</div>
-                    </div>
-                  ))}
-                  {revealed && (replyingToId === l.id ? (
-                    <div style={{ marginTop: 10 }}>
-                      <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-                        <span onClick={() => { setReplyingToId(null); setReplyText(""); }} style={{ fontSize: 11, color: C.muted, cursor: "pointer", padding: "3px 8px" }}>取消</span>
-                        <span onClick={() => submitReply(l.id)} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>留言</span>
+                  <div key={l.id} style={{ marginBottom: 16, background: "rgba(255,248,236,.94)", border: `1px solid #D9C19A`, borderRadius: 14, padding: "12px 14px", boxShadow: "0 4px 10px rgba(0,0,0,.25)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.honeyDeep }}>{l.author}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 9.5, color: C.mutedLight }}>{l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                        {revealed && <span onClick={() => deleteLetter(l.id)} style={{ fontSize: 10.5, color: "#A78A5E", cursor: "pointer" }}>删除</span>}
                       </div>
                     </div>
-                  ) : (
-                    <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                      <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>{l.author === '泽'? '叶檀留言' : '回信'}</span>
-                      {l.author !== '泽' && (
-                        <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>{aiWriting === l.id ? "陆泽在写…" : "请陆泽回信"}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    {!revealed ? (
+                      <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 13, color: "#A78A5E", cursor: "pointer", padding: "10px 0", textAlign: "center", letterSpacing: ".1em", border: `1px dashed #D9C19A`, borderRadius: 8 }}>🔒 轻触查看悄悄话</div>
+                    ) : (
+                      <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 14, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap", cursor: "pointer" }}>{l.content}</div>
+                    )}
+                    {revealed && letters.filter(r => r.parent_id === l.id).map(r => (
+                      <div key={r.id} style={{ marginTop: 10, marginLeft: 14, paddingLeft: 10, borderLeft: `2px solid ${C.borderLight}` }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep, marginBottom: 2 }}>{r.author}</div>
+                        <div style={{ fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{r.content}</div>
+                      </div>
+                    ))}
+                    {revealed && (replyingToId === l.id ? (
+                      <div style={{ marginTop: 10 }}>
+                        <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+                          <span onClick={() => { setReplyingToId(null); setReplyText(""); }} style={{ fontSize: 11, color: C.muted, cursor: "pointer", padding: "3px 8px" }}>取消</span>
+                          <span onClick={() => submitReply(l.id)} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>留言</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                        <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>{l.author === '泽' ? '叶檀留言' : '回信'}</span>
+                        {l.author !== '泽' && (
+                          <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>{aiWriting === l.id ? "陆泽在写…" : "请陆泽回信"}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 );
               })}
             </div>
@@ -1756,11 +1782,29 @@ const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
 
           <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>API 配置</div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontSize: 12.5, color: C.text }}>使用自定义API（关闭则用默认）</span>
+              <span onClick={toggleUseCustomApi} style={{ width: 40, height: 22, borderRadius: 999, background: useCustomApi ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", display: "inline-block" }}>
+                <span style={{ position: "absolute", top: 2, left: useCustomApi ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: C.white, transition: "left .2s" }} />
+              </span>
+            </div>
             <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} placeholder="API 密钥（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
             <input value={apiBaseUrlInput} onChange={e => setApiBaseUrlInput(e.target.value)} placeholder="API 网址（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span onClick={fetchAvailableModels} style={{ fontSize: 11.5, color: C.honeyDeep, cursor: "pointer" }}>{fetchingModels ? "拉取中…" : "↻ 拉取支持的模型"}</span>
               <span onClick={saveApiConfig} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, borderRadius: 999 }}>{savingApiConfig ? "存中…" : "保存"}</span>
             </div>
+            {modelsFetchError && (
+              <div style={{ fontSize: 11, color: C.blushDeep, marginBottom: 8 }}>{modelsFetchError}</div>
+            )}
+            {availableModels.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                {availableModels.map(m => (
+                  <span key={m} onClick={() => setSelectedModel(m)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 999, cursor: "pointer", color: selectedModel === m ? C.white : C.honeyDeep, background: selectedModel === m ? C.honey : C.honeyLight, border: `1px solid ${C.honeyMid}` }}>{m}</span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
