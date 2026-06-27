@@ -132,6 +132,8 @@ export default function App() {
   const [msgs, setMsgs] = useState(initMsgs);
   const [visible, setVisible] = useState(0);
   const [thinking, setThinking] = useState(false);
+  const [scrollToMsgId, setScrollToMsgId] = useState(null);
+  const [highlightMsgId, setHighlightMsgId] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
   const [hasHistory, setHasHistory] = useState(false);
@@ -1004,8 +1006,6 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [scrollToMsgId, setScrollToMsgId] = useState(null);
-  const [highlightMsgId, setHighlightMsgId] = useState(null);
 
   const performSearch = () => {
     if (!searchQuery.trim()) { setSearchResults([]); return; }
