@@ -163,7 +163,7 @@ export default function App() {
   const [apiBaseUrlInput, setApiBaseUrlInput] = useState("");
   const [savingApiConfig, setSavingApiConfig] = useState(false);
   // ↓↓↓ 自定义API开关 + 模型拉取，新增的4个状态 ↓↓↓
-  const [useCustomApi, setUseCustomApi] = useState(false);
+  // （已合并为一套配置：填了密钥就用填的，没填就用默认，不再需要开关）
   const [availableModels, setAvailableModels] = useState([]);
   const [fetchingModels, setFetchingModels] = useState(false);
   const [modelsFetchError, setModelsFetchError] = useState("");
@@ -300,8 +300,16 @@ export default function App() {
   }, [stage, ready, hasHistory]);
 
   useEffect(() => {
+    if (scrollToMsgId) {
+      const el = document.getElementById(`msg-${scrollToMsgId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setScrollToMsgId(null);
+        return;
+      }
+    }
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [visible, thinking]);
+  }, [visible, thinking, scrollToMsgId]);
 
   useEffect(() => {
     fetch(`${BACKEND}/settings`)
@@ -320,7 +328,6 @@ export default function App() {
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
         if (data?.api_key) setApiKeyInput(data.api_key);
         if (data?.api_base_url) setApiBaseUrlInput(data.api_base_url);
-        if (typeof data?.use_custom_api === 'boolean') setUseCustomApi(data.use_custom_api);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
       })
       .catch(console.error);
@@ -357,17 +364,7 @@ export default function App() {
       .catch(err => { console.error(err); setSavingPersona(false); });
   };
 
-  // ↓↓↓ 新增：自定义API开关 + 拉取模型列表 ↓↓↓
-  const toggleUseCustomApi = () => {
-    const next = !useCustomApi;
-    setUseCustomApi(next);
-    fetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ use_custom_api: next }),
-    }).catch(console.error);
-  };
-
+  // ↓↓↓ 拉取模型列表（密钥/网址直接读settings里填的，不再需要开关） ↓↓↓
   const fetchAvailableModels = () => {
     setFetchingModels(true);
     setModelsFetchError("");
@@ -570,7 +567,7 @@ export default function App() {
     fetch(`${BACKEND}/calendar/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: calendarDayOpen }),
+      body: JSON.stringify({ date: calendarDayOpen, model: selectedModel }),
     })
       .then(r => r.json())
       .then(data => {
@@ -655,7 +652,7 @@ export default function App() {
     fetch(`${BACKEND}/letters/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category: lettersCategory, parent_id: parentId || null }),
+      body: JSON.stringify({ category: lettersCategory, parent_id: parentId || null, model: selectedModel }),
     })
       .then(r => r.json())
       .then(data => {
@@ -1007,6 +1004,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [scrollToMsgId, setScrollToMsgId] = useState(null);
+  const [highlightMsgId, setHighlightMsgId] = useState(null);
 
   const performSearch = () => {
     if (!searchQuery.trim()) { setSearchResults([]); return; }
@@ -1022,7 +1021,10 @@ export default function App() {
 
   const jumpToSearchResult = (r) => {
     setSearchOpen(false);
+    setScrollToMsgId(r.id);
+    setHighlightMsgId(r.id);
     switchSession(r.session_id);
+    setTimeout(() => setHighlightMsgId(null), 2200);
   };
 
   const [notifStatus, setNotifStatus] = useState('default');
@@ -1176,7 +1178,7 @@ export default function App() {
             const isMe = m.role === "me";
             const isLast = idx === visible - 1;
             return (
-              <div key={m.id} style={{ display: "flex", marginBottom: 14, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 6 }}>
+              <div key={m.id} id={`msg-${m.id}`} style={{ display: "flex", marginBottom: 14, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 6, background: highlightMsgId === m.id ? C.honeyLight : "transparent", borderRadius: 14, padding: highlightMsgId === m.id ? "6px 4px" : "0px", transition: "background .6s ease" }}>
                 <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} theme={C} />
                 <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6 }}>
                   {m.image && (
@@ -1782,13 +1784,6 @@ export default function App() {
 
           <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>API 配置</div>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <span style={{ fontSize: 12.5, color: C.text }}>使用自定义API（关闭则用默认）</span>
-              <span onClick={toggleUseCustomApi} style={{ width: 40, height: 22, borderRadius: 999, background: useCustomApi ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", display: "inline-block" }}>
-                <span style={{ position: "absolute", top: 2, left: useCustomApi ? 20 : 2, width: 18, height: 18, borderRadius: "50%", background: C.white, transition: "left .2s" }} />
-              </span>
-            </div>
             <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} placeholder="API 密钥（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
             <input value={apiBaseUrlInput} onChange={e => setApiBaseUrlInput(e.target.value)} placeholder="API 网址（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
