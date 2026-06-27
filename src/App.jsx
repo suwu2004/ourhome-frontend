@@ -330,7 +330,9 @@ export default function App() {
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
         if (data?.api_key) setApiKeyInput(data.api_key);
         if (data?.api_base_url) setApiBaseUrlInput(data.api_base_url);
+        if (data?.selected_model) setSelectedModel(data.selected_model);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
+        if (data?.api_key) fetchAvailableModels();
       })
       .catch(console.error);
   }, []);
@@ -378,6 +380,16 @@ export default function App() {
         setFetchingModels(false);
       })
       .catch(err => { console.error(err); setModelsFetchError("网络错误，拉取失败"); setFetchingModels(false); });
+  };
+
+  // 选模型这件事存进数据库，刷新/重开都不会丢
+  const chooseModel = (m) => {
+    setSelectedModel(m);
+    fetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selected_model: m }),
+    }).catch(console.error);
   };
   // ↑↑↑ 新增结束 ↑↑↑
 
@@ -1261,7 +1273,7 @@ export default function App() {
             <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: (input.trim() || pendingFile) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
-            <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} style={{ fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "3px 10px", outline: "none", cursor: "pointer" }}>
+            <select value={selectedModel} onChange={e => chooseModel(e.target.value)} style={{ fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "3px 10px", outline: "none", cursor: "pointer" }}>
               {availableModels.length > 0 ? (
                 availableModels.map(m => <option key={m} value={m}>{m}</option>)
               ) : (
@@ -1796,7 +1808,7 @@ export default function App() {
             {availableModels.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                 {availableModels.map(m => (
-                  <span key={m} onClick={() => setSelectedModel(m)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 999, cursor: "pointer", color: selectedModel === m ? C.white : C.honeyDeep, background: selectedModel === m ? C.honey : C.honeyLight, border: `1px solid ${C.honeyMid}` }}>{m}</span>
+                  <span key={m} onClick={() => chooseModel(m)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 999, cursor: "pointer", color: selectedModel === m ? C.white : C.honeyDeep, background: selectedModel === m ? C.honey : C.honeyLight, border: `1px solid ${C.honeyMid}` }}>{m}</span>
                 ))}
               </div>
             )}
