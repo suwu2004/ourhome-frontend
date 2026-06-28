@@ -1775,7 +1775,9 @@ export default function App() {
 
           {(() => {
             const totalChars = msgs.reduce((sum, m) => sum + (m.text?.length || 0), 0);
-            const totalTokens = msgs.reduce((sum, m) => sum + (m.inputTokens || 0) + (m.outputTokens || 0), 0);
+            const lastWithTokens = [...msgs].reverse().find(m => m.role === 'ai' && m.inputTokens);
+            const currentContextTokens = lastWithTokens?.inputTokens || 0;
+            const totalOutputTokens = msgs.reduce((sum, m) => sum + (m.outputTokens || 0), 0);
             return (
               <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>当前对话用量</div>
@@ -1785,11 +1787,15 @@ export default function App() {
                     <div style={{ fontSize: 10, color: C.mutedLight }}>字</div>
                   </div>
                   <div style={{ flex: 1, textAlign: "center", background: C.cream, borderRadius: 10, padding: "8px 4px" }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: C.honeyDeep }}>{totalTokens}</div>
-                    <div style={{ fontSize: 10, color: C.mutedLight }}>tokens</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.honeyDeep }}>{currentContextTokens}</div>
+                    <div style={{ fontSize: 10, color: C.mutedLight }}>当前上下文</div>
+                  </div>
+                  <div style={{ flex: 1, textAlign: "center", background: C.cream, borderRadius: 10, padding: "8px 4px" }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.honeyDeep }}>{totalOutputTokens}</div>
+                    <div style={{ fontSize: 10, color: C.mutedLight }}>累计生成</div>
                   </div>
                 </div>
-                <div style={{ fontSize: 10, color: C.mutedLight, marginTop: 6, lineHeight: 1.5 }}>tokens只统计有真实回复记录的部分，是当前打开的这个对话的累计用量。</div>
+                <div style={{ fontSize: 10, color: C.mutedLight, marginTop: 6, lineHeight: 1.5 }}>"当前上下文"是陆泽现在每次说话要带着的历史聊天量；"累计生成"是他这整个对话里一共说过的字数对应的tokens。</div>
               </div>
             );
           })()}
