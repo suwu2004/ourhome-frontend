@@ -964,13 +964,52 @@ export default function App() {
   const saveEditMsg = () => {
     const id = editingMsgId;
     const newText = editingMsgText.trim();
-    setMsgs(ms => ms.map(m => m.id === id ? { ...m, text: newText } : m));
+    if (!newText) return;
     cancelEditMsg();
-    apiFetch(`${BACKEND}/messages/${id}`, {
-      method: 'PATCH',
+    setThinking(true);
+
+    apiFetch(`${BACKEND}/messages/${id}/edit-and-regenerate`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: newText })
-    }).catch(console.error);
+      body: JSON.stringify({ content: newText, model: selectedModel })
+    })
+      .then(r => r.json())
+      .then(data => {
+        let newLength = 0;
+        setMsgs(ms => {
+          const idx = ms.findIndex(m => m.id === id);
+          if (idx === -1) { newLength = ms.length; return ms; }
+          const kept = ms.slice(0, idx + 1).map(m => m.id === id ? { ...m, text: newText } : m);
+          const replyTime = formatMsgTime(new Date());
+          const next = [...kept, {
+            id: data.id, role: "ai", text: data.reply || "（抱着你）嗯，我在呢。",
+            thinking: data.thinking || null, thinkingOpen: false,
+            inputTokens: data.inputTokens || 0, outputTokens: data.outputTokens || 0,
+            time: replyTime, liked: false,
+          }];
+          newLength = next.length;
+          return next;
+        });
+        setVisible(newLength);
+        setThinking(false);
+      })
+      .catch(err => { console.error(err); setThinking(false); });
+  };
+
+  const rollbackToMsg = (id) => {
+    if (!window.confirm("确定要回溯到这条消息吗？之后的内容会被收起来（不会真的删除）。")) return;
+    apiFetch(`${BACKEND}/messages/${id}/rollback`, { method: 'POST' })
+      .then(() => {
+        let newLength = 0;
+        setMsgs(ms => {
+          const idx = ms.findIndex(m => m.id === id);
+          const next = idx === -1 ? ms : ms.slice(0, idx + 1);
+          newLength = next.length;
+          return next;
+        });
+        setVisible(newLength);
+      })
+      .catch(console.error);
   };
 
   const openMemories = () => {
@@ -1296,6 +1335,7 @@ export default function App() {
                   {isMe && m.text && editingMsgId !== m.id && (
                     <span onClick={() => startEditMsg(m)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", userSelect: "none" }}>改</span>
                   )}
+                  <span onClick={() => rollbackToMsg(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", userSelect: "none" }}>溯</span>
                 </div>
               </div>
             );
