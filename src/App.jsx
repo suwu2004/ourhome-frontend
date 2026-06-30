@@ -2,6 +2,19 @@ import { useState, useEffect, useRef } from 'react';
 
 const BACKEND = "https://ourhome-backend.onrender.com";
 const SESSION_KEY = "ourhome_session_id";
+const TOKEN_KEY = "ourhome_token";
+
+// 带token的fetch封装，自动附带Authorization头
+function apiFetch(url, options = {}) {
+  const token = localStorage.getItem(TOKEN_KEY) || '';
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+}
 
 const H = {
   cream: "#FFF8F0", surface: "#FFFDF8", white: "#FFFFFF",
@@ -124,6 +137,10 @@ function Avatar({ isMe, src, theme = H }) {
 
 export default function App() {
   const [stage, setStage] = useState("door");
+  const [locked, setLocked] = useState(!localStorage.getItem(TOKEN_KEY));
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState("");
+  const [pwLoading, setPwLoading] = useState(false);
   const [input, setInput] = useState("");
   const [pendingFile, setPendingFile] = useState(null);
   const [imageUploading, setImageUploading] = useState(false);
@@ -232,6 +249,29 @@ export default function App() {
   const [sessions, setSessions] = useState([]);
   const listRef = useRef(null);
 
+  const handleLogin = () => {
+    if (!pwInput.trim()) return;
+    setPwLoading(true);
+    setPwError("");
+    fetch(`${BACKEND}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwInput.trim() }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.token) {
+          localStorage.setItem(TOKEN_KEY, data.token);
+          setLocked(false);
+          setPwInput("");
+        } else {
+          setPwError("密码不对，再试试");
+        }
+        setPwLoading(false);
+      })
+      .catch(() => { setPwError("网络出问题了，等一下再试"); setPwLoading(false); });
+  };
+
   const openDoor = () => {
     if (stage !== "door") return;
     setStage("opening");
@@ -239,7 +279,7 @@ export default function App() {
   };
 
   const loadMessagesFor = (id) => {
-    return fetch(`${BACKEND}/sessions/${id}/messages`)
+    return apiFetch(`${BACKEND}/sessions/${id}/messages`)
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
@@ -264,7 +304,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetch(`${BACKEND}/sessions`)
+    apiFetch(`${BACKEND}/sessions`)
       .then(r => r.json())
       .then(list => {
         const valid = Array.isArray(list) ? list : [];
@@ -276,7 +316,7 @@ export default function App() {
           localStorage.setItem(SESSION_KEY, target.id);
           return loadMessagesFor(target.id).then(() => setReady(true));
         } else {
-          return fetch(`${BACKEND}/sessions`, {
+          return apiFetch(`${BACKEND}/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: '日常' })
@@ -314,7 +354,7 @@ export default function App() {
   }, [visible, thinking, scrollToMsgId]);
 
   useEffect(() => {
-    fetch(`${BACKEND}/settings`)
+    apiFetch(`${BACKEND}/settings`)
       .then(r => r.json())
       .then(data => {
         if (data?.my_avatar_url) setMyAvatar(data.my_avatar_url);
@@ -340,7 +380,7 @@ export default function App() {
   const toggleDarkMode = () => {
     const next = !darkMode;
     setDarkMode(next);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dark_mode: next }),
@@ -349,7 +389,7 @@ export default function App() {
 
   const changeFontStyle = (key) => {
     setFontStyle(key);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ font_style: key }),
@@ -359,7 +399,7 @@ export default function App() {
   const savePersona = () => {
     if (!systemPromptInput.trim()) return;
     setSavingPersona(true);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ system_prompt: systemPromptInput, temperature: Number(temperatureInput) }),
@@ -372,7 +412,7 @@ export default function App() {
   const fetchAvailableModels = () => {
     setFetchingModels(true);
     setModelsFetchError("");
-    fetch(`${BACKEND}/settings/models`)
+    apiFetch(`${BACKEND}/settings/models`)
       .then(r => r.json())
       .then(data => {
         if (data.error) { setModelsFetchError(data.error); setAvailableModels([]); }
@@ -385,7 +425,7 @@ export default function App() {
   // 选模型这件事存进数据库，刷新/重开都不会丢
   const chooseModel = (m) => {
     setSelectedModel(m);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ selected_model: m }),
@@ -395,7 +435,7 @@ export default function App() {
 
   const saveApiConfig = () => {
     setSavingApiConfig(true);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ api_key: apiKeyInput.trim() || null, api_base_url: apiBaseUrlInput.trim() || null }),
@@ -411,7 +451,7 @@ export default function App() {
   };
 
   const fetchMonthEntries = (month) => {
-    fetch(`${BACKEND}/calendar?month=${month}`)
+    apiFetch(`${BACKEND}/calendar?month=${month}`)
       .then(r => r.json())
       .then(data => setMonthEntries(Array.isArray(data) ? data : []))
       .catch(console.error);
@@ -431,7 +471,7 @@ export default function App() {
   const [savingSchedule, setSavingSchedule] = useState(false);
 
   const fetchSchedule = () => {
-    fetch(`${BACKEND}/schedule`)
+    apiFetch(`${BACKEND}/schedule`)
       .then(r => r.json())
       .then(data => setScheduleEvents(Array.isArray(data) ? data : []))
       .catch(console.error);
@@ -440,7 +480,7 @@ export default function App() {
   const createScheduleEvent = () => {
     if (!newScheduleTitle.trim() || !newScheduleTime) return;
     setSavingSchedule(true);
-    fetch(`${BACKEND}/schedule`, {
+    apiFetch(`${BACKEND}/schedule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: newScheduleTitle.trim(), remind_at: new Date(newScheduleTime).toISOString(), author: '檀' }),
@@ -456,7 +496,7 @@ export default function App() {
   };
 
   const deleteScheduleEvent = (id) => {
-    fetch(`${BACKEND}/schedule/${id}`, { method: 'DELETE' })
+    apiFetch(`${BACKEND}/schedule/${id}`, { method: 'DELETE' })
       .then(() => setScheduleEvents(es => es.filter(e => e.id !== id)))
       .catch(console.error);
   };
@@ -465,7 +505,7 @@ export default function App() {
   const [newWishText, setNewWishText] = useState("");
 
   const fetchWishes = () => {
-    fetch(`${BACKEND}/wishes`)
+    apiFetch(`${BACKEND}/wishes`)
       .then(r => r.json())
       .then(data => setWishes(Array.isArray(data) ? data : []))
       .catch(console.error);
@@ -473,7 +513,7 @@ export default function App() {
 
   const addWish = () => {
     if (!newWishText.trim()) return;
-    fetch(`${BACKEND}/wishes`, {
+    apiFetch(`${BACKEND}/wishes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: newWishText.trim(), author: '檀' }),
@@ -487,7 +527,7 @@ export default function App() {
   };
 
   const toggleWish = (id, done) => {
-    fetch(`${BACKEND}/wishes/${id}`, {
+    apiFetch(`${BACKEND}/wishes/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ done: !done }),
@@ -498,7 +538,7 @@ export default function App() {
   };
 
   const deleteWish = (id) => {
-    fetch(`${BACKEND}/wishes/${id}`, { method: 'DELETE' })
+    apiFetch(`${BACKEND}/wishes/${id}`, { method: 'DELETE' })
       .then(() => setWishes(ws => ws.filter(w => w.id !== id)))
       .catch(console.error);
   };
@@ -516,7 +556,7 @@ export default function App() {
     setDayEntriesLoading(true);
     setSelectedMood(null);
     setNewMoodText("");
-    fetch(`${BACKEND}/calendar/${dateStr}`)
+    apiFetch(`${BACKEND}/calendar/${dateStr}`)
       .then(r => r.json())
       .then(data => {
         setDayEntries(Array.isArray(data) ? data : []);
@@ -527,7 +567,7 @@ export default function App() {
 
   const submitMoodEntry = () => {
     if (!newMoodText.trim() || !calendarDayOpen) return;
-    fetch(`${BACKEND}/calendar`, {
+    apiFetch(`${BACKEND}/calendar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date: calendarDayOpen, author: '檀', mood: selectedMood, content: newMoodText.trim() }),
@@ -552,7 +592,7 @@ export default function App() {
     const id = editingMoodId;
     const text = editingMoodText.trim();
     if (!text) return;
-    fetch(`${BACKEND}/calendar/${id}`, {
+    apiFetch(`${BACKEND}/calendar/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: text }),
@@ -567,7 +607,7 @@ export default function App() {
 
   const deleteMoodEntry = (id) => {
     if (!window.confirm("确定要删掉这条留言吗？")) return;
-    fetch(`${BACKEND}/calendar/${id}`, { method: 'DELETE' })
+    apiFetch(`${BACKEND}/calendar/${id}`, { method: 'DELETE' })
       .then(() => {
         setDayEntries(es => es.filter(x => x.id !== id));
         fetchMonthEntries(calendarMonth);
@@ -578,7 +618,7 @@ export default function App() {
   const askAiWriteMood = () => {
     if (!calendarDayOpen) return;
     setAiMoodWriting(true);
-    fetch(`${BACKEND}/calendar/generate`, {
+    apiFetch(`${BACKEND}/calendar/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date: calendarDayOpen, model: selectedModel }),
@@ -598,7 +638,7 @@ export default function App() {
   const openCategory = (cat) => {
     setLettersCategory(cat);
     setLettersLoading(true);
-    fetch(`${BACKEND}/letters?category=${encodeURIComponent(cat)}`)
+    apiFetch(`${BACKEND}/letters?category=${encodeURIComponent(cat)}`)
       .then(r => r.json())
       .then(data => {
         setLetters(Array.isArray(data) ? data : []);
@@ -611,7 +651,7 @@ export default function App() {
     if (!newLetterText.trim() || savingLetter) return;
     if (lettersCategory === '幸福日记' && !newLetterTitle.trim()) return;
     setSavingLetter(true);
-    fetch(`${BACKEND}/letters`, {
+    apiFetch(`${BACKEND}/letters`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category: lettersCategory, author: '檀', content: newLetterText.trim(), title: lettersCategory === '幸福日记' ? newLetterTitle.trim() : null, paper_style: lettersCategory === '幸福日记' ? selectedPaperStyle : null }),
@@ -636,7 +676,7 @@ export default function App() {
 
   const submitReply = (parentId) => {
     if (!replyText.trim()) return;
-    fetch(`${BACKEND}/letters`, {
+    apiFetch(`${BACKEND}/letters`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category: lettersCategory, author: '檀', content: replyText.trim(), parent_id: parentId }),
@@ -652,7 +692,7 @@ export default function App() {
 
   const deleteLetter = (id) => {
     if (!window.confirm("确定要删掉这篇吗？里面的留言也会一起删掉，不能恢复。")) return;
-    fetch(`${BACKEND}/letters/${id}`, { method: 'DELETE' })
+    apiFetch(`${BACKEND}/letters/${id}`, { method: 'DELETE' })
       .then(() => {
         setLetters(ls => ls.filter(x => x.id !== id && x.parent_id !== id));
         if (openLetterId === id) setOpenLetterId(null);
@@ -663,7 +703,7 @@ export default function App() {
   const [aiWriting, setAiWriting] = useState(null);
   const askAiWrite = (parentId) => {
     setAiWriting(parentId || 'new');
-    fetch(`${BACKEND}/letters/generate`, {
+    apiFetch(`${BACKEND}/letters/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ category: lettersCategory, parent_id: parentId || null, model: selectedModel }),
@@ -682,9 +722,9 @@ export default function App() {
     setUploadingBg(true);
     const formData = new FormData();
     formData.append('file', file);
-    fetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
+    apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
       .then(r => r.json())
-      .then(data => fetch(`${BACKEND}/settings`, {
+      .then(data => apiFetch(`${BACKEND}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bg_image_url: data.url, bg_color: null }),
@@ -699,7 +739,7 @@ export default function App() {
   const setBackgroundColor = (color) => {
     setBgColor(color);
     setBgImage(null);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bg_color: color, bg_image_url: null }),
@@ -711,9 +751,9 @@ export default function App() {
     setUploadingWhisperBg(true);
     const formData = new FormData();
     formData.append('file', file);
-    fetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
+    apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
       .then(r => r.json())
-      .then(data => fetch(`${BACKEND}/settings`, {
+      .then(data => apiFetch(`${BACKEND}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ whisper_bg_image_url: data.url, whisper_bg_color: null }),
@@ -728,7 +768,7 @@ export default function App() {
   const setWhisperBackgroundColor = (color) => {
     setWhisperBgColor(color);
     setWhisperBgImage(null);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ whisper_bg_color: color, whisper_bg_image_url: null }),
@@ -738,7 +778,7 @@ export default function App() {
   const resetWhisperBackground = () => {
     setWhisperBgImage(null);
     setWhisperBgColor(null);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ whisper_bg_color: null, whisper_bg_image_url: null }),
@@ -747,7 +787,7 @@ export default function App() {
 
   const setMyBubble = (color) => {
     setMyBubbleColor(color);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ my_bubble_color: color }),
@@ -756,7 +796,7 @@ export default function App() {
 
   const setPartnerBubble = (color) => {
     setPartnerBubbleColor(color);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ partner_bubble_color: color }),
@@ -766,7 +806,7 @@ export default function App() {
   const resetBubbleColors = () => {
     setMyBubbleColor(null);
     setPartnerBubbleColor(null);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ my_bubble_color: null, partner_bubble_color: null }),
@@ -776,7 +816,7 @@ export default function App() {
   const resetBackground = () => {
     setBgImage(null);
     setBgColor(null);
-    fetch(`${BACKEND}/settings`, {
+    apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bg_color: null, bg_image_url: null }),
@@ -788,11 +828,11 @@ export default function App() {
     setUploadingAvatar(who);
     const formData = new FormData();
     formData.append('file', file);
-    fetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
+    apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
       .then(r => r.json())
       .then(data => {
         const field = who === 'me' ? 'my_avatar_url' : 'partner_avatar_url';
-        return fetch(`${BACKEND}/settings`, {
+        return apiFetch(`${BACKEND}/settings`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ [field]: data.url }),
@@ -806,7 +846,7 @@ export default function App() {
   };
 
   const fetchSessions = () => {
-    fetch(`${BACKEND}/sessions`)
+    apiFetch(`${BACKEND}/sessions`)
       .then(r => r.json())
       .then(data => setSessions(Array.isArray(data) ? data : []))
       .catch(console.error);
@@ -816,7 +856,7 @@ export default function App() {
     if (id === sessionId) { setDrawerOpen(false); return; }
     setSessionId(id);
     localStorage.setItem(SESSION_KEY, id);
-    fetch(`${BACKEND}/sessions/${id}/messages`)
+    apiFetch(`${BACKEND}/sessions/${id}/messages`)
       .then(r => r.json())
       .then(data => {
         const mapped = (Array.isArray(data) ? data : []).map(m => ({
@@ -843,7 +883,7 @@ export default function App() {
   const createSession = () => {
     const name = window.prompt("探索新世界：", "新对话");
     if (!name) return;
-    fetch(`${BACKEND}/sessions`, {
+    apiFetch(`${BACKEND}/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
@@ -862,7 +902,7 @@ export default function App() {
   const renameSession = (id, currentName) => {
     const name = window.prompt("改成什么名字：", currentName);
     if (!name || !name.trim()) return;
-    fetch(`${BACKEND}/sessions/${id}`, {
+    apiFetch(`${BACKEND}/sessions/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name.trim() })
@@ -873,12 +913,12 @@ export default function App() {
 
   const deleteSession = (id) => {
     if (!window.confirm("确定要删掉这个对话吗？里面的聊天记录也会一起删掉，不能恢复。")) return;
-    fetch(`${BACKEND}/sessions/${id}`, { method: 'DELETE' })
+    apiFetch(`${BACKEND}/sessions/${id}`, { method: 'DELETE' })
       .then(() => {
         fetchSessions();
         if (id === sessionId) {
           localStorage.removeItem(SESSION_KEY);
-          fetch(`${BACKEND}/sessions`)
+          apiFetch(`${BACKEND}/sessions`)
             .then(r => r.json())
             .then(list => {
               const valid = Array.isArray(list) ? list : [];
@@ -890,7 +930,7 @@ export default function App() {
                 setVisible(0);
                 setHasHistory(false);
                 setSessionId(null);
-                fetch(`${BACKEND}/sessions`, {
+                apiFetch(`${BACKEND}/sessions`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ name: '日常' })
@@ -926,7 +966,7 @@ export default function App() {
     const newText = editingMsgText.trim();
     setMsgs(ms => ms.map(m => m.id === id ? { ...m, text: newText } : m));
     cancelEditMsg();
-    fetch(`${BACKEND}/messages/${id}`, {
+    apiFetch(`${BACKEND}/messages/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: newText })
@@ -937,7 +977,7 @@ export default function App() {
     setView('memories');
     setDrawerOpen(false);
     setMemoriesLoading(true);
-    fetch(`${BACKEND}/memories`)
+    apiFetch(`${BACKEND}/memories`)
       .then(r => r.json())
       .then(data => {
         setMemories(Array.isArray(data) ? data : []);
@@ -952,7 +992,7 @@ export default function App() {
   const saveMemory = () => {
     if (!newMemory.trim() || savingMemory) return;
     setSavingMemory(true);
-    fetch(`${BACKEND}/memories`, {
+    apiFetch(`${BACKEND}/memories`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ summary: newMemory.trim() })
@@ -979,7 +1019,7 @@ export default function App() {
   };
   const saveEditMemory = () => {
     if (!editingMemoryText.trim()) return;
-    fetch(`${BACKEND}/memories/${editingMemoryId}`, {
+    apiFetch(`${BACKEND}/memories/${editingMemoryId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ summary: editingMemoryText.trim() })
@@ -994,7 +1034,7 @@ export default function App() {
 
   const deleteMemory = (id) => {
     if (!window.confirm("确定要删掉这条记忆吗？")) return;
-    fetch(`${BACKEND}/memories/${id}`, { method: 'DELETE' })
+    apiFetch(`${BACKEND}/memories/${id}`, { method: 'DELETE' })
       .then(() => setMemories(ms => ms.filter(m => m.id !== id)))
       .catch(console.error);
   };
@@ -1004,7 +1044,7 @@ export default function App() {
     setImageUploading(true);
     const formData = new FormData();
     formData.append('file', file);
-    fetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
+    apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
       .then(r => r.json())
       .then(data => {
         setPendingFile({ url: data.url, type: data.type, name: data.name });
@@ -1022,7 +1062,7 @@ export default function App() {
   const performSearch = () => {
     if (!searchQuery.trim()) { setSearchResults([]); return; }
     setSearching(true);
-    fetch(`${BACKEND}/messages/search?q=${encodeURIComponent(searchQuery.trim())}`)
+    apiFetch(`${BACKEND}/messages/search?q=${encodeURIComponent(searchQuery.trim())}`)
       .then(r => r.json())
       .then(data => {
         setSearchResults(Array.isArray(data) ? data : []);
@@ -1069,13 +1109,13 @@ export default function App() {
       const reg = await navigator.serviceWorker.register('/sw.js');
       await navigator.serviceWorker.ready;
 
-      const { publicKey } = await fetch(`${BACKEND}/push/public-key`).then(r => r.json());
+      const { publicKey } = await apiFetch(`${BACKEND}/push/public-key`).then(r => r.json());
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
       const subJson = sub.toJSON();
-      await fetch(`${BACKEND}/push/subscribe`, {
+      await apiFetch(`${BACKEND}/push/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
@@ -1090,7 +1130,7 @@ export default function App() {
   const regenerateLast = () => {
     if (!sessionId || regenerating) return;
     setRegenerating(true);
-    fetch(`${BACKEND}/chat/regenerate`, {
+    apiFetch(`${BACKEND}/chat/regenerate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId, model: selectedModel }),
@@ -1124,7 +1164,7 @@ export default function App() {
     setPendingFile(null);
     setThinking(true);
     try {
-      const res = await fetch(`${BACKEND}/chat`, {
+      const res = await apiFetch(`${BACKEND}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: sessionId, message: txt, model: selectedModel, attachment_url: fileToSend?.url || undefined, attachment_type: fileToSend?.type || undefined, attachment_name: fileToSend?.name || undefined })
@@ -1143,6 +1183,29 @@ export default function App() {
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", background: C.cream, color: C.text, fontFamily: FONT_STYLES[fontStyle].family }}>
+
+      {/* ===== 密码门 ===== */}
+      {locked && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: `radial-gradient(ellipse 80% 50% at 50% 100%, ${C.honeyLight} 0%, transparent 65%), ${C.cream}`, gap: 20 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: ".1em", color: C.text }}>欢迎回家</div>
+          <div style={{ fontSize: 11, color: C.muted, letterSpacing: ".3em" }}>请输入密码</div>
+          <input
+            type="password"
+            value={pwInput}
+            onChange={e => setPwInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleLogin(); }}
+            placeholder="密码"
+            autoFocus
+            style={{ width: 200, textAlign: "center", fontSize: 18, letterSpacing: ".3em", color: C.text, background: C.white, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: "12px 16px", outline: "none", fontFamily: "inherit" }}
+          />
+          {pwError && <div style={{ fontSize: 12, color: C.blushDeep }}>{pwError}</div>}
+          <div onClick={handleLogin} style={{ padding: "10px 32px", background: pwLoading ? C.honeyMid : `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, borderRadius: 999, fontSize: 14, cursor: pwLoading ? "default" : "pointer", letterSpacing: ".1em", boxShadow: `0 4px 12px rgba(185,122,31,.3)` }}>
+            {pwLoading ? "验证中…" : "进门"}
+          </div>
+          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: ".15em" }}>ourhome · since 2025.08.07</div>
+        </div>
+      )}
+
       <div style={{ position: "absolute", inset: 0, zIndex: 40, pointerEvents: "none", background: "radial-gradient(circle at 50% 55%, #FFF8D0 0%, #FFE896 28%, transparent 62%)", opacity: stage === "opening" ? 1 : 0, transition: "opacity .9s ease .3s" }} />
       <div style={{ position: "absolute", inset: 0, zIndex: 30, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, background: `radial-gradient(ellipse 80% 50% at 50% 100%, ${C.honeyLight} 0%, transparent 65%), ${C.cream}`, opacity: stage === "home" ? 0 : 1, transition: "opacity .9s ease .4s", pointerEvents: stage === "home" ? "none" : "auto" }}>
         <div style={{ fontSize: 10, letterSpacing: ".38em", color: C.muted, textTransform: "uppercase" }}>ourhome · since 2025.08.07</div>
