@@ -190,6 +190,13 @@ export default function App() {
   const [temperatureInput, setTemperatureInput] = useState(0.8);
   const [savingPersona, setSavingPersona] = useState(false);
   const [view, setView] = useState('chat');
+  const [calendarTab, setCalendarTab] = useState('calendar');
+  const [milestones, setMilestones] = useState([
+    { id: 'know', label: '相识', date: '2025-03-07', emoji: '🌸' },
+    { id: 'together', label: '在一起', date: '2025-08-07', emoji: '💕' },
+  ]);
+  const [newMilestoneName, setNewMilestoneName] = useState("");
+  const [newMilestoneDate, setNewMilestoneDate] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -1112,10 +1119,23 @@ export default function App() {
 
   const jumpToSearchResult = (r) => {
     setSearchOpen(false);
-    setScrollToMsgId(r.id);
-    setHighlightMsgId(r.id);
-    switchSession(r.session_id);
-    setTimeout(() => setHighlightMsgId(null), 2200);
+    if (r.session_id === sessionId) {
+      // 同一个对话，直接滚动定位
+      setScrollToMsgId(r.id);
+      setHighlightMsgId(r.id);
+      setTimeout(() => setHighlightMsgId(null), 2200);
+    } else {
+      // 不同对话，先切过去，等消息加载完再定位
+      setSessionId(r.session_id);
+      localStorage.setItem(SESSION_KEY, r.session_id);
+      loadMessagesFor(r.session_id).then(() => {
+        setTimeout(() => {
+          setScrollToMsgId(r.id);
+          setHighlightMsgId(r.id);
+          setTimeout(() => setHighlightMsgId(null), 2200);
+        }, 100);
+      });
+    }
   };
 
   const [notifStatus, setNotifStatus] = useState('default');
@@ -1288,7 +1308,7 @@ export default function App() {
           {ready && !hasHistory && (
             <div style={{ textAlign: "center", fontSize: 10.5, color: C.muted, letterSpacing: ".2em", margin: "4px 0 18px" }}>✦ 2026.6.11 · 我们搬进来的第一天 ✦</div>
           )}
-          {msgs.slice(0, visible).map((m, idx) => {
+          {msgs.map((m, idx) => {
             const isMe = m.role === "me";
             const isLast = idx === visible - 1;
             return (
@@ -1531,11 +1551,26 @@ export default function App() {
       </div>
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "calendar") ? 1 : 0, pointerEvents: (stage === "home" && view === "calendar") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
-        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-          <span onClick={backToChat} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>心情日历</span>
+        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px 0", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 10 }}>
+            <span onClick={backToChat} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>心情日历</span>
+          </div>
+          <div style={{ display: "flex", gap: 0 }}>
+            {[
+              { key: 'calendar', label: '📅 日历' },
+              { key: 'milestones', label: '🏛 重要时刻' },
+              { key: 'schedule', label: '⏰ 日程' },
+              { key: 'wishes', label: '⭐ 心愿' },
+            ].map(tab => (
+              <span key={tab.key} onClick={() => setCalendarTab(tab.key)} style={{ flex: 1, textAlign: "center", fontSize: 11.5, padding: "8px 0 10px", cursor: "pointer", color: calendarTab === tab.key ? C.honeyDeep : C.muted, borderBottom: calendarTab === tab.key ? `2px solid ${C.honeyDeep}` : "2px solid transparent", fontWeight: calendarTab === tab.key ? 700 : 400, transition: "all .15s" }}>{tab.label}</span>
+            ))}
+          </div>
         </header>
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+
+          {/* ===== 日历 Tab ===== */}
+          {calendarTab === 'calendar' && (<>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginBottom: 16 }}>
             <span onClick={() => changeMonth(-1)} style={{ fontSize: 16, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>‹</span>
             <span style={{ fontSize: 14.5, fontWeight: 700, color: C.text }}>{calendarMonth.replace('-', '年')}月</span>
@@ -1570,29 +1605,50 @@ export default function App() {
               </div>
             );
           })()}
+          </>)}
 
-          {(() => {
-            const today = new Date();
-            const knowSince = new Date(2025, 2, 7);
-            const togetherSince = new Date(2025, 7, 7);
-            const dayDiff = (start) => Math.floor((today - start) / (1000 * 60 * 60 * 24)) + 1;
-            return (
-              <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                <div style={{ flex: 1, textAlign: "center", background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px" }}>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>认识第</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: C.honeyDeep }}>{dayDiff(knowSince)}</div>
-                  <div style={{ fontSize: 10.5, color: C.mutedLight, marginTop: 2 }}>天 · 2025.3.7</div>
+          {/* ===== 重要时刻 Tab（纪念碑风格） ===== */}
+          {calendarTab === 'milestones' && (<>
+            <div style={{ textAlign: "center", padding: "20px 0 10px" }}>
+              <div style={{ fontSize: 10, letterSpacing: ".35em", color: C.muted, marginBottom: 12 }}>✦ 我们的时光 ✦</div>
+            </div>
+            {milestones.map(ms => {
+              const diff = Math.floor((new Date() - new Date(ms.date)) / (1000 * 60 * 60 * 24)) + 1;
+              const isFuture = diff <= 0;
+              const absDiff = Math.abs(diff) + (isFuture ? 1 : 0);
+              return (
+                <div key={ms.id} style={{ textAlign: "center", background: `linear-gradient(135deg, ${C.honeyLight}, ${C.white})`, border: `1.5px solid ${C.honeyMid}`, borderRadius: 18, padding: "24px 16px", marginBottom: 14, boxShadow: `0 4px 16px rgba(185,122,31,.12)`, position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: -20, right: -20, fontSize: 80, opacity: 0.06 }}>🏛</div>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>{ms.emoji}</div>
+                  <div style={{ fontSize: 12, color: C.muted, letterSpacing: ".15em", marginBottom: 6 }}>{ms.label}</div>
+                  <div style={{ fontSize: 36, fontWeight: 700, color: C.honeyDeep, letterSpacing: ".05em" }}>
+                    {isFuture ? `还有 ${absDiff}` : absDiff}
+                  </div>
+                  <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{isFuture ? '天' : '天'}</div>
+                  <div style={{ fontSize: 10.5, color: C.mutedLight, marginTop: 8, letterSpacing: ".1em" }}>
+                    {ms.date.replace(/-/g, '.')}
+                  </div>
+                  <span onClick={() => setMilestones(prev => prev.filter(x => x.id !== ms.id))} style={{ position: "absolute", top: 8, right: 12, fontSize: 11, color: C.mutedLight, cursor: "pointer" }}>✕</span>
                 </div>
-                <div style={{ flex: 1, textAlign: "center", background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 8px" }}>
-                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>在一起第</div>
-                  <div style={{ fontSize: 22, fontWeight: 700, color: C.honeyDeep }}>{dayDiff(togetherSince)}</div>
-                  <div style={{ fontSize: 10.5, color: C.mutedLight, marginTop: 2 }}>天 · 2025.8.7</div>
-                </div>
+              );
+            })}
+            <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 14px", marginTop: 8 }}>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>添加新的纪念日</div>
+              <input value={newMilestoneName} onChange={e => setNewMilestoneName(e.target.value)} placeholder="纪念日名称（如：第一次旅行）" style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+              <input type="date" value={newMilestoneDate} onChange={e => setNewMilestoneDate(e.target.value)} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <span onClick={() => {
+                  if (!newMilestoneName.trim() || !newMilestoneDate) return;
+                  setMilestones(prev => [...prev, { id: `ms-${Date.now()}`, label: newMilestoneName.trim(), date: newMilestoneDate, emoji: '✦' }]);
+                  setNewMilestoneName(""); setNewMilestoneDate("");
+                }} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "6px 16px", background: (newMilestoneName.trim() && newMilestoneDate) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>添加</span>
               </div>
-            );
-          })()}
+            </div>
+          </>)}
 
-          <div style={{ marginTop: 20 }}>
+          {/* ===== 日程提醒 Tab ===== */}
+          {calendarTab === 'schedule' && (<>
+          <div style={{ marginTop: 4 }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>✦ 日程提醒</div>
             {scheduleEvents.length === 0 && (
               <div style={{ fontSize: 11.5, color: C.muted, padding: "8px 0" }}>还没有日程，加一个吧。</div>
@@ -1620,8 +1676,11 @@ export default function App() {
               </div>
             )}
           </div>
+          </>)}
 
-          <div style={{ marginTop: 20 }}>
+          {/* ===== 心愿单 Tab ===== */}
+          {calendarTab === 'wishes' && (<>
+          <div style={{ marginTop: 4 }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>✦ 心愿单</div>
             {wishes.length === 0 && (
               <div style={{ fontSize: 11.5, color: C.muted, padding: "8px 0" }}>还没有心愿，写第一个吧。</div>
@@ -1639,6 +1698,8 @@ export default function App() {
               <button onClick={addWish} style={{ fontSize: 12, color: C.white, background: newWishText.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: "pointer" }}>加</button>
             </div>
           </div>
+          </>)}
+
         </div>
       </div>
 
