@@ -214,17 +214,6 @@ export default function App() {
   });
   const [monthEntries, setMonthEntries] = useState([]);
   const [calendarDayOpen, setCalendarDayOpen] = useState(null);
-  const [dayColors, setDayColors] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('ourhome_day_colors') || '{}'); } catch { return {}; }
-  });
-  const setDayColor = (dateStr, color) => {
-    setDayColors(prev => {
-      const next = { ...prev };
-      if (color) next[dateStr] = color; else delete next[dateStr];
-      localStorage.setItem('ourhome_day_colors', JSON.stringify(next));
-      return next;
-    });
-  };
   const [dayEntries, setDayEntries] = useState([]);
   const [dayEntriesLoading, setDayEntriesLoading] = useState(false);
   const [newMoodText, setNewMoodText] = useState("");
