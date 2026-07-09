@@ -191,10 +191,21 @@ export default function App() {
   const [savingPersona, setSavingPersona] = useState(false);
   const [view, setView] = useState('chat');
   const [calendarTab, setCalendarTab] = useState('calendar');
-  const [milestones, setMilestones] = useState([
-    { id: 'know', label: '相识', date: '2025-03-07', emoji: '🌸' },
-    { id: 'together', label: '在一起', date: '2025-08-07', emoji: '💕' },
-  ]);
+  const [dayColors, setDayColors] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ourhome_day_colors') || '{}'); } catch { return {}; }
+  });
+  const [colorPickerDate, setColorPickerDate] = useState(null);
+  const setDayColor = (dateStr, color) => {
+    setDayColors(prev => {
+      const next = { ...prev };
+      if (color) next[dateStr] = color; else delete next[dateStr];
+      localStorage.setItem('ourhome_day_colors', JSON.stringify(next));
+      return next;
+    });
+    setColorPickerDate(null);
+  };
+  const [milestones, setMilestones] = useState([]);
+  const [milestonesLoading, setMilestonesLoading] = useState(false);
   const [newMilestoneName, setNewMilestoneName] = useState("");
   const [newMilestoneDate, setNewMilestoneDate] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -203,6 +214,17 @@ export default function App() {
   });
   const [monthEntries, setMonthEntries] = useState([]);
   const [calendarDayOpen, setCalendarDayOpen] = useState(null);
+  const [dayColors, setDayColors] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ourhome_day_colors') || '{}'); } catch { return {}; }
+  });
+  const setDayColor = (dateStr, color) => {
+    setDayColors(prev => {
+      const next = { ...prev };
+      if (color) next[dateStr] = color; else delete next[dateStr];
+      localStorage.setItem('ourhome_day_colors', JSON.stringify(next));
+      return next;
+    });
+  };
   const [dayEntries, setDayEntries] = useState([]);
   const [dayEntriesLoading, setDayEntriesLoading] = useState(false);
   const [newMoodText, setNewMoodText] = useState("");
@@ -470,6 +492,40 @@ export default function App() {
     fetchMonthEntries(calendarMonth);
     fetchSchedule();
     fetchWishes();
+    fetchMilestones();
+  };
+
+  const fetchMilestones = () => {
+    setMilestonesLoading(true);
+    apiFetch(`${BACKEND}/milestones`)
+      .then(r => r.json())
+      .then(data => {
+        setMilestones(Array.isArray(data) ? data : []);
+        setMilestonesLoading(false);
+      })
+      .catch(err => { console.error(err); setMilestonesLoading(false); });
+  };
+
+  const addMilestone = () => {
+    if (!newMilestoneName.trim() || !newMilestoneDate) return;
+    apiFetch(`${BACKEND}/milestones`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: newMilestoneName.trim(), date: newMilestoneDate, emoji: '✦' }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setMilestones(ms => [...ms, data].sort((a, b) => new Date(a.date) - new Date(b.date)));
+        setNewMilestoneName("");
+        setNewMilestoneDate("");
+      })
+      .catch(console.error);
+  };
+
+  const deleteMilestoneRemote = (id) => {
+    apiFetch(`${BACKEND}/milestones/${id}`, { method: 'DELETE' })
+      .then(() => setMilestones(ms => ms.filter(m => m.id !== id)))
+      .catch(console.error);
   };
 
   const [scheduleEvents, setScheduleEvents] = useState([]);
@@ -1595,8 +1651,18 @@ export default function App() {
                   const dateStr = `${calendarMonth}-${String(d).padStart(2, '0')}`;
                   const dayMoods = monthEntries.filter(e => e.date === dateStr);
                   const isToday = dateStr === todayStr;
+                  const customColor = dayColors[dateStr];
+                  let pressTimer = null;
                   return (
-                    <div key={idx} onClick={() => openDay(dateStr)} style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", background: isToday ? C.honeyLight : C.white, border: `1px solid ${isToday ? C.honeyDeep : C.border}`, gap: 2 }}>
+                    <div
+                      key={idx}
+                      onClick={() => openDay(dateStr)}
+                      onContextMenu={e => { e.preventDefault(); setColorPickerDate(dateStr); }}
+                      onTouchStart={() => { pressTimer = setTimeout(() => setColorPickerDate(dateStr), 480); }}
+                      onTouchEnd={() => clearTimeout(pressTimer)}
+                      onTouchMove={() => clearTimeout(pressTimer)}
+                      style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", background: customColor || (isToday ? C.honeyLight : C.white), border: `1px solid ${isToday ? C.honeyDeep : (customColor ? 'transparent' : C.border)}`, gap: 2, position: "relative" }}
+                    >
                       <span style={{ fontSize: 13, color: isToday ? C.honeyDeep : C.text, fontWeight: isToday ? 700 : 400 }}>{d}</span>
                       {dayMoods.length > 0 && <span style={{ fontSize: 12 }}>{dayMoods[0].mood || '✦'}</span>}
                     </div>
@@ -1605,6 +1671,7 @@ export default function App() {
               </div>
             );
           })()}
+          <div style={{ textAlign: "center", fontSize: 10, color: C.mutedLight, marginTop: 8, letterSpacing: ".05em" }}>长按（电脑右键）格子可以改颜色</div>
           </>)}
 
           {/* ===== 重要时刻 Tab（纪念碑风格） ===== */}
@@ -1612,6 +1679,12 @@ export default function App() {
             <div style={{ textAlign: "center", padding: "20px 0 10px" }}>
               <div style={{ fontSize: 10, letterSpacing: ".35em", color: C.muted, marginBottom: 12 }}>✦ 我们的时光 ✦</div>
             </div>
+            {milestonesLoading && (
+              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>翻找中…</div>
+            )}
+            {!milestonesLoading && milestones.length === 0 && (
+              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>还没有纪念日，加一个吧。</div>
+            )}
             {milestones.map(ms => {
               const diff = Math.floor((new Date() - new Date(ms.date)) / (1000 * 60 * 60 * 24)) + 1;
               const isFuture = diff <= 0;
@@ -1628,7 +1701,7 @@ export default function App() {
                   <div style={{ fontSize: 10.5, color: C.mutedLight, marginTop: 8, letterSpacing: ".1em" }}>
                     {ms.date.replace(/-/g, '.')}
                   </div>
-                  <span onClick={() => setMilestones(prev => prev.filter(x => x.id !== ms.id))} style={{ position: "absolute", top: 8, right: 12, fontSize: 11, color: C.mutedLight, cursor: "pointer" }}>✕</span>
+                  <span onClick={() => deleteMilestoneRemote(ms.id)} style={{ position: "absolute", top: 8, right: 12, fontSize: 11, color: C.mutedLight, cursor: "pointer" }}>✕</span>
                 </div>
               );
             })}
@@ -1637,11 +1710,7 @@ export default function App() {
               <input value={newMilestoneName} onChange={e => setNewMilestoneName(e.target.value)} placeholder="纪念日名称（如：第一次旅行）" style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
               <input type="date" value={newMilestoneDate} onChange={e => setNewMilestoneDate(e.target.value)} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <span onClick={() => {
-                  if (!newMilestoneName.trim() || !newMilestoneDate) return;
-                  setMilestones(prev => [...prev, { id: `ms-${Date.now()}`, label: newMilestoneName.trim(), date: newMilestoneDate, emoji: '✦' }]);
-                  setNewMilestoneName(""); setNewMilestoneDate("");
-                }} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "6px 16px", background: (newMilestoneName.trim() && newMilestoneDate) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>添加</span>
+                <span onClick={addMilestone} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "6px 16px", background: (newMilestoneName.trim() && newMilestoneDate) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>添加</span>
               </div>
             </div>
           </>)}
@@ -1703,11 +1772,37 @@ export default function App() {
         </div>
       </div>
 
+      {/* ===== 日期颜色选择器 ===== */}
+      <div onClick={() => setColorPickerDate(null)} style={{ position: "absolute", inset: 0, zIndex: 58, background: "rgba(46,31,18,.35)", opacity: colorPickerDate ? 1 : 0, pointerEvents: colorPickerDate ? "auto" : "none", transition: "opacity .2s" }} />
+      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 59, width: "78%", maxWidth: 300, transform: colorPickerDate ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: colorPickerDate ? 1 : 0, pointerEvents: colorPickerDate ? "auto" : "none", transition: "all .2s ease", background: C.surface, borderRadius: 16, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", padding: "18px 18px 16px" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12, textAlign: "center" }}>{colorPickerDate} 的颜色</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 12 }}>
+          {['#FDE8E0', '#D9F0D9', '#D6E8FA', '#FFF3D6', '#F0DCF5', '#FFFFFF'].map(c => (
+            <span key={c} onClick={() => setDayColor(colorPickerDate, c)} style={{ width: 32, height: 32, borderRadius: 8, background: c, cursor: "pointer", border: `1.5px solid ${C.border}` }} />
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 11, color: C.muted }}>自选颜色</span>
+          <input type="color" onChange={e => setDayColor(colorPickerDate, e.target.value)} style={{ width: 36, height: 32, borderRadius: 8, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span onClick={() => setDayColor(colorPickerDate, null)} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
+          <span onClick={() => setColorPickerDate(null)} style={{ fontSize: 11.5, color: C.honeyDeep, cursor: "pointer" }}>完成</span>
+        </div>
+      </div>
+
       <div onClick={() => setCalendarDayOpen(null)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: calendarDayOpen ? 1 : 0, pointerEvents: calendarDayOpen ? "auto" : "none", transition: "opacity .25s" }} />
       <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "82%", maxWidth: 360, maxHeight: "70vh", transform: calendarDayOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: calendarDayOpen ? 1 : 0, pointerEvents: calendarDayOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: ".04em", color: C.text }}>{calendarDayOpen}</span>
           <span onClick={() => setCalendarDayOpen(null)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
+        </div>
+        <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.borderLight}`, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          <span style={{ fontSize: 10.5, color: C.muted, marginRight: 2 }}>格子颜色</span>
+          {['#FDE8E0', '#D5EBD5', '#D6E6F5', '#F5DFA0', '#E8D5F0', '#FFFFFF'].map(c => (
+            <span key={c} onClick={() => setDayColor(calendarDayOpen, c === '#FFFFFF' ? null : c)} style={{ width: 20, height: 20, borderRadius: "50%", background: c, cursor: "pointer", border: dayColors[calendarDayOpen] === c ? `2px solid ${C.honeyDeep}` : `1px solid ${C.border}`, boxShadow: c === '#FFFFFF' ? 'inset 0 0 0 1px #eee' : 'none' }} />
+          ))}
+          <input type="color" value={dayColors[calendarDayOpen] || '#ffffff'} onChange={e => setDayColor(calendarDayOpen, e.target.value)} style={{ width: 22, height: 22, borderRadius: "50%", border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none", marginLeft: 2 }} />
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
           {dayEntriesLoading && (
@@ -1745,10 +1840,12 @@ export default function App() {
           ))}
         </div>
         <div style={{ padding: "10px 18px 16px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          <div style={{ fontSize: 10.5, color: C.mutedLight, marginBottom: 6 }}>选一个心情，或者自己输入喜欢的表情</div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
             {['😊', '🥰', '😢', '😡', '😴', '😐'].map(em => (
-              <span key={em} onClick={() => setSelectedMood(em === selectedMood ? null : em)} style={{ fontSize: 16, cursor: "pointer", padding: 4, borderRadius: 8, background: selectedMood === em ? C.honeyLight : "transparent" }}>{em}</span>
+              <span key={em} onClick={() => setSelectedMood(em === selectedMood ? null : em)} style={{ fontSize: 18, cursor: "pointer", padding: "4px 6px", borderRadius: 8, background: selectedMood === em ? C.honeyLight : "transparent", border: selectedMood === em ? `1px solid ${C.honeyMid}` : "1px solid transparent" }}>{em}</span>
             ))}
+            <input value={selectedMood && !['😊', '🥰', '😢', '😡', '😴', '😐'].includes(selectedMood) ? selectedMood : ''} onChange={e => setSelectedMood(e.target.value || null)} placeholder="🍀 自己输入" maxLength={4} style={{ width: 82, fontSize: 14, textAlign: "center", color: C.text, background: C.cream, border: `1.5px dashed ${C.honeyMid}`, borderRadius: 8, padding: "5px 6px", outline: "none", fontFamily: "inherit" }} />
           </div>
           <textarea value={newMoodText} onChange={e => setNewMoodText(e.target.value)} placeholder="这天想留点什么…" rows={2} style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
