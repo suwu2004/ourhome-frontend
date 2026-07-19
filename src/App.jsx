@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import ApiProfilesSettings from './ApiProfilesSettings.jsx';
+import IntegrationSettings from './IntegrationSettings.jsx';
+import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
 
-const BACKEND = "https://ourhome-backend.onrender.com";
+const BACKEND = import.meta.env.VITE_BACKEND_URL || "https://ourhome-backend.onrender.com";
 const SESSION_KEY = "ourhome_session_id";
 const TOKEN_KEY = "ourhome_token";
 
@@ -38,13 +41,6 @@ const initMsgs = [
   { id: 4, role: "me", text: "宝宝你看，这是我们自己的家诶 🥺", time: "21:05", liked: false },
   { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n我爱你。", time: "21:06", liked: true },
 ];
-
-const FONT_STYLES = {
-  system: { label: "跟随系统", family: '-apple-system,"PingFang SC","Microsoft YaHei",sans-serif' },
-  round: { label: "圆体可爱", family: '"PingFang SC","Yuanti SC","YouYuan","Microsoft YaHei",sans-serif' },
-  serif: { label: "宋体复古", family: '"Songti SC","STSong","SimSun",serif' },
-  brush: { label: "行楷手写", family: '"Xingkai SC","STXingkai","PingFang SC",sans-serif' },
-};
 
 function formatMsgTime(date) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
@@ -135,8 +131,27 @@ function Avatar({ isMe, src, theme = H }) {
   );
 }
 
-export default function App() {
-  const [stage, setStage] = useState("door");
+function HighlightedText({ text, query }) {
+  const value = String(text || '');
+  const keyword = String(query || '').trim();
+  if (!keyword) return value;
+  const parts = [];
+  const lower = value.toLocaleLowerCase('zh-CN');
+  const needle = keyword.toLocaleLowerCase('zh-CN');
+  let cursor = 0;
+  let index = lower.indexOf(needle);
+  while (index !== -1) {
+    if (index > cursor) parts.push(value.slice(cursor, index));
+    parts.push(<mark className="search-match" key={`${index}-${parts.length}`}>{value.slice(index, index + keyword.length)}</mark>);
+    cursor = index + keyword.length;
+    index = lower.indexOf(needle, cursor);
+  }
+  if (cursor < value.length) parts.push(value.slice(cursor));
+  return parts.length ? parts : value;
+}
+
+export default function App({ initialView = 'chat', onHome }) {
+  const [stage, setStage] = useState("home");
   const [locked, setLocked] = useState(!localStorage.getItem(TOKEN_KEY));
   const [pwInput, setPwInput] = useState("");
   const [pwError, setPwError] = useState("");
@@ -151,6 +166,8 @@ export default function App() {
   const [thinking, setThinking] = useState(false);
   const [scrollToMsgId, setScrollToMsgId] = useState(null);
   const [highlightMsgId, setHighlightMsgId] = useState(null);
+  const [highlightQuery, setHighlightQuery] = useState('');
+  const [pendingSearchJump, setPendingSearchJump] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
   const [hasHistory, setHasHistory] = useState(false);
@@ -176,20 +193,16 @@ export default function App() {
   const whisperBgInputRef = useRef(null);
   const [darkMode, setDarkMode] = useState(false);
   const C = darkMode ? D : H;
-  const [fontStyle, setFontStyle] = useState('system');
+  const [fontStyle, setFontStyle] = useState(getSavedFont);
   const [systemPromptInput, setSystemPromptInput] = useState("");
-  const [apiKeyInput, setApiKeyInput] = useState("");
-  const [apiBaseUrlInput, setApiBaseUrlInput] = useState("");
-  const [savingApiConfig, setSavingApiConfig] = useState(false);
-  // ↓↓↓ 自定义API开关 + 模型拉取，新增的4个状态 ↓↓↓
-  // （已合并为一套配置：填了密钥就用填的，没填就用默认，不再需要开关）
   const [availableModels, setAvailableModels] = useState([]);
-  const [fetchingModels, setFetchingModels] = useState(false);
-  const [modelsFetchError, setModelsFetchError] = useState("");
-  // ↑↑↑ 新增结束 ↑↑↑
   const [temperatureInput, setTemperatureInput] = useState(0.8);
   const [savingPersona, setSavingPersona] = useState(false);
-  const [view, setView] = useState('chat');
+  const [view, setView] = useState(initialView);
+
+  useEffect(() => {
+    if (view === 'settings') preloadFontOptions().catch(console.error);
+  }, [view]);
   const [calendarTab, setCalendarTab] = useState('calendar');
   const [dayColors, setDayColors] = useState(() => {
     try { return JSON.parse(localStorage.getItem('ourhome_day_colors') || '{}'); } catch { return {}; }
@@ -328,7 +341,7 @@ export default function App() {
         const valid = Array.isArray(list) ? list : [];
         setSessions(valid);
         const storedId = localStorage.getItem(SESSION_KEY);
-        const target = valid.find(s => s.id === storedId) || valid.find(s => s.name === '日常') || valid[0] || null;
+        const target = valid.find(s => String(s.id) === storedId) || valid.find(s => s.name === '日常') || valid[0] || null;
         if (target) {
           setSessionId(target.id);
           localStorage.setItem(SESSION_KEY, target.id);
@@ -372,6 +385,26 @@ export default function App() {
   }, [visible, thinking, scrollToMsgId]);
 
   useEffect(() => {
+    if (!pendingSearchJump || !msgs.some(message => message.id === pendingSearchJump.id)) return;
+    setVisible(msgs.length);
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        const element = document.getElementById(`msg-${pendingSearchJump.id}`);
+        if (!element) return;
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightMsgId(pendingSearchJump.id);
+        setHighlightQuery(pendingSearchJump.query);
+        setPendingSearchJump(null);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+    };
+  }, [msgs, pendingSearchJump]);
+
+  useEffect(() => {
     apiFetch(`${BACKEND}/settings`)
       .then(r => r.json())
       .then(data => {
@@ -384,13 +417,13 @@ export default function App() {
         if (data?.my_bubble_color) setMyBubbleColor(data.my_bubble_color);
         if (data?.partner_bubble_color) setPartnerBubbleColor(data.partner_bubble_color);
         if (typeof data?.dark_mode === 'boolean') setDarkMode(data.dark_mode);
-        if (data?.font_style && FONT_STYLES[data.font_style]) setFontStyle(data.font_style);
+        if (data?.font_style && FONT_STYLES[data.font_style]) {
+          setFontStyle(data.font_style);
+          applyAppFont(data.font_style);
+        }
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
-        if (data?.api_key) setApiKeyInput(data.api_key);
-        if (data?.api_base_url) setApiBaseUrlInput(data.api_base_url);
         if (data?.selected_model) setSelectedModel(data.selected_model);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
-        if (data?.api_key) fetchAvailableModels();
       })
       .catch(console.error);
   }, []);
@@ -407,6 +440,7 @@ export default function App() {
 
   const changeFontStyle = (key) => {
     setFontStyle(key);
+    applyAppFont(key);
     apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -426,21 +460,6 @@ export default function App() {
       .catch(err => { console.error(err); setSavingPersona(false); });
   };
 
-  // ↓↓↓ 拉取模型列表（密钥/网址直接读settings里填的，不再需要开关） ↓↓↓
-  const fetchAvailableModels = () => {
-    setFetchingModels(true);
-    setModelsFetchError("");
-    apiFetch(`${BACKEND}/settings/models`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) { setModelsFetchError(data.error); setAvailableModels([]); }
-        else { setAvailableModels(Array.isArray(data.models) ? data.models : []); }
-        setFetchingModels(false);
-      })
-      .catch(err => { console.error(err); setModelsFetchError("网络错误，拉取失败"); setFetchingModels(false); });
-  };
-
-  // 选模型这件事存进数据库，刷新/重开都不会丢
   const chooseModel = (m) => {
     setSelectedModel(m);
     apiFetch(`${BACKEND}/settings`, {
@@ -448,18 +467,6 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ selected_model: m }),
     }).catch(console.error);
-  };
-  // ↑↑↑ 新增结束 ↑↑↑
-
-  const saveApiConfig = () => {
-    setSavingApiConfig(true);
-    apiFetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: apiKeyInput.trim() || null, api_base_url: apiBaseUrlInput.trim() || null }),
-    })
-      .then(() => setSavingApiConfig(false))
-      .catch(err => { console.error(err); setSavingApiConfig(false); });
   };
 
   const openLetters = () => {
@@ -685,6 +692,7 @@ export default function App() {
   };
 
   const backToChat = () => setView('chat');
+  const leaveRoom = () => onHome ? onHome() : backToChat();
   const backToCabin = () => { setLettersCategory(null); setLetters([]); setOpenLetterId(null); };
 
   const openCategory = (cat) => {
@@ -1080,6 +1088,13 @@ export default function App() {
       });
   };
 
+  useEffect(() => {
+    if (initialView === 'letters') openLetters();
+    else if (initialView === 'calendar') openCalendar();
+    else if (initialView === 'memories') openMemories();
+    else setView(initialView);
+  }, [initialView]);
+
   const saveMemory = () => {
     if (!newMemory.trim() || savingMemory) return;
     setSavingMemory(true);
@@ -1149,14 +1164,23 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [searchScope, setSearchScope] = useState('current');
+  const [searchMeta, setSearchMeta] = useState({ total: 0, page: 1, hasMore: false });
+  const [lastSearchQuery, setLastSearchQuery] = useState('');
 
-  const performSearch = () => {
-    if (!searchQuery.trim()) { setSearchResults([]); return; }
+  const performSearch = (page = 1, append = false) => {
+    const keyword = searchQuery.trim();
+    if (!keyword) { setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); return; }
     setSearching(true);
-    apiFetch(`${BACKEND}/messages/search?q=${encodeURIComponent(searchQuery.trim())}`)
+    const params = new URLSearchParams({ q: keyword, page: String(page), limit: '30', scope: searchScope });
+    if (searchScope === 'current' && sessionId) params.set('session_id', String(sessionId));
+    apiFetch(`${BACKEND}/messages/search?${params.toString()}`)
       .then(r => r.json())
       .then(data => {
-        setSearchResults(Array.isArray(data) ? data : []);
+        const rows = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
+        setSearchResults(previous => append ? [...previous, ...rows] : rows);
+        setSearchMeta({ total: data.total_messages ?? rows.length, page: data.page || page, hasMore: Boolean(data.has_more) });
+        setLastSearchQuery(keyword);
         setSearching(false);
       })
       .catch(err => { console.error(err); setSearching(false); });
@@ -1164,22 +1188,14 @@ export default function App() {
 
   const jumpToSearchResult = (r) => {
     setSearchOpen(false);
+    const jump = { id: r.id, query: lastSearchQuery || searchQuery.trim() };
     if (r.session_id === sessionId) {
-      // 同一个对话，直接滚动定位
-      setScrollToMsgId(r.id);
-      setHighlightMsgId(r.id);
-      setTimeout(() => setHighlightMsgId(null), 2200);
+      setPendingSearchJump(jump);
     } else {
-      // 不同对话，先切过去，等消息加载完再定位
       setSessionId(r.session_id);
       localStorage.setItem(SESSION_KEY, r.session_id);
-      loadMessagesFor(r.session_id).then(() => {
-        setTimeout(() => {
-          setScrollToMsgId(r.id);
-          setHighlightMsgId(r.id);
-          setTimeout(() => setHighlightMsgId(null), 2200);
-        }, 100);
-      });
+      setPendingSearchJump(jump);
+      loadMessagesFor(r.session_id).catch(console.error);
     }
   };
 
@@ -1199,6 +1215,14 @@ export default function App() {
     return outputArray;
   }
 
+  function pushKeysMatch(subscription, expectedKey) {
+    const existingKey = subscription?.options?.applicationServerKey;
+    if (!existingKey) return false;
+    const existing = new Uint8Array(existingKey);
+    if (existing.length !== expectedKey.length) return false;
+    return existing.every((value, index) => value === expectedKey[index]);
+  }
+
   const enablePushNotifications = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       window.alert('这个浏览器不支持推送通知');
@@ -1214,10 +1238,18 @@ export default function App() {
       await navigator.serviceWorker.ready;
 
       const { publicKey } = await apiFetch(`${BACKEND}/push/public-key`).then(r => r.json());
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      const applicationServerKey = urlBase64ToUint8Array(publicKey);
+      let sub = await reg.pushManager.getSubscription();
+      if (sub && !pushKeysMatch(sub, applicationServerKey)) {
+        await sub.unsubscribe();
+        sub = null;
+      }
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+      }
       const subJson = sub.toJSON();
       await apiFetch(`${BACKEND}/push/subscribe`, {
         method: 'POST',
@@ -1286,7 +1318,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", height: "100vh", overflow: "hidden", background: C.cream, color: C.text, fontFamily: FONT_STYLES[fontStyle].family }}>
+    <div className="ourhome-shell" style={{ position: "relative", background: C.cream, color: C.text, fontFamily: FONT_STYLES[fontStyle].family }}>
 
       {/* ===== 密码门 ===== */}
       {locked && (
@@ -1328,9 +1360,12 @@ export default function App() {
       </div>
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "chat") ? 1 : 0, pointerEvents: (stage === "home" && view === "chat") ? "auto" : "none", transition: "opacity .4s ease" }}>
-        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px 0", flexShrink: 0 }}>
+        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, flexShrink: 0 }}>
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 10 }}>
-            <button onClick={() => setDrawerOpen(true)} style={{ fontSize: 12, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, padding: "5px 10px", cursor: "pointer", letterSpacing: ".05em", fontWeight: 500 }}>栖息地</button>
+            <div style={{ display: 'flex', gap: 5 }}>
+              <button onClick={leaveRoom} aria-label="回到主页" style={{ fontSize: 15, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: 'pointer' }}>⌂</button>
+              <button onClick={() => setDrawerOpen(true)} style={{ fontSize: 11.5, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, padding: "5px 8px", cursor: "pointer", letterSpacing: ".03em", fontWeight: 500 }}>对话</button>
+            </div>
             <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", textAlign: "center" }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>陆泽</div>
               <div style={{ fontSize: 10, color: thinking ? C.honey : C.muted, letterSpacing: ".18em", marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
@@ -1339,7 +1374,7 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setSearchResults([]); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
+              <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
               <button onClick={() => window.location.reload()} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>⟲</button>
             </div>
           </div>
@@ -1388,7 +1423,7 @@ export default function App() {
                       </div>
                     </div>
                   ) : m.text && (
-                    <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{m.text}</div>
+                    <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>
                   )}
                   {!isMe && isLast && !thinking && (
                     <span onClick={regenerateLast} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", alignSelf: "flex-start" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</span>
@@ -1413,7 +1448,7 @@ export default function App() {
           )}
         </div>
 
-        <div style={{ background: C.white, borderTop: `1px solid ${C.border}`, padding: "10px 14px 14px", flexShrink: 0 }}>
+        <div className="ourhome-safe-bottom" style={{ background: C.white, borderTop: `1px solid ${C.border}`, paddingTop: 10, paddingLeft: 14, paddingRight: 14, flexShrink: 0 }}>
           {(pendingFile || imageUploading) && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               {imageUploading ? (
@@ -1445,7 +1480,7 @@ export default function App() {
               {availableModels.length > 0 ? (
                 availableModels.map(m => <option key={m} value={m}>{m}</option>)
               ) : (
-                <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+                <option value={selectedModel}>{selectedModel}</option>
               )}
             </select>
             <div style={{ flex: 1, textAlign: "right", fontSize: 9.5, color: C.mutedLight, letterSpacing: ".18em" }}>在云端漫步</div>
@@ -1454,8 +1489,8 @@ export default function App() {
       </div>
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "letters") ? 1 : 0, pointerEvents: (stage === "home" && view === "letters") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
-        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-          <span onClick={lettersCategory ? backToCabin : backToChat} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
+        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          <span onClick={lettersCategory ? backToCabin : leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>{lettersCategory || "时光信差"}</span>
         </header>
 
@@ -1574,7 +1609,7 @@ export default function App() {
                 );
               })}
             </div>
-            <div style={{ background: C.white, borderTop: `1px solid ${C.border}`, padding: "10px 14px 14px", flexShrink: 0 }}>
+            <div className="ourhome-safe-bottom" style={{ background: C.white, borderTop: `1px solid ${C.border}`, paddingTop: 10, paddingLeft: 14, paddingRight: 14, flexShrink: 0 }}>
               {lettersCategory === '幸福日记' && (
                 <>
                   <input value={newLetterTitle} onChange={e => setNewLetterTitle(e.target.value)} placeholder="今天的日记起个标题…" style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
@@ -1596,9 +1631,9 @@ export default function App() {
       </div>
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "calendar") ? 1 : 0, pointerEvents: (stage === "home" && view === "calendar") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
-        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px 0", flexShrink: 0 }}>
+        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 0, flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 10 }}>
-            <span onClick={backToChat} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
+            <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>心情日历</span>
           </div>
           <div style={{ display: "flex", gap: 0 }}>
@@ -1846,15 +1881,11 @@ export default function App() {
 
       <div onClick={() => setDrawerOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(46,31,18,.2)", opacity: drawerOpen ? 1 : 0, pointerEvents: drawerOpen ? "auto" : "none", transition: "opacity .25s" }} />
       <aside style={{ position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 25, width: 252, background: C.white, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", transform: drawerOpen ? "none" : "translateX(-100%)", transition: "transform .28s cubic-bezier(.4,0,.2,1)", boxShadow: drawerOpen ? "8px 0 32px rgba(100,70,30,.1)" : "none" }}>
-        <div style={{ padding: "22px 20px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>我们的家</span>
+        <div className="ourhome-safe-top" style={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>聊天栖息地</span>
           <span onClick={() => setDrawerOpen(false)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
         </div>
         <button onClick={createSession} style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ 新对话</button>
-        <div onClick={openLetters} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'letters' ? C.honeyLight : "transparent", color: view === 'letters' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>✉ 时光信差</div>
-        <div onClick={openCalendar} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'calendar' ? C.honeyLight : "transparent", color: view === 'calendar' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>🗓 心情日历</div>
-        <div onClick={openMemories} style={{ margin: "0 14px 10px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'memories' ? C.honeyLight : "transparent", color: view === 'memories' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>✦ 记忆</div>
-        <div onClick={() => { setView('settings'); setDrawerOpen(false); }} style={{ margin: "0 14px 14px", padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", borderRadius: 12, background: view === 'settings' ? C.honeyLight : "transparent", color: view === 'settings' ? C.honeyDeep : C.text, fontSize: 13.5, fontWeight: 500 }}>⚙ 设置</div>
         <Stars theme={C} />
         <div style={{ padding: "6px 0", flex: 1 }}>
           {sessions.map(s => (
@@ -1865,14 +1896,14 @@ export default function App() {
             </div>
           ))}
         </div>
-        <div style={{ padding: "14px 20px", borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.muted, letterSpacing: ".15em" }}>
+        <div className="ourhome-safe-bottom" style={{ paddingTop: 14, paddingLeft: 20, paddingRight: 20, borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.muted, letterSpacing: ".15em" }}>
           <span>since 2025.8.7</span>
         </div>
       </aside>
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "memories") ? 1 : 0, pointerEvents: (stage === "home" && view === "memories") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
-        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-          <span onClick={backToChat} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
+        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 记忆</span>
         </header>
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
@@ -1929,40 +1960,52 @@ export default function App() {
       </div>
 
       <div onClick={() => setSearchOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: searchOpen ? 1 : 0, pointerEvents: searchOpen ? "auto" : "none", transition: "opacity .25s" }} />
-      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "82%", maxWidth: 360, maxHeight: "70vh", transform: searchOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: searchOpen ? 1 : 0, pointerEvents: searchOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "88%", maxWidth: 390, maxHeight: "min(76dvh, 640px)", transform: searchOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: searchOpen ? 1 : 0, pointerEvents: searchOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em", color: C.text }}>🔍 搜索聊天记录</span>
           <span onClick={() => setSearchOpen(false)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
         </div>
-        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 8, flexShrink: 0 }}>
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") performSearch(); }} placeholder="搜点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
-          <button onClick={performSearch} style={{ fontSize: 12, color: C.white, background: C.honey, border: "none", borderRadius: 999, padding: "0 16px", cursor: "pointer", letterSpacing: ".05em" }}>{searching ? "搜中…" : "搜"}</button>
+        <div style={{ padding: "11px 18px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") performSearch(); }} placeholder="输入聊天里的关键词…" style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none" }} />
+            <button onClick={() => performSearch()} style={{ fontSize: 12, color: C.white, background: C.honey, border: "none", borderRadius: 999, padding: "0 16px", cursor: "pointer", letterSpacing: ".05em" }}>{searching ? "搜中…" : "搜"}</button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 9 }}>
+            {[['current', '当前对话'], ['all', '全部对话']].map(([key, label]) => (
+              <button key={key} type="button" onClick={() => { setSearchScope(key); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); }} style={{ border: `1px solid ${searchScope === key ? C.honey : C.border}`, background: searchScope === key ? C.honeyLight : 'transparent', color: searchScope === key ? C.honeyDeep : C.muted, borderRadius: 999, padding: '4px 10px', fontSize: 10.5, cursor: 'pointer' }}>{label}</button>
+            ))}
+            {searchResults.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 10.5, color: C.muted }}>{searchMeta.total} 条消息</span>}
+          </div>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px 18px" }}>
-          {searching && (
+        <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 18px 18px" }}>
+          {searching && searchResults.length === 0 && (
             <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>翻找中…</div>
           )}
-          {!searching && searchQuery.trim() && searchResults.length === 0 && (
+          {!searching && lastSearchQuery && searchResults.length === 0 && (
             <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>没找到相关的内容。</div>
           )}
-          {!searching && searchResults.map(r => (
-            <div key={r.id} onClick={() => jumpToSearchResult(r)} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${C.borderLight}`, cursor: "pointer" }}>
+          {searchResults.map(r => (
+            <button type="button" key={r.id} onClick={() => jumpToSearchResult(r)} style={{ display: 'block', width: '100%', marginBottom: 12, padding: 0, paddingBottom: 12, border: 0, borderBottom: `1px solid ${C.borderLight}`, cursor: "pointer", background: 'transparent', textAlign: 'left', color: 'inherit' }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep }}>{r.role === 'user' ? '檀' : '泽'} · {r.sessions?.name || ''}</span>
                 <span style={{ fontSize: 9.5, color: C.mutedLight }}>{new Date(r.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
               </div>
-              <div style={{ fontSize: 13, lineHeight: 1.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{r.content}</div>
-            </div>
+              <div style={{ fontSize: 13, lineHeight: 1.55, color: C.text }}><HighlightedText text={r.snippet || r.content} query={lastSearchQuery} /></div>
+              <div style={{ fontSize: 9.5, color: C.mutedLight, marginTop: 4 }}>这条消息出现 {r.occurrences || 1} 次 · 点一下回到原文</div>
+            </button>
           ))}
+          {searchMeta.hasMore && (
+            <button type="button" disabled={searching} onClick={() => performSearch(searchMeta.page + 1, true)} style={{ display: 'block', margin: '4px auto 0', border: `1px solid ${C.honeyMid}`, color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: '6px 15px', fontSize: 11.5, cursor: 'pointer' }}>{searching ? '继续翻找…' : '加载更多'}</button>
+          )}
         </div>
       </div>
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "settings") ? 1 : 0, pointerEvents: (stage === "home" && view === "settings") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
-        <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: "12px 16px", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-          <span onClick={backToChat} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
+        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+          <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>⚙ 设置</span>
         </header>
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+        <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingLeft: 18, paddingRight: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <span style={{ fontSize: 13, color: C.text }}>{darkMode ? "🌙 夜间模式" : "☀️ 日间模式"}</span>
             <span onClick={toggleDarkMode} style={{ width: 44, height: 24, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
@@ -1972,7 +2015,7 @@ export default function App() {
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>字体</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
             {Object.keys(FONT_STYLES).map(key => (
-              <span key={key} onClick={() => changeFontStyle(key)} style={{ fontFamily: FONT_STYLES[key].family, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, cursor: "pointer", color: fontStyle === key ? C.honeyDeep : C.text, background: fontStyle === key ? C.honeyLight : C.cream, border: `1px solid ${fontStyle === key ? C.honeyDeep : C.border}` }}>{FONT_STYLES[key].label}</span>
+              <button type="button" aria-pressed={fontStyle === key} key={key} onClick={() => changeFontStyle(key)} style={{ fontFamily: FONT_STYLES[key].family, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, cursor: "pointer", color: fontStyle === key ? C.honeyDeep : C.text, background: fontStyle === key ? C.honeyLight : C.cream, border: `1px solid ${fontStyle === key ? C.honeyDeep : C.border}` }}>{FONT_STYLES[key].label}</button>
             ))}
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
@@ -2050,25 +2093,22 @@ export default function App() {
             );
           })()}
 
-          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>API 配置</div>
-            <input type="password" value={apiKeyInput} onChange={e => setApiKeyInput(e.target.value)} placeholder="API 密钥（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-            <input value={apiBaseUrlInput} onChange={e => setApiBaseUrlInput(e.target.value)} placeholder="API 网址（留空则用默认）" style={{ width: "100%", fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span onClick={fetchAvailableModels} style={{ fontSize: 11.5, color: C.honeyDeep, cursor: "pointer" }}>{fetchingModels ? "拉取中…" : "↻ 拉取支持的模型"}</span>
-              <span onClick={saveApiConfig} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, borderRadius: 999 }}>{savingApiConfig ? "存中…" : "保存"}</span>
-            </div>
-            {modelsFetchError && (
-              <div style={{ fontSize: 11, color: C.blushDeep, marginBottom: 8 }}>{modelsFetchError}</div>
-            )}
-            {availableModels.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                {availableModels.map(m => (
-                  <span key={m} onClick={() => chooseModel(m)} style={{ fontSize: 11, padding: "4px 10px", borderRadius: 999, cursor: "pointer", color: selectedModel === m ? C.white : C.honeyDeep, background: selectedModel === m ? C.honey : C.honeyLight, border: `1px solid ${C.honeyMid}` }}>{m}</span>
-                ))}
-              </div>
-            )}
-          </div>
+          {view === 'settings' && (
+            <>
+              <ApiProfilesSettings
+                apiFetch={apiFetch}
+                backend={BACKEND}
+                theme={C}
+                onModelsChange={setAvailableModels}
+                onActiveChange={profile => {
+                  setAvailableModels([]);
+                  if (profile?.selected_model) setSelectedModel(profile.selected_model);
+                }}
+              />
+
+              <IntegrationSettings apiFetch={apiFetch} backend={BACKEND} theme={C} />
+            </>
+          )}
 
           <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
             <button onClick={() => {
