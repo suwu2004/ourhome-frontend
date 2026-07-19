@@ -1,19 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import App from './App.jsx';
 import VaultPage from './VaultPage.jsx';
 
 const rooms = [
-  { key: 'chat', icon: '💬', title: '聊天', subtitle: '回到我们的客厅', ready: true },
-  { key: 'post', icon: '💌', title: '时光信差', subtitle: '把心事寄给未来', ready: false },
-  { key: 'memories', icon: '📖', title: '记忆', subtitle: '收藏我们的故事', ready: false },
-  { key: 'calendar', icon: '📅', title: '心情日历', subtitle: '记录每一天的颜色', ready: false },
-  { key: 'vault', icon: '🐱', title: '猫の金库', subtitle: '一起把日子攒起来', ready: true },
-  { key: 'settings', icon: '⚙️', title: '设置', subtitle: '装饰我们的家', ready: false },
+  { key: 'chat', icon: '💬', title: '聊天', subtitle: '回到我们的客厅' },
+  { key: 'letters', icon: '💌', title: '时光信差', subtitle: '把心事寄给未来' },
+  { key: 'memories', icon: '📖', title: '记忆', subtitle: '收藏我们的故事' },
+  { key: 'calendar', icon: '📅', title: '心情日历', subtitle: '记录每一天的颜色' },
+  { key: 'vault', icon: '🐱', title: '猫の金库', subtitle: '一起把日子攒起来' },
+  { key: 'settings', icon: '⚙️', title: '设置', subtitle: '装饰我们的家' },
 ];
+
+const roomKeys = new Set(rooms.map(room => room.key));
+
+function roomFromHash() {
+  const key = window.location.hash.replace(/^#/, '');
+  return roomKeys.has(key) ? key : 'home';
+}
 
 function HomeHub({ onOpen }) {
   return (
-    <div style={{ minHeight: '100dvh', background: 'linear-gradient(180deg,#FFF8F0 0%,#FFFDF8 55%,#FFF4E2 100%)', color: '#2E1F12', fontFamily: '-apple-system,"PingFang SC","Microsoft YaHei",sans-serif', padding: 'max(28px,env(safe-area-inset-top)) 18px max(28px,env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+    <div className="ourhome-shell ourhome-scroll" style={{ overflowY: 'auto', background: 'linear-gradient(180deg,#FFF8F0 0%,#FFFDF8 55%,#FFF4E2 100%)', color: '#2E1F12', padding: 'max(28px,env(safe-area-inset-top)) 18px max(28px,env(safe-area-inset-bottom))' }}>
       <div style={{ width: '100%', maxWidth: 520, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', padding: '24px 0 30px' }}>
           <div style={{ fontSize: 13, color: '#B89A6A', letterSpacing: '.32em', marginLeft: '.32em' }}>OUR HOME</div>
@@ -27,7 +34,6 @@ function HomeHub({ onOpen }) {
               <span style={{ display: 'grid', placeItems: 'center', width: 48, height: 48, borderRadius: 17, background: '#FFF3D6', fontSize: 25, marginBottom: 15 }}>{room.icon}</span>
               <strong style={{ display: 'block', fontSize: 17, marginBottom: 6 }}>{room.title}</strong>
               <small style={{ color: '#B89A6A', lineHeight: 1.5 }}>{room.subtitle}</small>
-              {!room.ready && <span style={{ position: 'absolute', top: 13, right: 13, fontSize: 10, color: '#A87934', background: '#FFF3D6', borderRadius: 99, padding: '4px 7px' }}>整理中</span>}
             </button>
           ))}
         </div>
@@ -38,26 +44,31 @@ function HomeHub({ onOpen }) {
   );
 }
 
-function RoomPlaceholder({ room, onClose }) {
-  const info = rooms.find(item => item.key === room);
-  return (
-    <div style={{ minHeight: '100dvh', boxSizing: 'border-box', background: 'linear-gradient(180deg,#FFF8F0,#FFFDF8)', color: '#2E1F12', fontFamily: '-apple-system,"PingFang SC","Microsoft YaHei",sans-serif', padding: 'max(18px,env(safe-area-inset-top)) 18px 30px' }}>
-      <button type="button" onClick={onClose} style={{ border: '1px solid #EFD8A6', background: '#FFF3D6', color: '#9A621A', borderRadius: 12, padding: '9px 13px', fontWeight: 700 }}>← 回家</button>
-      <div style={{ maxWidth: 480, margin: '17vh auto 0', textAlign: 'center' }}>
-        <div style={{ width: 82, height: 82, borderRadius: 28, margin: '0 auto 20px', display: 'grid', placeItems: 'center', background: '#FFF3D6', fontSize: 42, boxShadow: '0 12px 32px rgba(78,46,16,.08)' }}>{info?.icon}</div>
-        <h2 style={{ margin: '0 0 10px', fontSize: 25 }}>{info?.title}</h2>
-        <p style={{ color: '#9A7A50', lineHeight: 1.8, margin: 0 }}>这是它自己的房间，不会再偷偷跑到聊天页啦。<br />原来的功能正在从抽屉里搬进来。</p>
-      </div>
-    </div>
-  );
-}
-
 export default function Root() {
-  const [room, setRoom] = useState('home');
+  const [room, setRoom] = useState(roomFromHash);
 
-  if (room === 'chat') return <App />;
-  if (room === 'vault') return <VaultPage onClose={() => setRoom('home')} />;
-  if (room !== 'home') return <RoomPlaceholder room={room} onClose={() => setRoom('home')} />;
+  useEffect(() => {
+    const syncRoom = () => setRoom(roomFromHash());
+    window.addEventListener('hashchange', syncRoom);
+    window.addEventListener('popstate', syncRoom);
+    return () => {
+      window.removeEventListener('hashchange', syncRoom);
+      window.removeEventListener('popstate', syncRoom);
+    };
+  }, []);
 
-  return <HomeHub onOpen={setRoom} />;
+  const openRoom = key => {
+    window.location.hash = key;
+    setRoom(key);
+  };
+
+  const goHome = () => {
+    window.history.pushState(null, '', `${window.location.pathname}${window.location.search}`);
+    setRoom('home');
+  };
+
+  if (room === 'vault') return <VaultPage onClose={goHome} />;
+  if (room !== 'home') return <App key={room} initialView={room} onHome={goHome} />;
+
+  return <HomeHub onOpen={openRoom} />;
 }
