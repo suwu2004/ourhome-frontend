@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ApiProfilesSettings from './ApiProfilesSettings.jsx';
 import IntegrationSettings from './IntegrationSettings.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
@@ -17,6 +17,11 @@ function apiFetch(url, options = {}) {
       'Authorization': `Bearer ${token}`,
     },
   });
+}
+
+function normalizeModelOptions(models, preferredModel = '') {
+  const list = Array.isArray(models) ? models : [];
+  return [...new Set([preferredModel, ...list].map(model => String(model || '').trim()).filter(Boolean))];
 }
 
 const H = {
@@ -196,6 +201,8 @@ export default function App({ initialView = 'chat', onHome }) {
   const [fontStyle, setFontStyle] = useState(getSavedFont);
   const [systemPromptInput, setSystemPromptInput] = useState("");
   const [availableModels, setAvailableModels] = useState([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState('');
   const [temperatureInput, setTemperatureInput] = useState(0.8);
   const [savingPersona, setSavingPersona] = useState(false);
   const [view, setView] = useState(initialView);
@@ -404,7 +411,36 @@ export default function App({ initialView = 'chat', onHome }) {
     };
   }, [msgs, pendingSearchJump]);
 
+  const chooseModel = useCallback((model) => {
+    setSelectedModel(model);
+    apiFetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selected_model: model }),
+    }).catch(console.error);
+  }, []);
+
+  const loadActiveModels = useCallback(async (preferredModel = '') => {
+    setModelsLoading(true);
+    setModelsError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/settings/models`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || '模型拉取失败');
+      const nextModels = normalizeModelOptions(data?.models, preferredModel);
+      setAvailableModels(nextModels);
+      return nextModels;
+    } catch (error) {
+      setModelsError(error?.message || '模型拉取失败');
+      setAvailableModels(current => normalizeModelOptions(current, preferredModel));
+      return [];
+    } finally {
+      setModelsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
+    if (locked) return;
     apiFetch(`${BACKEND}/settings`)
       .then(r => r.json())
       .then(data => {
@@ -422,11 +458,15 @@ export default function App({ initialView = 'chat', onHome }) {
           applyAppFont(data.font_style);
         }
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
-        if (data?.selected_model) setSelectedModel(data.selected_model);
+        const preferredModel = data?.selected_model || '';
+        if (preferredModel) setSelectedModel(preferredModel);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
+        return loadActiveModels(preferredModel).then(models => {
+          if (!preferredModel && models[0]) chooseModel(models[0]);
+        });
       })
       .catch(console.error);
-  }, []);
+  }, [chooseModel, loadActiveModels, locked]);
 
   const toggleDarkMode = () => {
     const next = !darkMode;
@@ -458,15 +498,6 @@ export default function App({ initialView = 'chat', onHome }) {
     })
       .then(() => setSavingPersona(false))
       .catch(err => { console.error(err); setSavingPersona(false); });
-  };
-
-  const chooseModel = (m) => {
-    setSelectedModel(m);
-    apiFetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selected_model: m }),
-    }).catch(console.error);
   };
 
   const openLetters = () => {
@@ -1476,13 +1507,21 @@ export default function App({ initialView = 'chat', onHome }) {
             <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: (input.trim() || pendingFile) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
-            <select value={selectedModel} onChange={e => chooseModel(e.target.value)} style={{ fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "3px 10px", outline: "none", cursor: "pointer" }}>
+            <select aria-label="选择聊天模型" value={selectedModel} onChange={e => chooseModel(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
               {availableModels.length > 0 ? (
                 availableModels.map(m => <option key={m} value={m}>{m}</option>)
               ) : (
                 <option value={selectedModel}>{selectedModel}</option>
               )}
             </select>
+            <button
+              type="button"
+              onClick={() => loadActiveModels(selectedModel)}
+              disabled={modelsLoading}
+              aria-label="重新拉取当前 API 站点的模型"
+              title={modelsError || '重新拉取当前 API 站点的模型'}
+              style={{ width: 26, height: 26, flexShrink: 0, borderRadius: '50%', border: `1px solid ${modelsError ? C.blushDeep : C.border}`, background: C.surface, color: modelsError ? C.blushDeep : C.honeyDeep, cursor: modelsLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: modelsLoading ? .55 : 1 }}
+            >{modelsLoading ? '…' : '↻'}</button>
             <div style={{ flex: 1, textAlign: "right", fontSize: 9.5, color: C.mutedLight, letterSpacing: ".18em" }}>在云端漫步</div>
           </div>
         </div>
@@ -2099,10 +2138,13 @@ export default function App({ initialView = 'chat', onHome }) {
                 apiFetch={apiFetch}
                 backend={BACKEND}
                 theme={C}
-                onModelsChange={setAvailableModels}
+                onModelsChange={models => setAvailableModels(normalizeModelOptions(models, selectedModel))}
                 onActiveChange={profile => {
-                  setAvailableModels([]);
-                  if (profile?.selected_model) setSelectedModel(profile.selected_model);
+                  const profileModel = profile?.selected_model || '';
+                  if (profileModel) setSelectedModel(profileModel);
+                  loadActiveModels(profileModel).then(models => {
+                    if (!profileModel && models[0]) chooseModel(models[0]);
+                  });
                 }}
               />
 
