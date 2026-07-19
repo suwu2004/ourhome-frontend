@@ -2,22 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import ApiProfilesSettings from './ApiProfilesSettings.jsx';
 import IntegrationSettings from './IntegrationSettings.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
+import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL || "https://ourhome-backend.onrender.com";
 const SESSION_KEY = "ourhome_session_id";
-const TOKEN_KEY = "ourhome_token";
-
-// 带token的fetch封装，自动附带Authorization头
-function apiFetch(url, options = {}) {
-  const token = localStorage.getItem(TOKEN_KEY) || '';
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-}
 
 function normalizeModelOptions(models, preferredModel = '') {
   const list = Array.isArray(models) ? models : [];
