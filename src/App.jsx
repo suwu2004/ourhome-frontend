@@ -1363,7 +1363,7 @@ export default function App({ initialView = 'chat', onHome }) {
         <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, flexShrink: 0 }}>
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 10 }}>
             <div style={{ display: 'flex', gap: 5 }}>
-              <button onClick={leaveRoom} aria-label="回到主页" style={{ fontSize: 15, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: 'pointer' }}>⌂</button>
+              <button onClick={leaveRoom} aria-label="回到主页" style={{ fontSize: 18, color: C.honeyDeep, background: 'transparent', border: 0, padding: 4, width: 30, height: 30, cursor: 'pointer' }}>←</button>
               <button onClick={() => setDrawerOpen(true)} style={{ fontSize: 11.5, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, padding: "5px 8px", cursor: "pointer", letterSpacing: ".03em", fontWeight: 500 }}>对话</button>
             </div>
             <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", textAlign: "center" }}>
