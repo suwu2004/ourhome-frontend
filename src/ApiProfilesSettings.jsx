@@ -37,7 +37,6 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
       selected_model: profile.selected_model || '',
     });
     setModels([]);
-    onModelsChange?.([]);
     setError('');
   };
 
@@ -66,9 +65,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
       if (!response.ok) throw new Error(data.error || '保存失败');
       setDraft(emptyDraft());
       setModels([]);
-      onModelsChange?.([]);
       await loadProfiles();
-      onActiveChange?.(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -84,7 +81,6 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '切换失败');
       await loadProfiles();
-      onActiveChange?.(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -122,7 +118,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
       if (!response.ok) throw new Error(data.error || '模型拉取失败');
       const nextModels = Array.isArray(data.models) ? data.models : [];
       setModels(nextModels);
-      onModelsChange?.(nextModels);
+      if (draft.id === active?.id) onModelsChange?.(nextModels);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -141,7 +137,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
           <div style={{ fontSize: 12, color: theme.muted, letterSpacing: '.05em' }}>API 站点档案</div>
           <div style={{ fontSize: 10.5, color: theme.mutedLight, marginTop: 3 }}>密钥只保存在服务端，页面不会再把原文读回来</div>
         </div>
-        <button type="button" onClick={() => { setDraft(emptyDraft()); setModels([]); onModelsChange?.([]); setError(''); }} style={pill}>＋ 新站点</button>
+        <button type="button" onClick={() => { setDraft(emptyDraft()); setModels([]); setError(''); }} style={pill}>＋ 新站点</button>
       </div>
 
       <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
