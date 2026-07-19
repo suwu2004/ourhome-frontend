@@ -166,6 +166,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const [pendingFile, setPendingFile] = useState(null);
   const [imageUploading, setImageUploading] = useState(false);
   const chatImageInputRef = useRef(null);
+  const chatInputRef = useRef(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [msgs, setMsgs] = useState(initMsgs);
   const [visible, setVisible] = useState(0);
@@ -175,6 +176,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const [highlightQuery, setHighlightQuery] = useState('');
   const [pendingSearchJump, setPendingSearchJump] = useState(null);
   const [sessionId, setSessionId] = useState(null);
+  const sessionIdRef = useRef(null);
   const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
   const [hasHistory, setHasHistory] = useState(false);
   const [ready, setReady] = useState(false);
@@ -207,6 +209,10 @@ export default function App({ initialView = 'chat', onHome }) {
   const [temperatureInput, setTemperatureInput] = useState(0.8);
   const [savingPersona, setSavingPersona] = useState(false);
   const [view, setView] = useState(initialView);
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
 
   useEffect(() => {
     if (view === 'settings') preloadFontOptions().catch(console.error);
@@ -946,6 +952,15 @@ export default function App({ initialView = 'chat', onHome }) {
 
   const switchSession = (id) => {
     if (id === sessionId) { setDrawerOpen(false); return; }
+    if (editingMessage) {
+      setInput(editingMessage.draftBefore || "");
+      setPendingFile(editingMessage.pendingFileBefore || null);
+    }
+    setEditingMessage(null);
+    setMessageAction(null);
+    setRollbackUndo(null);
+    setMessageActionError("");
+    sessionIdRef.current = id;
     setSessionId(id);
     localStorage.setItem(SESSION_KEY, id);
     apiFetch(`${BACKEND}/sessions/${id}/messages`)
@@ -1040,67 +1055,184 @@ export default function App({ initialView = 'chat', onHome }) {
       .catch(console.error);
   };
 
-  const [editingMsgId, setEditingMsgId] = useState(null);
-  const [editingMsgText, setEditingMsgText] = useState("");
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [messageAction, setMessageAction] = useState(null);
+  const [messageActionLoading, setMessageActionLoading] = useState(false);
+  const [messageActionError, setMessageActionError] = useState("");
+  const [rollbackUndo, setRollbackUndo] = useState(null);
   const toggleThinking = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, thinkingOpen: !m.thinkingOpen } : m));
 
+  const focusChatInput = () => {
+    requestAnimationFrame(() => {
+      const inputElement = chatInputRef.current;
+      if (!inputElement) return;
+      inputElement.focus({ preventScroll: true });
+      const end = inputElement.value.length;
+      inputElement.setSelectionRange(end, end);
+    });
+  };
+
+  const openMessageActions = (message) => {
+    if (thinking || messageActionLoading || String(message.id).startsWith('temp-')) return;
+    const index = msgs.findIndex(item => item.id === message.id);
+    setMessageAction({
+      message,
+      mode: 'menu',
+      afterCount: index === -1 ? 0 : Math.max(0, msgs.length - index - 1),
+    });
+    setMessageActionError("");
+  };
+
   const startEditMsg = (m) => {
-    setEditingMsgId(m.id);
-    setEditingMsgText(m.text || "");
+    const index = msgs.findIndex(item => item.id === m.id);
+    setEditingMessage({
+      id: m.id,
+      draftBefore: input,
+      pendingFileBefore: pendingFile,
+      afterCount: index === -1 ? 0 : Math.max(0, msgs.length - index - 1),
+    });
+    setInput(m.text || "");
+    setPendingFile(null);
+    setMessageAction(null);
+    setMessageActionError("");
+    setRollbackUndo(null);
+    focusChatInput();
   };
+
   const cancelEditMsg = () => {
-    setEditingMsgId(null);
-    setEditingMsgText("");
+    if (!editingMessage || messageActionLoading) return;
+    setInput(editingMessage.draftBefore || "");
+    setPendingFile(editingMessage.pendingFileBefore || null);
+    setEditingMessage(null);
+    setMessageActionError("");
   };
-  const saveEditMsg = () => {
-    const id = editingMsgId;
-    const newText = editingMsgText.trim();
-    if (!newText) return;
-    cancelEditMsg();
+
+  const saveEditMsg = async () => {
+    if (!editingMessage || messageActionLoading) return;
+    const id = editingMessage.id;
+    const editingSessionId = sessionId;
+    const newText = input.trim();
+    if (!newText) {
+      setMessageActionError("消息内容不能为空呀。");
+      focusChatInput();
+      return;
+    }
+
+    setMessageActionLoading(true);
+    setMessageActionError("");
     setThinking(true);
+    setRollbackUndo(null);
 
-    apiFetch(`${BACKEND}/messages/${id}/edit-and-regenerate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: newText, model: selectedModel })
-    })
-      .then(r => r.json())
-      .then(data => {
-        let newLength = 0;
-        setMsgs(ms => {
-          const idx = ms.findIndex(m => m.id === id);
-          if (idx === -1) { newLength = ms.length; return ms; }
-          const kept = ms.slice(0, idx + 1).map(m => m.id === id ? { ...m, text: newText } : m);
-          const replyCreatedAt = new Date().toISOString();
-          const next = [...kept, {
-            id: data.id, role: "ai", text: data.reply || "（抱着你）嗯，我在呢。",
-            thinking: data.thinking || null, thinkingOpen: false,
-            inputTokens: data.inputTokens || 0, outputTokens: data.outputTokens || 0,
-            createdAt: replyCreatedAt, time: formatMsgTime(replyCreatedAt),
-          }];
-          newLength = next.length;
-          return next;
-        });
-        setVisible(newLength);
-        setThinking(false);
-      })
-      .catch(err => { console.error(err); setThinking(false); });
+    try {
+      const response = await apiFetch(`${BACKEND}/messages/${id}/edit-and-regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newText, model: selectedModel })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "重新发送失败");
+      if (sessionIdRef.current !== editingSessionId) return;
+
+      const replyCreatedAt = data.createdAt || new Date().toISOString();
+      const index = msgs.findIndex(message => message.id === id);
+      if (index === -1) throw new Error("页面里找不到这条消息，请刷新后再试。");
+      const kept = msgs.slice(0, index + 1).map(message => (
+        message.id === id ? { ...message, text: newText } : message
+      ));
+      const nextMessages = [...kept, {
+          id: data.id,
+          role: "ai",
+          text: data.reply || "（抱着你）嗯，我在呢。",
+          thinking: data.thinking || null,
+          thinkingOpen: false,
+          inputTokens: data.inputTokens || 0,
+          outputTokens: data.outputTokens || 0,
+          createdAt: replyCreatedAt,
+          time: formatMsgTime(replyCreatedAt),
+      }];
+      setMsgs(nextMessages);
+      setVisible(nextMessages.length);
+      setEditingMessage(null);
+      setInput("");
+      setPendingFile(null);
+    } catch (error) {
+      console.error(error);
+      setMessageActionError(error.message || "重新发送失败，请再试一次。");
+      focusChatInput();
+    } finally {
+      setThinking(false);
+      setMessageActionLoading(false);
+    }
   };
 
-  const rollbackToMsg = (id) => {
-    if (!window.confirm("确定要回溯到这条消息吗？之后的内容会被收起来（不会真的删除）。")) return;
-    apiFetch(`${BACKEND}/messages/${id}/rollback`, { method: 'POST' })
-      .then(() => {
-        let newLength = 0;
-        setMsgs(ms => {
-          const idx = ms.findIndex(m => m.id === id);
-          const next = idx === -1 ? ms : ms.slice(0, idx + 1);
-          newLength = next.length;
-          return next;
-        });
-        setVisible(newLength);
-      })
-      .catch(console.error);
+  const confirmRollback = async () => {
+    if (!messageAction || messageAction.mode !== 'rollback' || messageActionLoading) return;
+    const { message, afterCount } = messageAction;
+    if (afterCount === 0) {
+      setMessageAction(null);
+      return;
+    }
+
+    setMessageActionLoading(true);
+    setMessageActionError("");
+    try {
+      const response = await apiFetch(`${BACKEND}/messages/${message.id}/rollback`, { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "回溯失败");
+
+      const index = msgs.findIndex(item => item.id === message.id);
+      const hiddenMessages = index === -1 ? [] : msgs.slice(index + 1);
+      const keptMessages = index === -1 ? msgs : msgs.slice(0, index + 1);
+      setMsgs(keptMessages);
+      setVisible(keptMessages.length);
+      setRollbackUndo({
+        targetId: message.id,
+        hiddenIds: Array.isArray(data.hiddenIds) ? data.hiddenIds : hiddenMessages.map(item => item.id),
+        hiddenMessages,
+      });
+      setMessageAction(null);
+      focusChatInput();
+    } catch (error) {
+      console.error(error);
+      setMessageActionError(error.message || "回溯失败，请再试一次。");
+    } finally {
+      setMessageActionLoading(false);
+    }
+  };
+
+  const undoRollback = async () => {
+    if (!rollbackUndo || messageActionLoading) return;
+    if (rollbackUndo.hiddenIds.length === 0) {
+      setMsgs(current => [...current, ...rollbackUndo.hiddenMessages]);
+      setVisible(current => current + rollbackUndo.hiddenMessages.length);
+      setRollbackUndo(null);
+      setMessageActionError("");
+      return;
+    }
+    setMessageActionLoading(true);
+    setMessageActionError("");
+    try {
+      const response = await apiFetch(`${BACKEND}/messages/${rollbackUndo.targetId}/rollback/undo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_ids: rollbackUndo.hiddenIds }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "撤销回溯失败");
+      const restoredIds = new Set((data.restoredIds || []).map(id => String(id)));
+      if (rollbackUndo.hiddenIds.some(id => !restoredIds.has(String(id)))) {
+        throw new Error("有一部分消息没有恢复，请刷新对话后再试。");
+      }
+
+      setMsgs(current => [...current, ...rollbackUndo.hiddenMessages]);
+      setVisible(current => current + rollbackUndo.hiddenMessages.length);
+      setRollbackUndo(null);
+    } catch (error) {
+      console.error(error);
+      setMessageActionError(error.message || "撤销失败，请再试一次。");
+    } finally {
+      setMessageActionLoading(false);
+    }
   };
 
   const openMemories = () => {
@@ -1294,42 +1426,70 @@ export default function App({ initialView = 'chat', onHome }) {
     }
   };
 
-  const regenerateLast = () => {
-    if (!sessionId || regenerating) return;
+  const regenerateLast = async () => {
+    if (!sessionId || regenerating || thinking || messageActionLoading) return;
+    const regeneratingSessionId = sessionId;
+    const shouldAppendReply = msgs[msgs.length - 1]?.role !== 'ai';
     setRegenerating(true);
-    apiFetch(`${BACKEND}/chat/regenerate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, model: selectedModel }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        setMsgs(ms => {
-          const copy = [...ms];
-          for (let i = copy.length - 1; i >= 0; i--) {
-            if (copy[i].role === 'ai') {
-              copy[i] = { ...copy[i], text: data.reply || copy[i].text, thinking: data.thinking || null, thinkingOpen: false, inputTokens: data.inputTokens || 0, outputTokens: data.outputTokens || 0 };
-              break;
-            }
-          }
-          return copy;
-        });
-        setRegenerating(false);
-      })
-      .catch(err => { console.error(err); setRegenerating(false); });
+    setThinking(true);
+    setMessageActionError("");
+    setRollbackUndo(null);
+    try {
+      const response = await apiFetch(`${BACKEND}/chat/regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, model: selectedModel }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "重新生成失败");
+      if (sessionIdRef.current !== regeneratingSessionId) return;
+
+      const replyCreatedAt = data.createdAt || new Date().toISOString();
+      setMsgs(current => {
+        const last = current[current.length - 1];
+        const nextReply = {
+          id: data.id,
+          role: "ai",
+          text: data.reply || last?.text || "（抱着你）嗯，我在呢。",
+          thinking: data.thinking || null,
+          thinkingOpen: false,
+          inputTokens: data.inputTokens || 0,
+          outputTokens: data.outputTokens || 0,
+          createdAt: replyCreatedAt,
+          time: formatMsgTime(replyCreatedAt),
+        };
+        if (last?.role === 'ai') return [...current.slice(0, -1), { ...last, ...nextReply }];
+        return [...current, nextReply];
+      });
+      if (shouldAppendReply) setVisible(value => value + 1);
+    } catch (error) {
+      console.error(error);
+      setMessageActionError(error.message || "重新生成失败，请再试一次。");
+    } finally {
+      setThinking(false);
+      setRegenerating(false);
+    }
   };
 
   const send = async () => {
-    if ((!input.trim() && !pendingFile) || !sessionId) return;
+    if (editingMessage) {
+      await saveEditMsg();
+      return;
+    }
+    if ((!input.trim() && !pendingFile) || !sessionId || thinking || messageActionLoading) return;
     const txt = input.trim();
+    const sendingSessionId = sessionId;
     const fileToSend = pendingFile;
     const isImg = fileToSend && fileToSend.type && fileToSend.type.startsWith('image/');
     const userCreatedAt = new Date().toISOString();
-    setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, image: isImg ? fileToSend.url : null, file: (fileToSend && !isImg) ? { url: fileToSend.url, name: fileToSend.name } : null, createdAt: userCreatedAt, time: formatMsgTime(userCreatedAt) }]);
+    const temporaryUserId = `temp-user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setMsgs(ms => [...ms, { id: temporaryUserId, role: "me", text: txt, image: isImg ? fileToSend.url : null, file: (fileToSend && !isImg) ? { url: fileToSend.url, name: fileToSend.name } : null, createdAt: userCreatedAt, time: formatMsgTime(userCreatedAt) }]);
     setVisible(v => v + 1);
     setInput("");
     setPendingFile(null);
     setThinking(true);
+    setRollbackUndo(null);
+    setMessageActionError("");
     try {
       const res = await apiFetch(`${BACKEND}/chat`, {
         method: 'POST',
@@ -1337,15 +1497,49 @@ export default function App({ initialView = 'chat', onHome }) {
         body: JSON.stringify({ session_id: sessionId, message: txt, model: selectedModel, attachment_url: fileToSend?.url || undefined, attachment_type: fileToSend?.type || undefined, attachment_name: fileToSend?.name || undefined })
       });
       const data = await res.json();
-      setThinking(false);
-      const replyCreatedAt = new Date().toISOString();
-      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: data.reply || "（抱着你）嗯，我在呢。", thinking: data.thinking || null, thinkingOpen: false, inputTokens: data.inputTokens || 0, outputTokens: data.outputTokens || 0, createdAt: replyCreatedAt, time: formatMsgTime(replyCreatedAt) }]);
+      if (sessionIdRef.current !== sendingSessionId) return;
+      if (!res.ok) {
+        if (data.userMessage?.id) {
+          const persistedCreatedAt = data.userMessage.createdAt || userCreatedAt;
+          setMsgs(current => current.map(message => message.id === temporaryUserId ? {
+            ...message,
+            id: data.userMessage.id,
+            createdAt: persistedCreatedAt,
+            time: formatMsgTime(persistedCreatedAt),
+          } : message));
+        }
+        throw new Error(data?.error || "发送失败");
+      }
+      const replyCreatedAt = data.assistantMessage?.createdAt || data.createdAt || new Date().toISOString();
+      const persistedUserCreatedAt = data.userMessage?.createdAt || userCreatedAt;
+      setMsgs(ms => [
+        ...ms.map(message => message.id === temporaryUserId ? {
+          ...message,
+          id: data.userMessage?.id || temporaryUserId,
+          createdAt: persistedUserCreatedAt,
+          time: formatMsgTime(persistedUserCreatedAt),
+        } : message),
+        {
+          id: data.assistantMessage?.id || data.id || `temp-ai-${Date.now()}`,
+          role: "ai",
+          text: data.reply || "（抱着你）嗯，我在呢。",
+          thinking: data.thinking || null,
+          thinkingOpen: false,
+          inputTokens: data.inputTokens || 0,
+          outputTokens: data.outputTokens || 0,
+          createdAt: replyCreatedAt,
+          time: formatMsgTime(replyCreatedAt),
+        },
+      ]);
       setVisible(v => v + 1);
     } catch (err) {
-      setThinking(false);
+      console.error(err);
+      setMessageActionError(err.message || "发送失败，请再试一次。");
       const errorCreatedAt = new Date().toISOString();
-      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: "连接好像有点问题…等一下再试试？", createdAt: errorCreatedAt, time: formatMsgTime(errorCreatedAt) }]);
+      setMsgs(ms => [...ms, { id: `temp-error-${Date.now()}`, role: "ai", text: "连接好像有点问题…消息已经留在这里，可以再试一次。", createdAt: errorCreatedAt, time: formatMsgTime(errorCreatedAt) }]);
       setVisible(v => v + 1);
+    } finally {
+      setThinking(false);
     }
   };
 
@@ -1453,27 +1647,23 @@ export default function App({ initialView = 'chat', onHome }) {
                         )}
                       </div>
                     )}
-                    {editingMsgId === m.id ? (
-                      <div>
-                        <textarea value={editingMsgText} onChange={e => setEditingMsgText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 14.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-                          <span onClick={cancelEditMsg} style={{ fontSize: 11, color: C.muted, cursor: "pointer", padding: "3px 8px" }}>取消</span>
-                          <span onClick={saveEditMsg} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
-                        </div>
-                      </div>
-                    ) : m.text && (
+                    {m.text && (
                       <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>
                     )}
                     {!isMe && isLast && !thinking && (
-                      <span onClick={regenerateLast} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", alignSelf: "flex-start" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</span>
+                      <button type="button" onClick={regenerateLast} disabled={regenerating} style={{ border: 0, padding: "3px 0", background: "transparent", fontSize: 10.5, color: C.muted, cursor: regenerating ? "default" : "pointer", alignSelf: "flex-start", fontFamily: "inherit" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</button>
                     )}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
                     <span style={{ fontSize: 9.5, color: C.mutedLight }}>{m.time || formatMsgTime(m.createdAt)}</span>
-                    {isMe && m.text && editingMsgId !== m.id && (
-                      <span onClick={() => startEditMsg(m)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", userSelect: "none" }}>改</span>
-                    )}
-                    <span onClick={() => rollbackToMsg(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", userSelect: "none" }}>溯</span>
+                    <button
+                      type="button"
+                      onClick={() => openMessageActions(m)}
+                      disabled={thinking || messageActionLoading || String(m.id).startsWith('temp-')}
+                      aria-label={`${isMe ? '我的' : '陆泽的'}消息操作`}
+                      title="编辑或回到这里"
+                      style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "rgba(255,255,255,.64)", color: C.muted, cursor: thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: String(m.id).startsWith('temp-') ? .35 : 1, fontSize: 15, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
+                    >•••</button>
                   </div>
                 </div>
               </div>
@@ -1488,6 +1678,24 @@ export default function App({ initialView = 'chat', onHome }) {
         </div>
 
         <div className="ourhome-safe-bottom" style={{ background: C.white, borderTop: `1px solid ${C.border}`, paddingTop: 10, paddingLeft: 14, paddingRight: 14, flexShrink: 0 }}>
+          {editingMessage && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>正在重新编辑这条消息</div>
+                <div style={{ fontSize: 10, lineHeight: 1.5, color: C.muted, marginTop: 2 }}>发送后会收起后面的 {editingMessage.afterCount} 条，陆泽会按新内容重新回复。</div>
+              </div>
+              <button type="button" onClick={cancelEditMsg} disabled={messageActionLoading} style={{ flexShrink: 0, minWidth: 44, minHeight: 34, border: 0, borderRadius: 999, background: "rgba(255,255,255,.72)", color: C.muted, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>取消</button>
+            </div>
+          )}
+          {rollbackUndo && !editingMessage && (
+            <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
+              <span style={{ flex: 1, fontSize: 11, lineHeight: 1.5, color: C.honeyDeep }}>已回到这里，收起了 {rollbackUndo.hiddenMessages.length} 条消息。</span>
+              <button type="button" onClick={undoRollback} disabled={messageActionLoading} style={{ minWidth: 52, minHeight: 34, border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.white, color: C.honeyDeep, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>{messageActionLoading ? "恢复中…" : "撤销"}</button>
+            </div>
+          )}
+          {messageActionError && !messageAction && (
+            <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{messageActionError}</div>
+          )}
           {(pendingFile || imageUploading) && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               {imageUploading ? (
@@ -1508,11 +1716,11 @@ export default function App({ initialView = 'chat', onHome }) {
               )}
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
-            <button onClick={() => chatImageInputRef.current?.click()} style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
+            <button type="button" onClick={() => chatImageInputRef.current?.click()} disabled={Boolean(editingMessage) || messageActionLoading} aria-label="添加图片或文件" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: editingMessage || messageActionLoading ? "default" : "pointer", opacity: editingMessage ? .3 : 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
             <input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} />
-            <textarea rows={1} placeholder="跟陆泽说点什么…" value={input} onChange={e => setInput(e.target.value)} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
-            <button onClick={send} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer", background: (input.trim() || pendingFile) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) ? `0 3px 10px rgba(185,122,31,.35)` : "none", transition: "all .2s" }}>↑</button>
+            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "跟陆泽说点什么…"} value={input} onChange={e => { setInput(e.target.value); if (messageActionError) setMessageActionError(""); }} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
+            <button type="button" onClick={send} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "all .2s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
             <select aria-label="选择聊天模型" value={selectedModel} onChange={e => chooseModel(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
@@ -2005,6 +2213,58 @@ export default function App({ initialView = 'chat', onHome }) {
           ))}
         </div>
       </div>
+
+      <div
+        onClick={() => { if (!messageActionLoading) setMessageAction(null); }}
+        style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(46,31,18,.34)", opacity: messageAction ? 1 : 0, pointerEvents: messageAction ? "auto" : "none", transition: "opacity .2s" }}
+      />
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-hidden={!messageAction}
+        aria-label="消息操作"
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 65, padding: "18px 18px max(18px, env(safe-area-inset-bottom))", background: C.surface, borderRadius: "22px 22px 0 0", borderTop: `1px solid ${C.border}`, boxShadow: "0 -18px 50px rgba(70,45,20,.18)", transform: messageAction ? "translateY(0)" : "translateY(105%)", pointerEvents: messageAction ? "auto" : "none", transition: "transform .25s cubic-bezier(.2,.8,.2,1)" }}
+      >
+        {messageAction && (
+          <>
+            <div style={{ width: 38, height: 4, borderRadius: 999, background: C.border, margin: "0 auto 14px" }} />
+            {messageAction.mode === 'menu' ? (
+              <>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>这条消息</div>
+                    <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{messageAction.message.role === 'me' ? '叶檀' : '陆泽'} · {messageAction.message.time || formatMsgTime(messageAction.message.createdAt)}</div>
+                  </div>
+                  <button type="button" onClick={() => setMessageAction(null)} aria-label="关闭消息操作" style={{ width: 38, height: 38, border: 0, borderRadius: "50%", background: C.cream, color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 15 }}>✕</button>
+                </div>
+                <div style={{ margin: "13px 0 14px", padding: "10px 12px", borderRadius: 12, background: C.cream, color: C.text, fontSize: 12.5, lineHeight: 1.65, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" }}>{messageAction.message.text || '（附件消息）'}</div>
+                <div style={{ display: "grid", gap: 9 }}>
+                  {messageAction.message.role === 'me' && messageAction.message.text && (
+                    <button type="button" onClick={() => startEditMsg(messageAction.message)} style={{ minHeight: 48, border: `1px solid ${C.honeyMid}`, borderRadius: 14, background: C.honeyLight, color: C.honeyDeep, cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, fontWeight: 700 }}>✎ 重新编辑并发送</button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={messageAction.afterCount === 0}
+                    onClick={() => setMessageAction(current => current ? { ...current, mode: 'rollback' } : null)}
+                    style={{ minHeight: 48, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, color: messageAction.afterCount === 0 ? C.mutedLight : C.text, cursor: messageAction.afterCount === 0 ? "default" : "pointer", fontFamily: "inherit", fontSize: 13.5 }}
+                  >{messageAction.afterCount === 0 ? '已经在当前时间点' : `↶ 回到这里 · 收起后面 ${messageAction.afterCount} 条`}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.text, textAlign: "center" }}>回到这条消息？</div>
+                <div style={{ marginTop: 8, color: C.muted, fontSize: 12, lineHeight: 1.7, textAlign: "center" }}>后面的 {messageAction.afterCount} 条消息会暂时收起来，不会删除；完成后可以立即撤销。</div>
+                <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 10, background: C.cream, color: C.muted, fontSize: 10.5, lineHeight: 1.6 }}>聊天回溯只调整对话分支，已经执行过的金库、日历等操作不会跟着撤销。</div>
+                {messageActionError && <div role="alert" style={{ marginTop: 10, color: C.blushDeep, fontSize: 11, textAlign: "center" }}>{messageActionError}</div>}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.35fr", gap: 10, marginTop: 16 }}>
+                  <button type="button" onClick={() => setMessageAction(current => current ? { ...current, mode: 'menu' } : null)} disabled={messageActionLoading} style={{ minHeight: 48, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, color: C.muted, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 13 }}>再想想</button>
+                  <button type="button" onClick={confirmRollback} disabled={messageActionLoading} style={{ minHeight: 48, border: 0, borderRadius: 14, background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, cursor: messageActionLoading ? "default" : "pointer", opacity: messageActionLoading ? .65 : 1, fontFamily: "inherit", fontSize: 13.5, fontWeight: 700 }}>{messageActionLoading ? '正在回到这里…' : '确认回到这里'}</button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </section>
 
       <div onClick={() => setSearchOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: searchOpen ? 1 : 0, pointerEvents: searchOpen ? "auto" : "none", transition: "opacity .25s" }} />
       <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "88%", maxWidth: 390, maxHeight: "min(76dvh, 640px)", transform: searchOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: searchOpen ? 1 : 0, pointerEvents: searchOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
