@@ -23,12 +23,7 @@ function HomeHub({ onOpen }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 13 }}>
           {rooms.map(room => (
-            <button
-              key={room.key}
-              type="button"
-              onClick={() => onOpen(room.key)}
-              style={{ minHeight: 142, border: '1px solid #EFE4CC', borderRadius: 24, padding: '20px 15px', background: '#FFFDF8', color: 'inherit', textAlign: 'left', boxShadow: '0 9px 28px rgba(78,46,16,.07)', cursor: 'pointer', position: 'relative' }}
-            >
+            <button key={room.key} type="button" onClick={() => onOpen(room.key)} style={{ minHeight: 142, border: '1px solid #EFE4CC', borderRadius: 24, padding: '20px 15px', background: '#FFFDF8', color: 'inherit', textAlign: 'left', boxShadow: '0 9px 28px rgba(78,46,16,.07)', cursor: 'pointer', position: 'relative' }}>
               <span style={{ display: 'grid', placeItems: 'center', width: 48, height: 48, borderRadius: 17, background: '#FFF3D6', fontSize: 25, marginBottom: 15 }}>{room.icon}</span>
               <strong style={{ display: 'block', fontSize: 17, marginBottom: 6 }}>{room.title}</strong>
               <small style={{ color: '#B89A6A', lineHeight: 1.5 }}>{room.subtitle}</small>
@@ -43,14 +38,26 @@ function HomeHub({ onOpen }) {
   );
 }
 
+function RoomPlaceholder({ room, onClose }) {
+  const info = rooms.find(item => item.key === room);
+  return (
+    <div style={{ minHeight: '100dvh', boxSizing: 'border-box', background: 'linear-gradient(180deg,#FFF8F0,#FFFDF8)', color: '#2E1F12', fontFamily: '-apple-system,"PingFang SC","Microsoft YaHei",sans-serif', padding: 'max(18px,env(safe-area-inset-top)) 18px 30px' }}>
+      <button type="button" onClick={onClose} style={{ border: '1px solid #EFD8A6', background: '#FFF3D6', color: '#9A621A', borderRadius: 12, padding: '9px 13px', fontWeight: 700 }}>← 回家</button>
+      <div style={{ maxWidth: 480, margin: '17vh auto 0', textAlign: 'center' }}>
+        <div style={{ width: 82, height: 82, borderRadius: 28, margin: '0 auto 20px', display: 'grid', placeItems: 'center', background: '#FFF3D6', fontSize: 42, boxShadow: '0 12px 32px rgba(78,46,16,.08)' }}>{info?.icon}</div>
+        <h2 style={{ margin: '0 0 10px', fontSize: 25 }}>{info?.title}</h2>
+        <p style={{ color: '#9A7A50', lineHeight: 1.8, margin: 0 }}>这是它自己的房间，不会再偷偷跑到聊天页啦。<br />原来的功能正在从抽屉里搬进来。</p>
+      </div>
+    </div>
+  );
+}
+
 export default function Root() {
   const [room, setRoom] = useState('home');
 
   if (room === 'chat') return <App />;
   if (room === 'vault') return <VaultPage onClose={() => setRoom('home')} />;
+  if (room !== 'home') return <RoomPlaceholder room={room} onClose={() => setRoom('home')} />;
 
-  return <HomeHub onOpen={(key) => {
-    if (key === 'chat' || key === 'vault') setRoom(key);
-    else setRoom('chat');
-  }} />;
+  return <HomeHub onOpen={setRoom} />;
 }
