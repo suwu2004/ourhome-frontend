@@ -261,7 +261,6 @@ export default function VaultPage({ onClose }) {
   const [syncError, setSyncError] = useState('');
   const [tab, setTab] = useState('home');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
-  const [showAccountManager, setShowAccountManager] = useState(false);
   const [openGroupId, setOpenGroupId] = useState(null);
   const [accountEditor, setAccountEditor] = useState(null);
   const [showBudgetForm, setShowBudgetForm] = useState(false);
@@ -412,12 +411,6 @@ export default function VaultPage({ onClose }) {
     await runMutation(next, `/vault/transactions/${row.id}`, { method: 'DELETE' });
   };
 
-  const openManager = () => {
-    setOpenGroupId(null);
-    setAccountEditor(null);
-    setShowAccountManager(true);
-  };
-
   const saveAccountEditor = async event => {
     event.preventDefault();
     if (!accountEditor) return;
@@ -517,6 +510,7 @@ export default function VaultPage({ onClose }) {
         ...current,
         accountId: accountIds.has(current.accountId) ? (remainingAccounts[0]?.id || '') : current.accountId,
       }));
+      setOpenGroupId(null);
       setAccountEditor(null);
     }
   };
@@ -617,9 +611,8 @@ export default function VaultPage({ onClose }) {
               </div>
             </section>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 4px 9px' }}>
+            <div style={{ margin: '20px 4px 9px' }}>
               <h3 style={SECTION_TITLE}>我的账户</h3>
-              <button type="button" onClick={openManager} style={TEXT_BUTTON}>管理</button>
             </div>
             <div style={{ display: 'grid', gap: 10 }}>
               {data.accountGroups.map(group => (
@@ -640,7 +633,8 @@ export default function VaultPage({ onClose }) {
                   </span>
                 </button>
               ))}
-              {!data.accountGroups.length && <EmptyState text="还没有账户，点“管理”添加一个吧。" />}
+              {!data.accountGroups.length && <EmptyState text="还没有账户分组，先添加一个吧。" />}
+              <button type="button" onClick={() => setAccountEditor(emptyGroup())} style={{ ...SOFT_BUTTON, width: '100%', background: 'transparent', borderStyle: 'dashed' }}>＋ 添加账户分组</button>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 4px 9px' }}>
@@ -772,7 +766,13 @@ export default function VaultPage({ onClose }) {
       {openGroup && (
         <Modal close={() => setOpenGroupId(null)}>
           <Title text={`${openGroup.emoji} ${openGroup.name}`} close={() => setOpenGroupId(null)} />
-          <div style={{ color: '#9A7A50', fontSize: 12, marginTop: 8 }}>合计净额 ¥ {money(groupNet(openGroup))}</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8 }}>
+            <span style={{ color: '#9A7A50', fontSize: 12 }}>合计净额 ¥ {money(groupNet(openGroup))}</span>
+            <span style={{ display: 'flex', gap: 4 }}>
+              <button type="button" onClick={() => setAccountEditor({ kind: 'group', id: openGroup.id, name: openGroup.name, emoji: openGroup.emoji })} style={TEXT_BUTTON}>修改分组</button>
+              <button type="button" onClick={() => deleteGroup(openGroup)} style={{ ...TEXT_BUTTON, color: '#B75D50' }}>删除分组</button>
+            </span>
+          </div>
           <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
             {openGroup.accounts.map(account => (
               <div key={account.id} style={{ ...CARD, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -781,79 +781,54 @@ export default function VaultPage({ onClose }) {
                   <b>{account.name}</b>
                   <small style={{ display: 'block', color: '#B89A6A' }}>{account.type === 'debt' ? '待还负债' : '可用资产'}</small>
                 </span>
-                <b style={{ color: account.type === 'debt' ? '#C36F5C' : 'inherit' }}>¥ {money(account.balance)}</b>
+                <span style={{ textAlign: 'right' }}>
+                  <b style={{ display: 'block', color: account.type === 'debt' ? '#C36F5C' : 'inherit' }}>¥ {money(account.balance)}</b>
+                  <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 2, marginTop: 3 }}>
+                    <button type="button" onClick={() => setAccountEditor({ kind: 'account', groupId: openGroup.id, ...account, balance: String(account.balance) })} style={{ ...TEXT_BUTTON, fontSize: 10.5 }}>编辑</button>
+                    <button type="button" onClick={() => deleteAccount(openGroup, account)} style={{ ...TEXT_BUTTON, color: '#B75D50', fontSize: 10.5 }}>删除</button>
+                  </span>
+                </span>
               </div>
             ))}
             {!openGroup.accounts.length && <EmptyState text="这个账户里还没有子账户。" />}
+            <button type="button" onClick={() => setAccountEditor(emptyAccount(openGroup.id))} style={{ ...SOFT_BUTTON, width: '100%' }}>＋ 添加子账户</button>
           </div>
-          <button type="button" onClick={openManager} style={PRIMARY_BUTTON}>管理这些账户</button>
         </Modal>
       )}
 
-      {showAccountManager && (
-        <Modal close={() => setShowAccountManager(false)}>
-          <Title text="管理账户" close={() => setShowAccountManager(false)} />
-          <div style={{ display: 'grid', gap: 12, marginTop: 16 }}>
-            {data.accountGroups.map(group => (
-              <section key={group.id} style={{ ...CARD, padding: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 21 }}>{group.emoji}</span>
-                  <b style={{ flex: 1 }}>{group.name}</b>
-                  <button type="button" onClick={() => setAccountEditor({ kind: 'group', id: group.id, name: group.name, emoji: group.emoji })} style={TEXT_BUTTON}>修改</button>
-                  <button type="button" onClick={() => deleteGroup(group)} style={{ ...TEXT_BUTTON, color: '#B75D50' }}>删除</button>
-                </div>
-                <div style={{ display: 'grid', gap: 7, marginTop: 10 }}>
-                  {group.accounts.map(account => (
-                    <div key={account.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 11px', borderRadius: 12, background: '#FFF8EC' }}>
-                      <span>{account.emoji}</span>
-                      <span style={{ flex: 1 }}>
-                        <b style={{ fontSize: 13 }}>{account.name}</b>
-                        <small style={{ display: 'block', color: '#B89A6A' }}>{account.type === 'debt' ? '负债' : '资产'} · ¥ {money(account.balance)}</small>
-                      </span>
-                      <button type="button" onClick={() => setAccountEditor({ kind: 'account', groupId: group.id, ...account, balance: String(account.balance) })} style={TEXT_BUTTON}>编辑</button>
-                      <button type="button" onClick={() => deleteAccount(group, account)} style={{ ...TEXT_BUTTON, color: '#B75D50' }}>删除</button>
-                    </div>
-                  ))}
-                  <button type="button" onClick={() => setAccountEditor(emptyAccount(group.id))} style={{ ...SOFT_BUTTON, width: '100%', marginTop: 3 }}>＋ 添加子账户</button>
-                </div>
-              </section>
-            ))}
-            <button type="button" onClick={() => setAccountEditor(emptyGroup())} style={{ ...SOFT_BUTTON, width: '100%' }}>＋ 添加账户分组</button>
-          </div>
-
-          {accountEditor && (
-            <form onSubmit={saveAccountEditor} style={{ borderTop: '1px solid #EFE4CC', marginTop: 20, paddingTop: 4 }}>
-              <h4 style={{ fontSize: 13, margin: '14px 0 0', letterSpacing: '.04em' }}>{accountEditor.kind === 'group' ? (accountEditor.id ? '修改账户分组' : '添加账户分组') : (accountEditor.id ? '修改子账户' : '添加子账户')}</h4>
-              <Field label={accountEditor.kind === 'group' ? '分组名称' : '账户名称'}>
-                <input value={accountEditor.name} onChange={event => setAccountEditor({ ...accountEditor, name: event.target.value })} style={INPUT} />
-              </Field>
-              <Field label="图标">
-                <input value={accountEditor.emoji} onChange={event => setAccountEditor({ ...accountEditor, emoji: event.target.value })} style={INPUT} />
-              </Field>
-              {accountEditor.kind === 'account' && (
-                <>
-                  <Field label="所属账户">
-                    <select value={accountEditor.groupId} onChange={event => setAccountEditor({ ...accountEditor, groupId: event.target.value })} style={INPUT}>
-                      {data.accountGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="当前余额">
-                    <input value={accountEditor.balance} onChange={event => setAccountEditor({ ...accountEditor, balance: event.target.value })} inputMode="decimal" style={INPUT} />
-                  </Field>
-                  <Field label="账户类型">
-                    <select value={accountEditor.type} onChange={event => setAccountEditor({ ...accountEditor, type: event.target.value })} style={INPUT}>
-                      <option value="asset">资产</option>
-                      <option value="debt">负债 / 待还</option>
-                    </select>
-                  </Field>
-                </>
-              )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button type="button" onClick={() => setAccountEditor(null)} style={{ ...SOFT_BUTTON, marginTop: 20 }}>取消</button>
-                <button type="submit" style={PRIMARY_BUTTON}>保存</button>
-              </div>
-            </form>
-          )}
+      {accountEditor && (
+        <Modal layer={10010} close={() => setAccountEditor(null)}>
+          <form onSubmit={saveAccountEditor}>
+            <Title text={accountEditor.kind === 'group' ? (accountEditor.id ? '修改账户分组' : '添加账户分组') : (accountEditor.id ? '修改子账户' : '添加子账户')} close={() => setAccountEditor(null)} />
+            <Field label={accountEditor.kind === 'group' ? '分组名称' : '账户名称'}>
+              <input value={accountEditor.name} onChange={event => setAccountEditor({ ...accountEditor, name: event.target.value })} style={INPUT} />
+            </Field>
+            <Field label="图标">
+              <input value={accountEditor.emoji} onChange={event => setAccountEditor({ ...accountEditor, emoji: event.target.value })} style={INPUT} />
+            </Field>
+            {accountEditor.kind === 'account' && (
+              <>
+                <Field label="所属分组">
+                  <select value={accountEditor.groupId} onChange={event => setAccountEditor({ ...accountEditor, groupId: event.target.value })} style={INPUT}>
+                    {data.accountGroups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}
+                  </select>
+                </Field>
+                <Field label="当前余额">
+                  <input value={accountEditor.balance} onChange={event => setAccountEditor({ ...accountEditor, balance: event.target.value })} inputMode="decimal" style={INPUT} />
+                </Field>
+                <Field label="账户类型">
+                  <select value={accountEditor.type} onChange={event => setAccountEditor({ ...accountEditor, type: event.target.value })} style={INPUT}>
+                    <option value="asset">资产</option>
+                    <option value="debt">负债 / 待还</option>
+                  </select>
+                </Field>
+              </>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <button type="button" onClick={() => setAccountEditor(null)} style={{ ...SOFT_BUTTON, marginTop: 20 }}>取消</button>
+              <button type="submit" style={PRIMARY_BUTTON}>保存</button>
+            </div>
+          </form>
         </Modal>
       )}
 
@@ -894,9 +869,9 @@ export default function VaultPage({ onClose }) {
   );
 }
 
-function Modal({ close, children }) {
+function Modal({ close, children, layer = 10000 }) {
   return (
-    <div onClick={close} role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(36,24,12,.35)', display: 'flex', alignItems: 'flex-end' }}>
+    <div onClick={close} role="presentation" style={{ position: 'fixed', inset: 0, zIndex: layer, background: 'rgba(36,24,12,.35)', display: 'flex', alignItems: 'flex-end' }}>
       <div onClick={event => event.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', margin: '0 auto', background: '#FFFDF8', borderRadius: '24px 24px 0 0', padding: '20px 18px max(28px, env(safe-area-inset-bottom))' }}>
         {children}
       </div>
