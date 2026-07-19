@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { apiFetch, BACKEND } from './api.js';
 
 const STORAGE_KEY = 'ourhome_cat_vault_v1';
 const today = () => new Date().toISOString().slice(0, 10);
@@ -194,6 +195,12 @@ function loadData() {
   }
 }
 
+async function parseApiResponse(response) {
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || '云端保存失败');
+  return payload;
+}
+
 function flattenAccounts(groups) {
   return groups.flatMap(group => group.accounts.map(account => ({ ...account, groupId: group.id, groupName: group.name })));
 }
@@ -225,7 +232,9 @@ function buildHusbandMessage({ transactions, totals, budget, accounts }) {
 
   const amount = money(latest.amount);
   const account = accounts.find(item => item.id === latest.accountId);
-  const accountLabel = account ? `${account.groupName}的${account.name}` : '这个账户';
+  const accountLabel = account
+    ? `${account.groupName}的${account.name}`
+    : (latest.groupName && latest.accountName ? `${latest.groupName}的${latest.accountName}` : '这个账户');
   const subject = latest.note || latest.category || (latest.type === 'income' ? '这笔收入' : '这笔支出');
   if (latest.type === 'income') {
     return `老婆把「${subject}」的 ¥${amount} 收进了${accountLabel}，这个月已经收入 ¥${money(totals.income)}。辛苦赚来的每一笔，我都陪你认真放好。`;
@@ -246,6 +255,10 @@ function buildHusbandMessage({ transactions, totals, budget, accounts }) {
 
 export default function VaultPage({ onClose }) {
   const [data, setData] = useState(loadData);
+  const dataRef = useRef(data);
+  const savingRef = useRef(false);
+  const [syncStatus, setSyncStatus] = useState('正在连接云端…');
+  const [syncError, setSyncError] = useState('');
   const [tab, setTab] = useState('home');
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showAccountManager, setShowAccountManager] = useState(false);
@@ -266,10 +279,77 @@ export default function VaultPage({ onClose }) {
   });
 
   const commit = next => {
-    const normalized = { ...next, version: 2 };
+    const normalized = normalizeData(next);
+    dataRef.current = normalized;
     setData(normalized);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    const accounts = flattenAccounts(normalized.accountGroups);
+    setTransactionForm(current => ({
+      ...current,
+      accountId: accounts.some(account => account.id === current.accountId)
+        ? current.accountId
+        : (accounts[0]?.id || ''),
+    }));
   };
+
+  const runMutation = async (next, path, options) => {
+    if (savingRef.current) return false;
+    savingRef.current = true;
+    const previous = dataRef.current;
+    commit(next);
+    setSyncStatus('正在同步…');
+    setSyncError('');
+    try {
+      const payload = await parseApiResponse(await apiFetch(`${BACKEND}${path}`, options));
+      if (payload.data) commit(payload.data);
+      setSyncStatus('已同步');
+      return true;
+    } catch (error) {
+      commit(previous);
+      setSyncStatus('保留在本机');
+      setSyncError(error.message);
+      return false;
+    } finally {
+      savingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const connectVault = async () => {
+      try {
+        const payload = await parseApiResponse(await apiFetch(`${BACKEND}/vault`, { signal: controller.signal }));
+        let remote = payload.data;
+        if (remote?.needsImport) {
+          setSyncStatus('正在迁移旧账本…');
+          const imported = await parseApiResponse(await apiFetch(`${BACKEND}/vault/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: loadData() }),
+            signal: controller.signal,
+          }));
+          remote = imported.data;
+        }
+        if (!cancelled && remote) {
+          commit(remote);
+          setBudgetDraft(String(remote.budget ?? 0));
+          setSyncStatus('已同步');
+          setSyncError('');
+        }
+      } catch (error) {
+        if (!cancelled && error.name !== 'AbortError') {
+          setSyncStatus('保留在本机');
+          setSyncError(error.message === '未授权，请先登录' ? '请先去聊天房间登录一次，再回到金库同步。' : error.message);
+        }
+      }
+    };
+    connectVault();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
 
   const totals = useMemo(() => {
     const month = today().slice(0, 7);
@@ -296,7 +376,7 @@ export default function VaultPage({ onClose }) {
       : account),
   }));
 
-  const submitTransaction = event => {
+  const submitTransaction = async event => {
     event.preventDefault();
     const amount = Number(transactionForm.amount);
     const account = allAccounts.find(item => item.id === transactionForm.accountId);
@@ -304,16 +384,23 @@ export default function VaultPage({ onClose }) {
     let delta = transactionForm.type === 'income' ? amount : -amount;
     if (account.type === 'debt') delta = transactionForm.type === 'expense' ? amount : -amount;
     const row = { ...transactionForm, amount, id: makeId() };
-    commit({
+    const next = {
       ...data,
       accountGroups: updateAccountBalances(account.id, delta),
       transactions: [row, ...data.transactions],
+    };
+    const saved = await runMutation(next, '/vault/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(transactionForm),
     });
-    setTransactionForm(current => ({ ...current, amount: '', note: '' }));
-    setShowTransactionForm(false);
+    if (saved) {
+      setTransactionForm(current => ({ ...current, amount: '', note: '' }));
+      setShowTransactionForm(false);
+    }
   };
 
-  const deleteTransaction = row => {
+  const deleteTransaction = async row => {
     const account = allAccounts.find(item => item.id === row.accountId);
     let groups = data.accountGroups;
     if (account) {
@@ -321,7 +408,8 @@ export default function VaultPage({ onClose }) {
       if (account.type === 'debt') delta = row.type === 'expense' ? -Number(row.amount) : Number(row.amount);
       groups = updateAccountBalances(account.id, delta);
     }
-    commit({ ...data, accountGroups: groups, transactions: data.transactions.filter(item => item.id !== row.id) });
+    const next = { ...data, accountGroups: groups, transactions: data.transactions.filter(item => item.id !== row.id) };
+    await runMutation(next, `/vault/transactions/${row.id}`, { method: 'DELETE' });
   };
 
   const openManager = () => {
@@ -330,7 +418,7 @@ export default function VaultPage({ onClose }) {
     setShowAccountManager(true);
   };
 
-  const saveAccountEditor = event => {
+  const saveAccountEditor = async event => {
     event.preventDefault();
     if (!accountEditor) return;
     if (accountEditor.kind === 'group') {
@@ -341,8 +429,16 @@ export default function VaultPage({ onClose }) {
           ? { ...group, name, emoji: accountEditor.emoji || '💳' }
           : group)
         : [...data.accountGroups, { id: makeId(), name, emoji: accountEditor.emoji || '💳', accounts: [] }];
-      commit({ ...data, accountGroups: groups });
-      setAccountEditor(null);
+      const saved = await runMutation(
+        { ...data, accountGroups: groups },
+        accountEditor.id ? `/vault/groups/${accountEditor.id}` : '/vault/groups',
+        {
+          method: accountEditor.id ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, emoji: accountEditor.emoji || '💳' }),
+        },
+      );
+      if (saved) setAccountEditor(null);
       return;
     }
 
@@ -364,12 +460,29 @@ export default function VaultPage({ onClose }) {
     const groups = groupsWithoutAccount.map(group => group.id === accountEditor.groupId
       ? { ...group, accounts: [...group.accounts, nextAccount] }
       : group);
-    commit({ ...data, accountGroups: groups });
-    setTransactionForm(current => ({ ...current, accountId: current.accountId || id }));
-    setAccountEditor(null);
+    const saved = await runMutation(
+      { ...data, accountGroups: groups },
+      accountEditor.id ? `/vault/accounts/${accountEditor.id}` : '/vault/accounts',
+      {
+        method: accountEditor.id ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId: accountEditor.groupId,
+          targetGroupId: accountEditor.groupId,
+          name,
+          balance,
+          type: nextAccount.type,
+          emoji: nextAccount.emoji,
+        }),
+      },
+    );
+    if (saved) {
+      setTransactionForm(current => ({ ...current, accountId: current.accountId || id }));
+      setAccountEditor(null);
+    }
   };
 
-  const deleteAccount = (group, account) => {
+  const deleteAccount = async (group, account) => {
     const linked = data.transactions.some(row => row.accountId === account.id);
     const message = linked
       ? '这个子账户已有历史记录。删除后流水仍会保留，并显示为“已删除账户”。确定删除吗？'
@@ -379,15 +492,17 @@ export default function VaultPage({ onClose }) {
       ? { ...item, accounts: item.accounts.filter(candidate => candidate.id !== account.id) }
       : item);
     const remainingAccounts = flattenAccounts(groups);
-    commit({ ...data, accountGroups: groups });
-    setTransactionForm(current => ({
-      ...current,
-      accountId: current.accountId === account.id ? (remainingAccounts[0]?.id || '') : current.accountId,
-    }));
-    setAccountEditor(null);
+    const saved = await runMutation({ ...data, accountGroups: groups }, `/vault/accounts/${account.id}`, { method: 'DELETE' });
+    if (saved) {
+      setTransactionForm(current => ({
+        ...current,
+        accountId: current.accountId === account.id ? (remainingAccounts[0]?.id || '') : current.accountId,
+      }));
+      setAccountEditor(null);
+    }
   };
 
-  const deleteGroup = group => {
+  const deleteGroup = async group => {
     const accountIds = new Set(group.accounts.map(account => account.id));
     const linked = data.transactions.some(row => accountIds.has(row.accountId));
     const message = linked
@@ -396,27 +511,33 @@ export default function VaultPage({ onClose }) {
     if (!window.confirm(message)) return;
     const groups = data.accountGroups.filter(item => item.id !== group.id);
     const remainingAccounts = flattenAccounts(groups);
-    commit({ ...data, accountGroups: groups });
-    setTransactionForm(current => ({
-      ...current,
-      accountId: accountIds.has(current.accountId) ? (remainingAccounts[0]?.id || '') : current.accountId,
-    }));
-    setAccountEditor(null);
+    const saved = await runMutation({ ...data, accountGroups: groups }, `/vault/groups/${group.id}`, { method: 'DELETE' });
+    if (saved) {
+      setTransactionForm(current => ({
+        ...current,
+        accountId: accountIds.has(current.accountId) ? (remainingAccounts[0]?.id || '') : current.accountId,
+      }));
+      setAccountEditor(null);
+    }
   };
 
-  const saveBudget = event => {
+  const saveBudget = async event => {
     event.preventDefault();
     const budget = Number(budgetDraft);
     if (Number.isNaN(budget) || budget < 0) return;
-    commit({ ...data, budget });
-    setShowBudgetForm(false);
+    const saved = await runMutation({ ...data, budget }, '/vault/budget', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: budget }),
+    });
+    if (saved) setShowBudgetForm(false);
   };
 
   const openGoalForm = goal => setGoalEditor(goal
     ? { ...goal, target: String(goal.target), current: String(goal.current) }
     : emptyGoal());
 
-  const saveGoal = event => {
+  const saveGoal = async event => {
     event.preventDefault();
     if (!goalEditor) return;
     const name = goalEditor.name.trim();
@@ -427,14 +548,26 @@ export default function VaultPage({ onClose }) {
     const goals = goalEditor.id
       ? data.goals.map(goal => goal.id === goalEditor.id ? nextGoal : goal)
       : [...data.goals, nextGoal];
-    commit({ ...data, goals });
-    setGoalEditor(null);
+    const saved = await runMutation(
+      { ...data, goals },
+      goalEditor.id ? `/vault/goals/${goalEditor.id}` : '/vault/goals',
+      {
+        method: goalEditor.id ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, target, current, emoji: nextGoal.emoji }),
+      },
+    );
+    if (saved) setGoalEditor(null);
   };
 
-  const deleteGoal = goal => {
+  const deleteGoal = async goal => {
     if (!window.confirm(`确定删除存钱目标“${goal.name}”吗？`)) return;
-    commit({ ...data, goals: data.goals.filter(item => item.id !== goal.id) });
-    setGoalEditor(null);
+    const saved = await runMutation(
+      { ...data, goals: data.goals.filter(item => item.id !== goal.id) },
+      `/vault/goals/${goal.id}`,
+      { method: 'DELETE' },
+    );
+    if (saved) setGoalEditor(null);
   };
 
   const budgetProgress = data.budget > 0 ? Math.min(100, (totals.expense / data.budget) * 100) : 0;
@@ -445,6 +578,9 @@ export default function VaultPage({ onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 10 }}>
           <button type="button" onClick={onClose} aria-label="返回主页" style={{ border: 0, background: 'transparent', fontSize: 18, color: '#9A621A', cursor: 'pointer', padding: 4, fontFamily: 'inherit' }}>←</button>
           <span style={{ fontSize: 16, fontWeight: 700, color: '#2E1F12', letterSpacing: '.04em' }}>猫の金库</span>
+          <span title={syncError || syncStatus} style={{ marginLeft: 'auto', color: syncError ? '#B75D50' : '#B89A6A', fontSize: 10.5, whiteSpace: 'nowrap' }}>
+            {syncError ? '云端待重试' : syncStatus}
+          </span>
         </div>
         <div role="tablist" aria-label="金库页面" style={{ display: 'flex', gap: 0 }}>
           {[
@@ -465,6 +601,11 @@ export default function VaultPage({ onClose }) {
       </header>
 
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px 14px 24px' }}>
+        {syncError && (
+          <div role="status" style={{ marginBottom: 12, padding: '10px 12px', border: '1px solid #F0D0C8', borderRadius: 12, background: '#FFF1ED', color: '#9C5147', fontSize: 11.5, lineHeight: 1.55 }}>
+            {syncError} 本机副本仍然保留，没有丢账。
+          </div>
+        )}
         {tab === 'home' && (
           <>
             <section style={{ ...CARD, padding: 18, background: 'linear-gradient(145deg,#FFF7DE,#F8DFAB)' }}>
@@ -539,7 +680,7 @@ export default function VaultPage({ onClose }) {
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <b style={{ fontSize: 12.5 }}>{row.note || row.category}</b>
                       <small style={{ display: 'block', color: '#B89A6A', fontSize: 10, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {row.date} · {account ? `${account.groupName}/${account.name}` : '已删除账户'} · {row.tag || ''}
+                        {row.date} · {account ? `${account.groupName}/${account.name}` : (row.groupName && row.accountName ? `${row.groupName}/${row.accountName}（已删除）` : '已删除账户')} · {row.tag || ''}
                       </small>
                     </span>
                     <span style={{ textAlign: 'right' }}>
