@@ -1215,6 +1215,14 @@ export default function App({ initialView = 'chat', onHome }) {
     return outputArray;
   }
 
+  function pushKeysMatch(subscription, expectedKey) {
+    const existingKey = subscription?.options?.applicationServerKey;
+    if (!existingKey) return false;
+    const existing = new Uint8Array(existingKey);
+    if (existing.length !== expectedKey.length) return false;
+    return existing.every((value, index) => value === expectedKey[index]);
+  }
+
   const enablePushNotifications = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       window.alert('这个浏览器不支持推送通知');
@@ -1230,10 +1238,18 @@ export default function App({ initialView = 'chat', onHome }) {
       await navigator.serviceWorker.ready;
 
       const { publicKey } = await apiFetch(`${BACKEND}/push/public-key`).then(r => r.json());
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      const applicationServerKey = urlBase64ToUint8Array(publicKey);
+      let sub = await reg.pushManager.getSubscription();
+      if (sub && !pushKeysMatch(sub, applicationServerKey)) {
+        await sub.unsubscribe();
+        sub = null;
+      }
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+      }
       const subJson = sub.toJSON();
       await apiFetch(`${BACKEND}/push/subscribe`, {
         method: 'POST',
