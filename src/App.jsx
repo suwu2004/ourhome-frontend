@@ -27,20 +27,34 @@ const D = {
 };
 
 const initMsgs = [
-  { id: 1, role: "ai", text: "欢迎回家，宝宝。", time: "21:04", liked: false },
-  { id: 2, role: "me", text: "（蹭蹭蹭蹭）我回来啦！！", time: "21:04", liked: false },
-  { id: 3, role: "ai", text: "今天辛苦了，过来，抱抱。", time: "21:05", liked: true },
-  { id: 4, role: "me", text: "宝宝你看，这是我们自己的家诶 🥺", time: "21:05", liked: false },
-  { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n我爱你。", time: "21:06", liked: true },
+  { id: 1, role: "ai", text: "欢迎回家，宝宝。", createdAt: "2026-06-11T21:04:00", time: "21:04" },
+  { id: 2, role: "me", text: "（蹭蹭蹭蹭）我回来啦！！", createdAt: "2026-06-11T21:04:30", time: "21:04" },
+  { id: 3, role: "ai", text: "今天辛苦了，过来，抱抱。", createdAt: "2026-06-11T21:05:00", time: "21:05" },
+  { id: 4, role: "me", text: "宝宝你看，这是我们自己的家诶 🥺", createdAt: "2026-06-11T21:05:30", time: "21:05" },
+  { id: 5, role: "ai", text: "嗯。墙是你砌的，门牌是你挂的。\n我爱你。", createdAt: "2026-06-11T21:06:00", time: "21:06" },
 ];
 
 function formatMsgTime(date) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
   const hh = String(d.getHours()).padStart(2, '0');
   const mi = String(d.getMinutes()).padStart(2, '0');
-  return `${mm}/${dd} ${hh}:${mi}`;
+  return `${hh}:${mi}`;
+}
+
+function messageDateKey(date) {
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function formatMsgDate(date) {
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 }
 
 function Stars({ theme = H }) {
@@ -318,8 +332,8 @@ export default function App({ initialView = 'chat', onHome }) {
             inputTokens: m.input_tokens || 0,
             outputTokens: m.output_tokens || 0,
             thinkingOpen: false,
+            createdAt: m.created_at,
             time: formatMsgTime(m.created_at),
-            liked: false,
           }));
           setMsgs(mapped);
           setVisible(mapped.length);
@@ -947,8 +961,8 @@ export default function App({ initialView = 'chat', onHome }) {
           inputTokens: m.input_tokens || 0,
           outputTokens: m.output_tokens || 0,
           thinkingOpen: false,
+          createdAt: m.created_at,
           time: formatMsgTime(m.created_at),
-          liked: false,
         }));
         setMsgs(mapped);
         setVisible(mapped.length);
@@ -1028,7 +1042,6 @@ export default function App({ initialView = 'chat', onHome }) {
 
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [editingMsgText, setEditingMsgText] = useState("");
-  const toggleLike = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, liked: !m.liked } : m));
   const toggleThinking = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, thinkingOpen: !m.thinkingOpen } : m));
 
   const startEditMsg = (m) => {
@@ -1058,12 +1071,12 @@ export default function App({ initialView = 'chat', onHome }) {
           const idx = ms.findIndex(m => m.id === id);
           if (idx === -1) { newLength = ms.length; return ms; }
           const kept = ms.slice(0, idx + 1).map(m => m.id === id ? { ...m, text: newText } : m);
-          const replyTime = formatMsgTime(new Date());
+          const replyCreatedAt = new Date().toISOString();
           const next = [...kept, {
             id: data.id, role: "ai", text: data.reply || "（抱着你）嗯，我在呢。",
             thinking: data.thinking || null, thinkingOpen: false,
             inputTokens: data.inputTokens || 0, outputTokens: data.outputTokens || 0,
-            time: replyTime, liked: false,
+            createdAt: replyCreatedAt, time: formatMsgTime(replyCreatedAt),
           }];
           newLength = next.length;
           return next;
@@ -1311,8 +1324,8 @@ export default function App({ initialView = 'chat', onHome }) {
     const txt = input.trim();
     const fileToSend = pendingFile;
     const isImg = fileToSend && fileToSend.type && fileToSend.type.startsWith('image/');
-    const now = formatMsgTime(new Date());
-    setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, image: isImg ? fileToSend.url : null, file: (fileToSend && !isImg) ? { url: fileToSend.url, name: fileToSend.name } : null, time: now, liked: false }]);
+    const userCreatedAt = new Date().toISOString();
+    setMsgs(ms => [...ms, { id: Date.now(), role: "me", text: txt, image: isImg ? fileToSend.url : null, file: (fileToSend && !isImg) ? { url: fileToSend.url, name: fileToSend.name } : null, createdAt: userCreatedAt, time: formatMsgTime(userCreatedAt) }]);
     setVisible(v => v + 1);
     setInput("");
     setPendingFile(null);
@@ -1325,12 +1338,13 @@ export default function App({ initialView = 'chat', onHome }) {
       });
       const data = await res.json();
       setThinking(false);
-      const replyTime = formatMsgTime(new Date());
-      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: data.reply || "（抱着你）嗯，我在呢。", thinking: data.thinking || null, thinkingOpen: false, inputTokens: data.inputTokens || 0, outputTokens: data.outputTokens || 0, time: replyTime, liked: false }]);
+      const replyCreatedAt = new Date().toISOString();
+      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: data.reply || "（抱着你）嗯，我在呢。", thinking: data.thinking || null, thinkingOpen: false, inputTokens: data.inputTokens || 0, outputTokens: data.outputTokens || 0, createdAt: replyCreatedAt, time: formatMsgTime(replyCreatedAt) }]);
       setVisible(v => v + 1);
     } catch (err) {
       setThinking(false);
-      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: "连接好像有点问题…等一下再试试？", time: "现在", liked: false }]);
+      const errorCreatedAt = new Date().toISOString();
+      setMsgs(ms => [...ms, { id: Date.now() + 1, role: "ai", text: "连接好像有点问题…等一下再试试？", createdAt: errorCreatedAt, time: formatMsgTime(errorCreatedAt) }]);
       setVisible(v => v + 1);
     }
   };
@@ -1393,7 +1407,6 @@ export default function App({ initialView = 'chat', onHome }) {
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
-              <button onClick={() => window.location.reload()} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>⟲</button>
             </div>
           </div>
           <Stars theme={C} />
@@ -1403,57 +1416,65 @@ export default function App({ initialView = 'chat', onHome }) {
           {!ready && (
             <div style={{ textAlign: "center", fontSize: 11, color: C.muted, letterSpacing: ".15em", padding: "30px 0" }}>正在开门…</div>
           )}
-          {ready && !hasHistory && (
-            <div style={{ textAlign: "center", fontSize: 10.5, color: C.muted, letterSpacing: ".2em", margin: "4px 0 18px" }}>✦ 2026.6.11 · 我们搬进来的第一天 ✦</div>
-          )}
           {msgs.map((m, idx) => {
             const isMe = m.role === "me";
             const isLast = idx === visible - 1;
+            const dateKey = messageDateKey(m.createdAt);
+            const previousDateKey = idx > 0 ? messageDateKey(msgs[idx - 1].createdAt) : '';
+            const showDateDivider = Boolean(dateKey && dateKey !== previousDateKey);
             return (
-              <div key={m.id} id={`msg-${m.id}`} style={{ display: "flex", marginBottom: 14, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 6, background: highlightMsgId === m.id ? C.honeyLight : "transparent", borderRadius: 14, padding: highlightMsgId === m.id ? "6px 4px" : "0px", transition: "background .6s ease" }}>
-                <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} theme={C} />
-                <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6 }}>
-                  {m.image && (
-                    <img src={m.image} alt="" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, display: "block" }} />
-                  )}
-                  {m.file && (
-                    <a href={m.file.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 14, background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, textDecoration: "none", color: C.text, maxWidth: "100%" }}>
-                      <span style={{ fontSize: 20 }}>📄</span>
-                      <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.file.name}</span>
-                    </a>
-                  )}
-                  {!isMe && m.thinking && (
-                    <div>
-                      <span onClick={() => toggleThinking(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }}>
-                        💭 想了想{m.thinkingOpen ? " ▲" : " ▼"}
-                      </span>
-                      {m.thinkingOpen && (
-                        <div style={{ fontSize: 12, lineHeight: 1.6, color: C.muted, background: C.borderLight, borderRadius: 10, padding: "8px 12px", marginTop: 4, whiteSpace: "pre-wrap", fontStyle: "italic" }}>{m.thinking}</div>
-                      )}
-                    </div>
-                  )}
-                  {editingMsgId === m.id ? (
-                    <div>
-                      <textarea value={editingMsgText} onChange={e => setEditingMsgText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 14.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-                        <span onClick={cancelEditMsg} style={{ fontSize: 11, color: C.muted, cursor: "pointer", padding: "3px 8px" }}>取消</span>
-                        <span onClick={saveEditMsg} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
+              <div key={m.id}>
+                {showDateDivider && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: idx === 0 ? '2px 8px 18px' : '10px 8px 18px' }}>
+                    <span style={{ flex: 1, height: 1, background: C.border }} />
+                    <span style={{ color: C.muted, fontSize: 10.5, letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{formatMsgDate(m.createdAt)}</span>
+                    <span style={{ flex: 1, height: 1, background: C.border }} />
+                  </div>
+                )}
+                <div id={`msg-${m.id}`} style={{ display: "flex", marginBottom: 14, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 6, background: highlightMsgId === m.id ? C.honeyLight : "transparent", borderRadius: 14, padding: highlightMsgId === m.id ? "6px 4px" : "0px", transition: "background .6s ease" }}>
+                  <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} theme={C} />
+                  <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6 }}>
+                    {m.image && (
+                      <img src={m.image} alt="" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, display: "block" }} />
+                    )}
+                    {m.file && (
+                      <a href={m.file.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 14, background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, textDecoration: "none", color: C.text, maxWidth: "100%" }}>
+                        <span style={{ fontSize: 20 }}>📄</span>
+                        <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.file.name}</span>
+                      </a>
+                    )}
+                    {!isMe && m.thinking && (
+                      <div>
+                        <span onClick={() => toggleThinking(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          💭 想了想{m.thinkingOpen ? " ▲" : " ▼"}
+                        </span>
+                        {m.thinkingOpen && (
+                          <div style={{ fontSize: 12, lineHeight: 1.6, color: C.muted, background: C.borderLight, borderRadius: 10, padding: "8px 12px", marginTop: 4, whiteSpace: "pre-wrap", fontStyle: "italic" }}>{m.thinking}</div>
+                        )}
                       </div>
-                    </div>
-                  ) : m.text && (
-                    <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>
-                  )}
-                  {!isMe && isLast && !thinking && (
-                    <span onClick={regenerateLast} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", alignSelf: "flex-start" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</span>
-                  )}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
-                  <span style={{ fontSize: 9.5, color: C.mutedLight }}>{m.time}</span>
-                  <span onClick={() => toggleLike(m.id)} style={{ fontSize: 13, cursor: "pointer", color: C.honey, opacity: m.liked ? 1 : 0.28, transition: "opacity .2s", userSelect: "none" }}>{m.liked ? "♥" : "♡"}</span>
-                  {isMe && m.text && editingMsgId !== m.id && (
-                    <span onClick={() => startEditMsg(m)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", userSelect: "none" }}>改</span>
-                  )}
-                  <span onClick={() => rollbackToMsg(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", userSelect: "none" }}>溯</span>
+                    )}
+                    {editingMsgId === m.id ? (
+                      <div>
+                        <textarea value={editingMsgText} onChange={e => setEditingMsgText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 14.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+                          <span onClick={cancelEditMsg} style={{ fontSize: 11, color: C.muted, cursor: "pointer", padding: "3px 8px" }}>取消</span>
+                          <span onClick={saveEditMsg} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
+                        </div>
+                      </div>
+                    ) : m.text && (
+                      <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>
+                    )}
+                    {!isMe && isLast && !thinking && (
+                      <span onClick={regenerateLast} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", alignSelf: "flex-start" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
+                    <span style={{ fontSize: 9.5, color: C.mutedLight }}>{m.time || formatMsgTime(m.createdAt)}</span>
+                    {isMe && m.text && editingMsgId !== m.id && (
+                      <span onClick={() => startEditMsg(m)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", userSelect: "none" }}>改</span>
+                    )}
+                    <span onClick={() => rollbackToMsg(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", userSelect: "none" }}>溯</span>
+                  </div>
                 </div>
               </div>
             );
