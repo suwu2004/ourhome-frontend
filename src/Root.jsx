@@ -18,11 +18,12 @@ function roomFromHash() {
   return roomKeys.has(key) ? key : 'home';
 }
 
-function HomeHub({ onOpen }) {
+function HomeHub({ onOpen, onRefresh }) {
   return (
     <div className="ourhome-shell ourhome-scroll" style={{ overflowY: 'auto', background: 'linear-gradient(180deg,#FFF8F0 0%,#FFFDF8 55%,#FFF4E2 100%)', color: '#2E1F12', padding: 'max(28px,env(safe-area-inset-top)) 18px max(28px,env(safe-area-inset-bottom))' }}>
       <div style={{ width: '100%', maxWidth: 520, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', padding: '24px 0 30px' }}>
+        <div style={{ position: 'relative', textAlign: 'center', padding: '24px 0 30px' }}>
+          <button type="button" onClick={onRefresh} aria-label="刷新整个 OurHome" title="刷新整个 OurHome" style={{ position: 'absolute', top: 0, right: 0, width: 34, height: 34, display: 'grid', placeItems: 'center', border: '1px solid #EFE4CC', borderRadius: 12, background: '#FFFDF8', color: '#9A621A', fontSize: 17, cursor: 'pointer', boxShadow: '0 5px 16px rgba(78,46,16,.06)' }}>↻</button>
           <div style={{ fontSize: 13, color: '#B89A6A', letterSpacing: '.32em', marginLeft: '.32em' }}>OUR HOME</div>
           <h1 style={{ margin: '12px 0 7px', fontSize: 30, letterSpacing: '.08em' }}>欢迎回家</h1>
           <p style={{ margin: 0, color: '#9A7A50', fontSize: 14 }}>今天想先去哪个房间？</p>
@@ -70,5 +71,5 @@ export default function Root() {
   if (room === 'vault') return <VaultPage onClose={goHome} />;
   if (room !== 'home') return <App key={room} initialView={room} onHome={goHome} />;
 
-  return <HomeHub onOpen={openRoom} />;
+  return <HomeHub onOpen={openRoom} onRefresh={() => window.location.reload()} />;
 }
