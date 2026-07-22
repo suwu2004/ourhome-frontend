@@ -1,34 +1,62 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-export default function IntegrationSettings({ apiFetch, backend, theme }) {
+const WEB_PROVIDERS = {
+  linkup: {
+    label: 'Linkup',
+    endpoint: 'https://api.linkup.so/v1/search',
+    placeholder: 'Linkup API 密钥',
+    description: '适合你截图里的 Linkup 密钥，使用 standard 搜索。',
+    depth: 'standard',
+  },
+  tavily: {
+    label: 'Tavily',
+    endpoint: 'https://api.tavily.com/search',
+    placeholder: 'Tavily API 密钥',
+    description: '只有 Tavily 控制台生成的密钥才能使用这条线路。',
+    depth: 'advanced',
+  },
+};
+
+function detectWebProvider(connection) {
+  const configured = String(connection?.config?.provider || '').toLowerCase();
+  if (WEB_PROVIDERS[configured]) return configured;
+  return `${connection?.name || ''} ${connection?.url || ''}`.toLowerCase().includes('linkup') ? 'linkup' : 'tavily';
+}
+
+export default function IntegrationSettings({ apiFetch, backend, theme, embedded = false }) {
   const [connections, setConnections] = useState([]);
-  const [tavilyKey, setTavilyKey] = useState('');
-  const [tavilyEnabled, setTavilyEnabled] = useState(true);
+  const [webSearchKey, setWebSearchKey] = useState('');
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+  const [webProvider, setWebProvider] = useState('linkup');
   const [mcpDraft, setMcpDraft] = useState({ name: '', url: '', token: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const loadConnections = async () => {
+  const loadConnections = useCallback(async () => {
     try {
       const response = await apiFetch(`${backend}/connections`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '读取联网配置失败');
       const list = Array.isArray(data) ? data : [];
       setConnections(list);
-      const tavily = list.find(item => item.kind === 'web_search');
-      if (tavily) setTavilyEnabled(tavily.enabled);
+      const webSearch = list.find(item => item.kind === 'web_search');
+      if (webSearch) {
+        setWebSearchEnabled(webSearch.enabled);
+        setWebProvider(detectWebProvider(webSearch));
+      }
     } catch (err) {
       setError(err.message);
     }
-  };
+  }, [apiFetch, backend]);
 
-  useEffect(() => { loadConnections(); }, []);
+  useEffect(() => { loadConnections(); }, [loadConnections]);
 
-  const saveTavily = async () => {
+  const saveWebSearch = async () => {
     const existing = connections.find(item => item.kind === 'web_search');
-    if (!existing && !tavilyKey.trim()) {
-      setError('第一次保存 Tavily 时需要填写密钥');
+    const provider = WEB_PROVIDERS[webProvider];
+    if (!existing && !webSearchKey.trim()) {
+      setError(`第一次保存 ${provider.label} 时需要填写密钥`);
       return;
     }
     setBusy(true);
@@ -38,12 +66,19 @@ export default function IntegrationSettings({ apiFetch, backend, theme }) {
       const response = await apiFetch(existing ? `${backend}/connections/${existing.id}` : `${backend}/connections`, {
         method: existing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'web_search', name: 'Tavily', url: 'https://api.tavily.com/search', secret: tavilyKey.trim() || undefined, enabled: tavilyEnabled, config: { max_results: 5, search_depth: 'advanced' } }),
+        body: JSON.stringify({
+          kind: 'web_search',
+          name: provider.label,
+          url: provider.endpoint,
+          secret: webSearchKey.trim() || undefined,
+          enabled: webSearchEnabled,
+          config: { provider: webProvider, max_results: 5, search_depth: provider.depth },
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '保存失败');
-      setTavilyKey('');
-      setNotice('联网搜索配置已保存');
+      setWebSearchKey('');
+      setNotice(`${provider.label} 联网搜索已经保存`);
       await loadConnections();
     } catch (err) {
       setError(err.message);
@@ -106,7 +141,8 @@ export default function IntegrationSettings({ apiFetch, backend, theme }) {
       const response = await apiFetch(`${backend}/connections/${connection.id}/test`, { method: 'POST' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '测试失败');
-      setNotice(connection.kind === 'mcp' ? `连接成功，发现 ${data.tool_count || 0} 个只读工具` : `连接成功，返回 ${data.result_count || 0} 条结果`);
+      const providerLabel = WEB_PROVIDERS[data.provider]?.label || connection.name;
+      setNotice(connection.kind === 'mcp' ? `连接成功，发现 ${data.tool_count || 0} 个只读工具` : `${providerLabel} 连接成功，返回 ${data.result_count || 0} 条结果`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -133,23 +169,33 @@ export default function IntegrationSettings({ apiFetch, backend, theme }) {
   const softButton = { border: `1px solid ${theme.honeyMid}`, background: theme.honeyLight, color: theme.honeyDeep, borderRadius: 999, padding: '6px 12px', cursor: 'pointer', fontSize: 11.5 };
   const textButton = { border: 0, padding: 0, background: 'transparent', fontSize: 10.5, cursor: 'pointer', fontFamily: 'inherit' };
   const mcpConnections = connections.filter(item => item.kind === 'mcp');
-  const tavily = connections.find(item => item.kind === 'web_search');
+  const webSearch = connections.find(item => item.kind === 'web_search');
+  const selectedProvider = WEB_PROVIDERS[webProvider];
+  const providerChanged = Boolean(webSearch && detectWebProvider(webSearch) !== webProvider);
 
   return (
-    <section style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${theme.border}` }}>
+    <section style={embedded ? {} : { marginTop: 18, paddingTop: 14, borderTop: `1px solid ${theme.border}` }}>
       <div style={{ fontSize: 12, color: theme.muted, marginBottom: 4, letterSpacing: '.05em' }}>联网与 MCP</div>
-      <div style={{ fontSize: 10.5, color: theme.mutedLight, lineHeight: 1.55, marginBottom: 11 }}>联网由 Tavily 搜索提供；MCP 目前接远程 Streamable HTTP 地址，并默认限制为只读工具。搜索词和工具参数会发给对应服务，请只连接信任的站点。</div>
+      <div style={{ fontSize: 10.5, color: theme.mutedLight, lineHeight: 1.55, marginBottom: 11 }}>联网可以选择 Linkup 或 Tavily；MCP 目前接远程 Streamable HTTP 地址，并默认限制为只读工具。搜索词和工具参数会发给对应服务，请只连接信任的站点。</div>
 
       <div style={{ padding: 11, borderRadius: 12, background: theme.cream, border: `1px solid ${theme.borderLight}`, marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <strong style={{ flex: 1, fontSize: 12.5 }}>🔎 Tavily 联网搜索</strong>
-          <span style={{ fontSize: 10.5, color: tavily?.has_secret ? theme.honeyDeep : theme.muted }}>{tavily?.has_secret ? '密钥已保存' : '未配置'}</span>
-          <input type="checkbox" checked={tavilyEnabled} onChange={event => setTavilyEnabled(event.target.checked)} aria-label="启用 Tavily" />
+          <strong style={{ flex: 1, fontSize: 12.5 }}>🔎 联网搜索</strong>
+          <span style={{ fontSize: 10.5, color: webSearch?.has_secret ? theme.honeyDeep : theme.muted }}>{webSearch?.has_secret ? '密钥已保存' : '未配置'}</span>
+          <input type="checkbox" checked={webSearchEnabled} onChange={event => setWebSearchEnabled(event.target.checked)} aria-label="启用联网搜索" />
         </div>
-        <input aria-label="Tavily API 密钥" type="password" value={tavilyKey} onChange={event => setTavilyKey(event.target.value)} placeholder={tavily?.has_secret ? '新密钥（留空保留原密钥）' : 'Tavily API 密钥'} autoComplete="new-password" style={field} />
+        <label style={{ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'center', gap: 8, marginBottom: 8, color: theme.muted, fontSize: 11 }}>
+          <span>搜索线路</span>
+          <select aria-label="联网搜索线路" value={webProvider} onChange={event => { setWebProvider(event.target.value); setError(''); setNotice(''); }} style={{ ...field, padding: '8px 10px' }}>
+            <option value="linkup">Linkup</option>
+            <option value="tavily">Tavily</option>
+          </select>
+        </label>
+        <div style={{ margin: '-1px 0 8px 80px', color: theme.mutedLight, fontSize: 9.5, lineHeight: 1.45 }}>{selectedProvider.description}</div>
+        <input aria-label={`${selectedProvider.label} API 密钥`} type="password" value={webSearchKey} onChange={event => setWebSearchKey(event.target.value)} placeholder={webSearch?.has_secret ? '新密钥（留空会保留已经保存的密钥）' : selectedProvider.placeholder} autoComplete="new-password" style={field} />
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-          {tavily && <button type="button" onClick={() => testConnection(tavily)} disabled={busy} style={softButton}>测试搜索</button>}
-          <button type="button" onClick={saveTavily} disabled={busy} style={{ ...softButton, color: theme.white, background: theme.honey, borderColor: theme.honey }}>{busy ? '处理中…' : '保存联网配置'}</button>
+          {webSearch && <button type="button" onClick={() => testConnection(webSearch)} disabled={busy || providerChanged} style={{ ...softButton, opacity: providerChanged ? .55 : 1 }}>{providerChanged ? '先保存再测试' : '测试搜索'}</button>}
+          <button type="button" onClick={saveWebSearch} disabled={busy} style={{ ...softButton, color: theme.white, background: theme.honey, borderColor: theme.honey }}>{busy ? '处理中…' : `保存为 ${selectedProvider.label}`}</button>
         </div>
       </div>
 

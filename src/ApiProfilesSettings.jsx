@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 const emptyDraft = () => ({ id: null, name: '', base_url: '', api_key: '', selected_model: '' });
 
-export default function ApiProfilesSettings({ apiFetch, backend, theme, onActiveChange, onModelsChange }) {
+export default function ApiProfilesSettings({ apiFetch, backend, theme, onActiveChange, onModelsChange, embedded = false }) {
   const [profiles, setProfiles] = useState([]);
   const [draft, setDraft] = useState(emptyDraft);
   const [busy, setBusy] = useState(false);
@@ -131,7 +131,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
   const textButton = { border: 0, padding: 0, background: 'transparent', fontSize: 10.5, cursor: 'pointer', fontFamily: 'inherit' };
 
   return (
-    <section style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${theme.border}` }}>
+    <section style={embedded ? {} : { marginTop: 18, paddingTop: 14, borderTop: `1px solid ${theme.border}` }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
         <div>
           <div style={{ fontSize: 12, color: theme.muted, letterSpacing: '.05em' }}>API 站点档案</div>

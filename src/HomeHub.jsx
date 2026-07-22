@@ -365,9 +365,13 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
       : weather
         ? `${weatherDescription.icon} ${weatherDescription.label} ${Math.round(weather.temperature)}°C`
         : '在设置里填写城市';
+  const homeBackground = darkMode ? settings?.home_bg_night_image_url : settings?.home_bg_day_image_url;
+  const homeBackgroundStyle = homeBackground
+    ? { '--home-custom-background': `url(${JSON.stringify(homeBackground)})` }
+    : undefined;
 
   return (
-    <main className={`home-scene ourhome-shell ${darkMode ? 'home-scene--night' : 'home-scene--day'}`}>
+    <main className={`home-scene ourhome-shell ${darkMode ? 'home-scene--night' : 'home-scene--day'} ${homeBackground ? 'home-scene--custom' : ''}`} style={homeBackgroundStyle}>
       <div className="home-room-light" aria-hidden="true"><i /><i /><i /></div>
       <div className="home-layout">
         <header className="home-hero">

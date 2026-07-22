@@ -171,8 +171,45 @@ function HighlightedText({ text, query }) {
   return parts.length ? parts : value;
 }
 
+function SettingsGroup({ theme, title, subtitle, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section style={{ marginBottom: 12, overflow: 'hidden', background: theme.white, border: `1px solid ${theme.border}`, borderRadius: 16, boxShadow: `0 8px 22px ${theme.borderLight}88` }}>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(value => !value)}
+        style={{ width: '100%', minHeight: 66, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 11, color: theme.text, background: 'transparent', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+      >
+        <span aria-hidden="true" style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', flexShrink: 0, color: theme.honeyDeep, background: theme.honeyLight, border: `1px solid ${theme.honeyMid}`, borderRadius: 10, fontFamily: 'Georgia, serif', fontSize: 12 }}>✦</span>
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <strong style={{ display: 'block', fontSize: 13.5, fontWeight: 650, letterSpacing: '.04em' }}>{title}</strong>
+          <small style={{ display: 'block', marginTop: 3, overflow: 'hidden', color: theme.muted, fontSize: 9.5, lineHeight: 1.4, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</small>
+        </span>
+        <span aria-hidden="true" style={{ color: theme.honeyDeep, fontSize: 16, transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' }}>⌄</span>
+      </button>
+      <div hidden={!open} style={{ padding: '14px 14px 15px', borderTop: `1px solid ${theme.borderLight}` }}>{children}</div>
+    </section>
+  );
+}
+
+function BackgroundImageOption({ label, description, image, busy, onUpload, onReset, theme }) {
+  const inputRef = useRef(null);
+  return (
+    <div style={{ minWidth: 0, padding: 10, background: theme.cream, border: `1px solid ${theme.borderLight}`, borderRadius: 13 }}>
+      <button type="button" onClick={() => inputRef.current?.click()} style={{ width: '100%', height: 78, padding: 0, overflow: 'hidden', display: 'grid', placeItems: 'center', color: theme.honeyDeep, background: image ? 'transparent' : `linear-gradient(145deg, ${theme.honeyLight}, ${theme.white})`, border: `1px dashed ${theme.honeyMid}`, borderRadius: 10, cursor: 'pointer' }}>
+        {busy ? <span style={{ fontSize: 10 }}>上传中…</span> : image ? <img src={image} alt={`${label}背景预览`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20, fontWeight: 300 }}>＋</span>}
+      </button>
+      <input ref={inputRef} type="file" accept="image/*" hidden onChange={event => { onUpload(event.target.files?.[0]); event.target.value = ''; }} />
+      <strong style={{ display: 'block', marginTop: 7, color: theme.text, fontSize: 11.5 }}>{label}</strong>
+      <span style={{ display: 'block', marginTop: 2, color: theme.muted, fontSize: 9, lineHeight: 1.35 }}>{description}</span>
+      {image && <button type="button" onClick={onReset} style={{ marginTop: 6, padding: 0, color: theme.honeyDeep, background: 'transparent', border: 0, cursor: 'pointer', fontSize: 9.5 }}>恢复默认</button>}
+    </div>
+  );
+}
+
 export default function App({ initialView = 'chat', onHome }) {
-  const { darkMode, theme: C, toggleDarkMode } = useTheme();
+  const { darkMode, theme: C, toggleDarkMode, refreshTheme } = useTheme();
   const [stage, setStage] = useState("home");
   const [locked, setLocked] = useState(!localStorage.getItem(TOKEN_KEY));
   const [pwInput, setPwInput] = useState("");
@@ -210,6 +247,10 @@ export default function App({ initialView = 'chat', onHome }) {
   const [bgColor, setBgColor] = useState(null);
   const [uploadingBg, setUploadingBg] = useState(false);
   const bgImageInputRef = useRef(null);
+  const [homeDayBgImage, setHomeDayBgImage] = useState(null);
+  const [homeNightBgImage, setHomeNightBgImage] = useState(null);
+  const [uploadingHomeBg, setUploadingHomeBg] = useState(null);
+  const [homeBgError, setHomeBgError] = useState('');
   const [whisperBgImage, setWhisperBgImage] = useState(null);
   const [whisperBgColor, setWhisperBgColor] = useState(null);
   const [myBubbleColor, setMyBubbleColor] = useState(null);
@@ -485,6 +526,8 @@ export default function App({ initialView = 'chat', onHome }) {
         if (data?.partner_avatar_url) setPartnerAvatar(data.partner_avatar_url);
         if (data?.bg_image_url) setBgImage(data.bg_image_url);
         if (data?.bg_color) setBgColor(data.bg_color);
+        setHomeDayBgImage(data?.home_bg_day_image_url || null);
+        setHomeNightBgImage(data?.home_bg_night_image_url || null);
         if (data?.whisper_bg_image_url) setWhisperBgImage(data.whisper_bg_image_url);
         if (data?.whisper_bg_color) setWhisperBgColor(data.whisper_bg_color);
         if (data?.my_bubble_color) setMyBubbleColor(data.my_bubble_color);
@@ -879,6 +922,56 @@ export default function App({ initialView = 'chat', onHome }) {
         setUploadingBg(false);
       }))
       .catch(err => { console.error(err); setUploadingBg(false); });
+  };
+
+  const uploadHomeBackground = async (file, mode) => {
+    if (!file) return;
+    setUploadingHomeBg(mode);
+    setHomeBgError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadResponse = await apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData });
+      const uploadData = await uploadResponse.json().catch(() => ({}));
+      if (!uploadResponse.ok || !uploadData.url) throw new Error(uploadData.error || '主页背景没有上传成功');
+      const field = mode === 'night' ? 'home_bg_night_image_url' : 'home_bg_day_image_url';
+      const settingsResponse = await apiFetch(`${BACKEND}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: uploadData.url }),
+      });
+      const settingsData = await settingsResponse.json().catch(() => ({}));
+      if (!settingsResponse.ok) throw new Error(settingsData.error || '主页背景没有保存成功');
+      if (mode === 'night') setHomeNightBgImage(uploadData.url);
+      else setHomeDayBgImage(uploadData.url);
+      await refreshTheme();
+    } catch (error) {
+      setHomeBgError(error.message || '主页背景没有保存成功');
+    } finally {
+      setUploadingHomeBg(null);
+    }
+  };
+
+  const resetHomeBackground = async mode => {
+    setUploadingHomeBg(mode);
+    setHomeBgError('');
+    try {
+      const field = mode === 'night' ? 'home_bg_night_image_url' : 'home_bg_day_image_url';
+      const response = await apiFetch(`${BACKEND}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: null }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '没有恢复成功');
+      if (mode === 'night') setHomeNightBgImage(null);
+      else setHomeDayBgImage(null);
+      await refreshTheme();
+    } catch (error) {
+      setHomeBgError(error.message || '没有恢复成功');
+    } finally {
+      setUploadingHomeBg(null);
+    }
   };
 
   const setBackgroundColor = (color) => {
@@ -2423,6 +2516,7 @@ export default function App({ initialView = 'chat', onHome }) {
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>⚙ 设置</span>
         </header>
         <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingLeft: 18, paddingRight: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+          <SettingsGroup theme={C} title="主页与外观" subtitle="昼夜、字体、天气和主页背景" defaultOpen>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <span style={{ fontSize: 13, color: C.text }}>{darkMode ? "🌙 夜间模式" : "☀️ 日间模式"}</span>
             <button type="button" role="switch" aria-checked={darkMode} aria-label="切换日间与夜间模式" onClick={toggleDarkMode} style={{ width: 44, height: 24, padding: 0, border: 0, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
@@ -2450,6 +2544,31 @@ export default function App({ initialView = 'chat', onHome }) {
           <div style={{ fontSize: 10.5, lineHeight: 1.55, color: weatherCitySaved ? C.honeyDeep : C.muted, marginBottom: 18 }}>
             {weatherCitySaved ? (weatherCityInput ? `已保存“${weatherCityInput}”，回到主页会自动刷新。` : '已清空主页天气城市。') : '保存在这台设备里，主页只显示城市与当前天气，不会持续读取定位。'}
           </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 9, letterSpacing: ".05em" }}>主页背景</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 9 }}>
+            <BackgroundImageOption
+              label="日间主页"
+              description="会自动加一层浅蜂蜜薄纱"
+              image={homeDayBgImage}
+              busy={uploadingHomeBg === 'day'}
+              onUpload={file => uploadHomeBackground(file, 'day')}
+              onReset={() => resetHomeBackground('day')}
+              theme={C}
+            />
+            <BackgroundImageOption
+              label="夜间主页"
+              description="会自动压暗，保证文字清楚"
+              image={homeNightBgImage}
+              busy={uploadingHomeBg === 'night'}
+              onUpload={file => uploadHomeBackground(file, 'night')}
+              onReset={() => resetHomeBackground('night')}
+              theme={C}
+            />
+          </div>
+          <div style={{ marginTop: 7, color: homeBgError ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>{homeBgError || '两套背景分别跟随日间 / 夜间模式，并在云端同步。'}</div>
+          </SettingsGroup>
+
+          <SettingsGroup theme={C} title="自动记录" subtitle="每天的幸福日记与心情收尾">
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>每天的幸福收尾</div>
           <div style={{ padding: 12, marginBottom: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -2467,6 +2586,9 @@ export default function App({ initialView = 'chat', onHome }) {
             </div>
             <div style={{ marginTop: 6, color: dailyJournalSaved ? C.honeyDeep : C.muted, fontSize: 9.5 }}>{dailyJournalSaved ? '已经按中国时间保存好。' : '按中国时间执行；原来陆泽想写时自己写的机制仍然保留。'}</div>
           </div>
+          </SettingsGroup>
+
+          <SettingsGroup theme={C} title="聊天装扮" subtitle="头像、聊天墙面和气泡颜色">
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
           <div style={{ display: "flex", gap: 20, marginBottom: 18 }}>
             <div style={{ textAlign: "center" }}>
@@ -2514,13 +2636,16 @@ export default function App({ initialView = 'chat', onHome }) {
             </div>
             <span onClick={resetBubbleColors} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
           </div>
+          </SettingsGroup>
 
           {view === 'settings' && (
             <>
+              <SettingsGroup theme={C} title="API 与模型" subtitle="保存、切换站点并拉取全部模型">
               <ApiProfilesSettings
                 apiFetch={apiFetch}
                 backend={BACKEND}
                 theme={C}
+                embedded
                 onModelsChange={models => setAvailableModels(normalizeModelOptions(models, selectedModel))}
                 onActiveChange={profile => {
                   const profileModel = profile?.selected_model || '';
@@ -2530,12 +2655,15 @@ export default function App({ initialView = 'chat', onHome }) {
                   });
                 }}
               />
+              </SettingsGroup>
 
-              <IntegrationSettings apiFetch={apiFetch} backend={BACKEND} theme={C} />
+              <SettingsGroup theme={C} title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具">
+                <IntegrationSettings apiFetch={apiFetch} backend={BACKEND} theme={C} embedded />
+              </SettingsGroup>
             </>
           )}
 
-          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+          <SettingsGroup theme={C} title="数据与导出" subtitle="把聊天记录带回本地">
             <button onClick={() => {
               apiFetch(`${BACKEND}/export`)
                 .then(r => r.blob())
@@ -2550,7 +2678,7 @@ export default function App({ initialView = 'chat', onHome }) {
                 .catch(console.error);
             }} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
             <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
-          </div>
+          </SettingsGroup>
         </div>
       </div>
     </div>

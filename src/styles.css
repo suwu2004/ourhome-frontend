@@ -144,6 +144,20 @@ textarea { display: block; margin: 0; }
     linear-gradient(180deg, #221810 0%, #1a120c 58%, #120d09 100%);
 }
 
+.home-scene--custom {
+  background:
+    linear-gradient(180deg, rgba(255, 252, 244, 0.76), rgba(255, 247, 229, 0.88)),
+    var(--home-custom-background) center / cover no-repeat;
+}
+
+.home-scene--night.home-scene--custom {
+  background:
+    linear-gradient(180deg, rgba(34, 24, 16, 0.72), rgba(18, 13, 9, 0.87)),
+    var(--home-custom-background) center / cover no-repeat;
+}
+
+.home-scene--custom::before { opacity: 0.22; }
+
 .home-scene--night::before { opacity: 0.23; }
 
 .home-scene button {
@@ -1199,15 +1213,17 @@ textarea { display: block; margin: 0; }
 
 .milestone-card {
   position: relative;
-  min-height: 154px;
-  padding: 16px 17px 15px;
+  min-height: 138px;
+  padding: 17px 108px 16px 18px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 92% 14%, color-mix(in srgb, var(--milestone-butter) 65%, transparent), transparent 29%),
-    color-mix(in srgb, var(--milestone-paper) 95%, var(--milestone-butter));
-  border: 1px solid var(--milestone-line);
-  border-radius: 13px 22px 15px 19px;
-  box-shadow: 0 7px 20px color-mix(in srgb, var(--milestone-honey-deep) 11%, transparent);
+    radial-gradient(circle at 90% 50%, color-mix(in srgb, var(--milestone-butter) 36%, transparent), transparent 28%),
+    color-mix(in srgb, var(--milestone-paper) 97%, var(--milestone-butter));
+  border: 1px solid color-mix(in srgb, var(--milestone-line) 84%, var(--milestone-honey));
+  border-radius: 18px;
+  box-shadow:
+    0 8px 22px color-mix(in srgb, var(--milestone-honey-deep) 9%, transparent),
+    inset 0 0 0 5px color-mix(in srgb, var(--milestone-paper) 62%, transparent);
 }
 
 .milestone-card::before {
@@ -1222,6 +1238,15 @@ textarea { display: block; margin: 0; }
   transform: translateX(-50%) rotate(-1.5deg);
 }
 
+.milestone-card::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--milestone-line) 36%, transparent);
+  border-radius: 13px;
+}
+
 .milestone-card--birthday::before { background: color-mix(in srgb, var(--milestone-blush) 26%, transparent); }
 .milestone-card--festival::before { background: color-mix(in srgb, var(--milestone-butter) 70%, transparent); }
 
@@ -1229,7 +1254,7 @@ textarea { display: block; margin: 0; }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 13px;
+  margin-bottom: 16px;
 }
 
 .milestone-card-meta span {
@@ -1252,9 +1277,10 @@ textarea { display: block; margin: 0; }
   z-index: 2;
   margin: 0;
   overflow: hidden;
-  font-size: 15px;
+  font-family: var(--app-font);
+  font-size: 15.5px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.035em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1262,46 +1288,70 @@ textarea { display: block; margin: 0; }
 .milestone-card-kicker {
   margin: 6px 0 1px;
   color: var(--milestone-muted);
-  font-size: 9px;
+  font-size: 9.5px;
 }
 
 .milestone-card-count {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 17px;
+  width: 72px;
+  min-height: 76px;
   display: flex;
-  align-items: baseline;
-  gap: 5px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 13px 6px 8px;
   color: var(--milestone-honey-deep);
+  background:
+    linear-gradient(155deg, color-mix(in srgb, var(--milestone-paper) 90%, white), color-mix(in srgb, var(--milestone-butter) 44%, var(--milestone-paper)));
+  border: 1px solid color-mix(in srgb, var(--milestone-honey) 62%, var(--milestone-line));
+  border-radius: 20px;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--milestone-honey-deep) 10%, transparent), inset 0 1px rgba(255, 255, 255, 0.45);
+  transform: translateY(-44%);
+}
+
+.milestone-card-count::before {
+  content: "✦";
+  position: absolute;
+  top: 4px;
+  color: color-mix(in srgb, var(--milestone-honey-deep) 72%, var(--milestone-muted));
+  font-size: 7px;
 }
 
 .milestone-card-count strong {
-  min-width: 50px;
-  height: 50px;
-  display: inline-grid;
-  place-items: center;
-  padding: 0 9px;
+  min-width: 0;
+  height: auto;
+  display: block;
+  padding: 0;
   color: var(--milestone-honey-deep);
-  background: color-mix(in srgb, var(--milestone-butter) 78%, var(--milestone-paper));
-  border: 1px solid var(--milestone-honey);
-  border-radius: 17px 21px 18px 20px;
-  box-shadow: 0 5px 12px color-mix(in srgb, var(--milestone-honey-deep) 13%, transparent), inset 0 1px rgba(255, 255, 255, 0.45);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 31px;
-  font-weight: 600;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: Georgia, "Times New Roman", var(--app-font);
+  font-size: 27px;
+  font-weight: 500;
   line-height: 1.1;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.02em;
 }
 
-.milestone-card-count--today strong { min-width: 66px; font-size: 22px; }
-.milestone-card-count span { color: var(--milestone-muted); font-size: 10px; }
+.milestone-card-count--today strong { min-width: 0; font-size: 12px; letter-spacing: 0.04em; }
+.milestone-card-count span { color: var(--milestone-muted); font-size: 9px; letter-spacing: 0.1em; }
 
 .milestone-card-next {
   display: inline-block;
   margin: 7px 0 0;
+  max-width: 100%;
   padding: 3px 8px;
   color: var(--milestone-muted);
   background: color-mix(in srgb, var(--milestone-paper) 62%, transparent);
   border: 1px solid color-mix(in srgb, var(--milestone-line) 68%, transparent);
   border-radius: 999px;
   font-size: 8px;
+  line-height: 1.35;
 }
 
 .milestone-card-remove {
