@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { getHomeWeatherCity, HOME_PREFERENCES_EVENT } from './homePreferences.js';
+import { occasionReminderText, upcomingOccasions } from './milestoneDates.js';
 import { useTheme } from './ThemeContext.jsx';
 import '@fontsource/parisienne/400.css';
 
@@ -103,6 +104,20 @@ function VaultCatIllustration() {
   );
 }
 
+function MemoFriendsIllustration({ compact = false }) {
+  return (
+    <svg className={`home-note-friends ${compact ? 'home-note-friends--compact' : ''}`} viewBox="0 0 150 66" aria-hidden="true">
+      <path className="home-note-friend-wash home-note-friend-wash--fox" d="M9 52c3-23 18-39 39-39 18 0 31 12 33 30-12 17-54 22-72 9Z" />
+      <path className="home-note-friend-line" d="M25 39 18 18l18 9c7-4 15-4 23 0l18-9-8 22c-3 13-13 19-25 19-12 0-21-7-19-20Z" />
+      <path className="home-note-friend-line" d="M34 42c3 3 6 3 9 0m10 0c3 3 6 3 9 0m-15 3c0 4 3 6 7 6" />
+      <path className="home-note-friend-wash home-note-friend-wash--cat" d="M82 54c2-19 15-32 33-32 17 0 28 11 29 29-13 12-45 15-62 3Z" />
+      <path className="home-note-friend-line" d="M91 43c-1-12 3-22 12-28l7 9c6-2 12-2 18 0l7-9c8 8 10 18 8 29-2 11-12 17-26 17-14 0-23-7-26-18Z" />
+      <path className="home-note-friend-line" d="M103 43c3 3 6 3 9 0m10 0c3 3 6 3 9 0m-15 4c0 3 3 5 6 5m-23-5-9-2m10 8-9 2m43-8 8-2m-9 8 8 2" />
+      <path className="home-note-friend-heart" d="M79 20c-4-5-10 1 0 9 10-8 4-14 0-9Z" />
+    </svg>
+  );
+}
+
 function CoupleAvatar({ mine, partner }) {
   return (
     <span className="home-couple-avatar" aria-hidden="true">
@@ -117,7 +132,7 @@ function CoupleAvatar({ mine, partner }) {
   );
 }
 
-function MemoDrawer({ memos, loading, error, onClose, onSave, onToggle, onDelete }) {
+function MemoDrawer({ memos, upcoming, loading, error, onClose, onSave, onToggle, onDelete }) {
   const [editing, setEditing] = useState(null);
   const [content, setContent] = useState('');
   const [memoType, setMemoType] = useState('note');
@@ -156,7 +171,8 @@ function MemoDrawer({ memos, loading, error, onClose, onSave, onToggle, onDelete
     <div className="home-memo-layer" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="home-memo-drawer" role="dialog" aria-modal="true" aria-labelledby="home-memo-title">
         <header>
-          <div><span>OUR LITTLE NOTES</span><h2 id="home-memo-title">我们的小便签</h2></div>
+          <div><span>OUR NOTES</span><h2 id="home-memo-title">云端小便签</h2><p>一些温柔的话，和明天别忘记的事。</p></div>
+          <MemoFriendsIllustration />
           <button type="button" onClick={onClose} aria-label="关闭便签">×</button>
         </header>
 
@@ -175,12 +191,28 @@ function MemoDrawer({ memos, loading, error, onClose, onSave, onToggle, onDelete
           </div>
         </form>
 
+        {upcoming.length > 0 && (
+          <section className="home-memo-countdowns" aria-label="十天内的重要日子">
+            <header><span>COMING SOON</span><b>快到的小日子</b></header>
+            <div>
+              {upcoming.slice(0, 3).map(occasion => (
+                <article key={occasion.id}>
+                  <i>{occasion.kind === 'birthday' ? '🎂' : occasion.kind === 'festival' ? '♡' : '✦'}</i>
+                  <p>{occasionReminderText(occasion)}</p>
+                  <time dateTime={occasion.date}>{occasion.date.slice(5).replace('-', '.')}</time>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
         <div className="home-memo-list">
+          <div className="home-memo-list-title"><span>PINNED TOGETHER</span><b>我们的纸条</b></div>
           {loading && <p className="home-memo-empty">正在翻找便签…</p>}
           {!loading && error && <p className="home-memo-empty home-memo-empty--error">{error}</p>}
           {!loading && !error && memos.length === 0 && <p className="home-memo-empty">这里还空着，先留下一句吧。</p>}
           {memos.map(memo => (
-            <article className={`home-memo-item ${memo.completed ? 'is-complete' : ''}`} key={memo.id}>
+            <article className={`home-memo-item home-memo-item--${memo.author === '泽' ? 'ze' : 'tan'} ${memo.completed ? 'is-complete' : ''}`} key={memo.id}>
               <button type="button" className="home-memo-check" aria-label={memo.completed ? '恢复便签' : '完成便签'} aria-pressed={memo.completed} onClick={() => onToggle(memo)}>{memo.completed ? '✓' : ''}</button>
               <div>
                 <span className={`home-memo-author home-memo-author--${memo.author === '泽' ? 'ze' : 'tan'}`}>{memo.author === '泽' ? '泽的温馨提示' : memo.memo_type === 'tomorrow' ? '檀的明日备忘' : '檀的便签'}</span>
@@ -207,6 +239,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const [weatherState, setWeatherState] = useState('idle');
   const [refreshing, setRefreshing] = useState(false);
   const [memos, setMemos] = useState([]);
+  const [milestones, setMilestones] = useState([]);
   const [memoState, setMemoState] = useState('loading');
   const [memoError, setMemoError] = useState('');
   const [memoOpen, setMemoOpen] = useState(false);
@@ -271,7 +304,20 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
     }
   }, []);
 
-  useEffect(() => { loadMemos(); }, [loadMemos, refreshToken]);
+  const loadMilestones = useCallback(async () => {
+    try {
+      const response = await apiFetch(`${BACKEND}/milestones`);
+      const data = await response.json().catch(() => []);
+      if (response.ok) setMilestones(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('重要日子暂时没有回来', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMemos();
+    loadMilestones();
+  }, [loadMemos, loadMilestones, refreshToken]);
 
   useEffect(() => {
     if (!refreshing) return undefined;
@@ -282,6 +328,10 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const timeline = useMemo(() => movingTimeline(now), [now]);
   const weatherDescription = describeWeather(weather?.weatherCode, weather?.isDay);
   const featuredMemo = memos.find(memo => !memo.completed) || memos[0] || null;
+  const upcoming = useMemo(() => upcomingOccasions(milestones, now, 10), [milestones, now]);
+  const featuredNoteText = upcoming[0]
+    ? occasionReminderText(upcoming[0])
+    : featuredMemo?.content || '留一句话……';
   const avatars = {
     mine: settings?.my_avatar_url || '',
     partner: settings?.partner_avatar_url || '',
@@ -368,20 +418,19 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
           <button className="home-note-card" type="button" onClick={() => setMemoOpen(true)} aria-label="打开我们的小便签">
             <span className="home-card-overline">OUR NOTES</span>
             <i className="home-note-add">＋</i>
-            <p>{memoState === 'loading' ? '正在翻找便签…' : featuredMemo?.content || '留一句话……'}</p>
+            <p>{memoState === 'loading' ? '正在翻找便签…' : featuredNoteText}</p>
+            <MemoFriendsIllustration compact />
           </button>
         </section>
 
-        <section className="home-story-card" aria-label="客厅里的时光信差与猫的金库">
-          <button className="home-mailbox-hit" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
-            <MailboxIllustration />
+        <section className="home-room-shelf" aria-label="客厅里的小房间">
+          <button className="home-room-app home-room-app--letters" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
+            <span><MailboxIllustration /></span>
             <strong>时光信差</strong>
-            <i>›</i>
           </button>
-          <button className="home-vault-hit" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
-            <VaultCatIllustration />
-            <span><b>猫的金库</b></span>
-            <i>›</i>
+          <button className="home-room-app home-room-app--vault" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
+            <span><VaultCatIllustration /></span>
+            <strong>猫的金库</strong>
           </button>
         </section>
 
@@ -401,7 +450,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
         </nav>
       </div>
 
-      {memoOpen && <MemoDrawer memos={memos} loading={memoState === 'loading'} error={memoError} onClose={() => setMemoOpen(false)} onSave={saveMemo} onToggle={toggleMemo} onDelete={deleteMemo} />}
+      {memoOpen && <MemoDrawer memos={memos} upcoming={upcoming} loading={memoState === 'loading'} error={memoError} onClose={() => setMemoOpen(false)} onSave={saveMemo} onToggle={toggleMemo} onDelete={deleteMemo} />}
     </main>
   );
 }

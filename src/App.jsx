@@ -6,6 +6,7 @@ import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
 import { LIGHT_THEME } from './theme.js';
 import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
+import { MILESTONE_KINDS, milestoneDisplay } from './milestoneDates.js';
 
 const SESSION_KEY = "ourhome_session_id";
 
@@ -78,6 +79,25 @@ function Stars({ theme = LIGHT_THEME }) {
       <span style={{ fontSize: 9, color: theme.muted, letterSpacing: 7, userSelect: "none" }}>✦ ✦ ✦</span>
       <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, transparent, ${theme.border})` }} />
     </div>
+  );
+}
+
+function MilestoneDoodle({ variant = 'cat' }) {
+  if (variant === 'fox') {
+    return (
+      <svg className="milestone-doodle" viewBox="0 0 92 62" aria-hidden="true">
+        <path className="milestone-doodle-wash" d="M8 52c5-24 22-41 43-39 19 1 32 16 31 36-18 13-56 16-74 3Z" />
+        <path className="milestone-doodle-line" d="M19 43 13 19l20 10c8-5 17-5 25 0l20-10-8 25c-4 12-13 17-26 17-13 0-22-6-25-18Z" />
+        <path className="milestone-doodle-line" d="M31 44c3 3 7 3 10 0m10 0c3 3 7 3 10 0m-15 4c0 4 3 6 7 6" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="milestone-doodle" viewBox="0 0 92 62" aria-hidden="true">
+      <path className="milestone-doodle-wash" d="M8 53c3-23 20-39 43-39 20 0 33 13 34 35-17 14-58 18-77 4Z" />
+      <path className="milestone-doodle-line" d="M19 43c-1-13 3-24 13-31l8 10c7-3 15-3 22 0l8-10c9 9 12 21 9 32-3 12-13 18-30 18-16 0-27-7-30-19Z" />
+      <path className="milestone-doodle-line" d="M33 43c3 3 7 3 10 0m11 0c3 3 7 3 10 0m-16 5c0 3 3 5 7 5m-29-6-10-2m11 8-10 2m56-8 9-2m-10 8 9 2" />
+    </svg>
   );
 }
 
@@ -262,6 +282,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const [milestonesLoading, setMilestonesLoading] = useState(false);
   const [newMilestoneName, setNewMilestoneName] = useState("");
   const [newMilestoneDate, setNewMilestoneDate] = useState("");
+  const [newMilestoneKind, setNewMilestoneKind] = useState('anniversary');
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -588,18 +609,20 @@ export default function App({ initialView = 'chat', onHome }) {
     apiFetch(`${BACKEND}/milestones`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: newMilestoneName.trim(), date: newMilestoneDate, emoji: '✦' }),
+      body: JSON.stringify({ label: newMilestoneName.trim(), date: newMilestoneDate, emoji: MILESTONE_KINDS[newMilestoneKind].emoji }),
     })
       .then(r => r.json())
       .then(data => {
         setMilestones(ms => [...ms, data].sort((a, b) => new Date(a.date) - new Date(b.date)));
         setNewMilestoneName("");
         setNewMilestoneDate("");
+        setNewMilestoneKind('anniversary');
       })
       .catch(console.error);
   };
 
-  const deleteMilestoneRemote = (id) => {
+  const deleteMilestoneRemote = (id, label = '这个日子') => {
+    if (!window.confirm(`把「${label}」从重要时刻里移除吗？`)) return;
     apiFetch(`${BACKEND}/milestones/${id}`, { method: 'DELETE' })
       .then(() => setMilestones(ms => ms.filter(m => m.id !== id)))
       .catch(console.error);
@@ -1785,7 +1808,7 @@ export default function App({ initialView = 'chat', onHome }) {
           <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
             <button type="button" onClick={() => chatImageInputRef.current?.click()} disabled={Boolean(editingMessage) || messageActionLoading} aria-label="添加图片或文件" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: editingMessage || messageActionLoading ? "default" : "pointer", opacity: editingMessage ? .3 : 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
             <input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} />
-            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "跟陆泽说点什么…"} value={input} onChange={e => { setInput(e.target.value); if (messageActionError) setMessageActionError(""); }} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
+            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫步"} value={input} onChange={e => { setInput(e.target.value); if (messageActionError) setMessageActionError(""); }} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
             <button type="button" onClick={send} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "all .2s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
@@ -1966,7 +1989,7 @@ export default function App({ initialView = 'chat', onHome }) {
           <div style={{ display: "flex", gap: 0 }}>
             {[
               { key: 'calendar', label: '📅 日历' },
-              { key: 'milestones', label: '🏛 重要时刻' },
+              { key: 'milestones', label: '♡ 重要时刻' },
               { key: 'schedule', label: '⏰ 日程' },
               { key: 'wishes', label: '⭐ 心愿' },
             ].map(tab => (
@@ -2025,46 +2048,81 @@ export default function App({ initialView = 'chat', onHome }) {
           <div style={{ textAlign: "center", fontSize: 10, color: C.mutedLight, marginTop: 8, letterSpacing: ".05em" }}>长按（电脑右键）格子可以改颜色</div>
           </>)}
 
-          {/* ===== 重要时刻 Tab（纪念碑风格） ===== */}
-          {calendarTab === 'milestones' && (<>
-            <div style={{ textAlign: "center", padding: "20px 0 10px" }}>
-              <div style={{ fontSize: 10, letterSpacing: ".35em", color: C.muted, marginBottom: 12 }}>✦ 我们的时光 ✦</div>
-            </div>
-            {milestonesLoading && (
-              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>翻找中…</div>
-            )}
-            {!milestonesLoading && milestones.length === 0 && (
-              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>还没有纪念日，加一个吧。</div>
-            )}
-            {milestones.map(ms => {
-              const diff = Math.floor((new Date() - new Date(ms.date)) / (1000 * 60 * 60 * 24)) + 1;
-              const isFuture = diff <= 0;
-              const absDiff = Math.abs(diff) + (isFuture ? 1 : 0);
-              return (
-                <div key={ms.id} style={{ textAlign: "center", background: `linear-gradient(135deg, ${C.honeyLight}, ${C.white})`, border: `1.5px solid ${C.honeyMid}`, borderRadius: 18, padding: "24px 16px", marginBottom: 14, boxShadow: `0 4px 16px rgba(185,122,31,.12)`, position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: -20, right: -20, fontSize: 80, opacity: 0.06 }}>🏛</div>
-                  <div style={{ fontSize: 28, marginBottom: 6 }}>{ms.emoji}</div>
-                  <div style={{ fontSize: 12, color: C.muted, letterSpacing: ".15em", marginBottom: 6 }}>{ms.label}</div>
-                  <div style={{ fontSize: 36, fontWeight: 700, color: C.honeyDeep, letterSpacing: ".05em" }}>
-                    {isFuture ? `还有 ${absDiff}` : absDiff}
-                  </div>
-                  <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>{isFuture ? '天' : '天'}</div>
-                  <div style={{ fontSize: 10.5, color: C.mutedLight, marginTop: 8, letterSpacing: ".1em" }}>
-                    {ms.date.replace(/-/g, '.')}
-                  </div>
-                  <span onClick={() => deleteMilestoneRemote(ms.id)} style={{ position: "absolute", top: 8, right: 12, fontSize: 11, color: C.mutedLight, cursor: "pointer" }}>✕</span>
-                </div>
-              );
-            })}
-            <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 14px", marginTop: 8 }}>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>添加新的纪念日</div>
-              <input value={newMilestoneName} onChange={e => setNewMilestoneName(e.target.value)} placeholder="纪念日名称（如：第一次旅行）" style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-              <input type="date" value={newMilestoneDate} onChange={e => setNewMilestoneDate(e.target.value)} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <span onClick={addMilestone} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "6px 16px", background: (newMilestoneName.trim() && newMilestoneDate) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>添加</span>
+          {/* ===== 重要时刻 Tab：轻手账风格 ===== */}
+          {calendarTab === 'milestones' && (
+            <section
+              className="milestone-journal"
+              style={{
+                '--milestone-text': C.text,
+                '--milestone-muted': C.muted,
+                '--milestone-faint': C.mutedLight,
+                '--milestone-paper': C.white,
+                '--milestone-cream': C.cream,
+                '--milestone-line': C.border,
+                '--milestone-honey': C.honey,
+                '--milestone-honey-deep': C.honeyDeep,
+                '--milestone-butter': C.honeyLight,
+                '--milestone-blush': C.blush,
+              }}
+            >
+              <header className="milestone-journal-heading">
+                <span>OUR LITTLE DATES</span>
+                <h2>把喜欢的日子收好</h2>
+                <p>纪念日、生日和节日，快到时会去主页便签里轻轻提醒。</p>
+              </header>
+
+              {milestonesLoading && <div className="milestone-empty">正在翻找我们的小日子…</div>}
+              {!milestonesLoading && milestones.length === 0 && <div className="milestone-empty">这里还空着，先收好第一个日子吧。</div>}
+
+              <div className="milestone-card-list">
+                {milestones.map((ms, index) => {
+                  const display = milestoneDisplay(ms);
+                  if (!display) return null;
+                  const kind = MILESTONE_KINDS[display.kind];
+                  return (
+                    <article className={`milestone-card milestone-card--${display.kind}`} key={ms.id}>
+                      <div className="milestone-card-meta">
+                        <span>{kind.label}</span>
+                        <time dateTime={ms.date}>{ms.date.replace(/-/g, '.')}</time>
+                      </div>
+                      <h3>{ms.label}</h3>
+                      <p className="milestone-card-kicker">{display.kicker}</p>
+                      <div className={`milestone-card-count milestone-card-count--${display.state}`}>
+                        <strong>{display.value}</strong>
+                        {display.unit && <span>{display.unit}</span>}
+                      </div>
+                      {display.state === 'past' && display.nextDays <= 30 && (
+                        <p className="milestone-card-next">下一个纪念节点还有 {display.nextDays} 天</p>
+                      )}
+                      <MilestoneDoodle variant={index % 2 ? 'fox' : 'cat'} />
+                      <button type="button" className="milestone-card-remove" onClick={() => deleteMilestoneRemote(ms.id, ms.label)}>移除</button>
+                    </article>
+                  );
+                })}
               </div>
-            </div>
-          </>)}
+
+              <form className="milestone-add-card" onSubmit={event => { event.preventDefault(); addMilestone(); }}>
+                <div className="milestone-add-title"><span>ADD A DATE</span><b>再收好一个日子</b></div>
+                <div className="milestone-kind-picker" aria-label="重要日子类型">
+                  {Object.entries(MILESTONE_KINDS).map(([key, kind]) => (
+                    <button type="button" className={newMilestoneKind === key ? 'is-active' : ''} key={key} onClick={() => setNewMilestoneKind(key)}>{kind.label}</button>
+                  ))}
+                </div>
+                <label>
+                  <span>写下名称</span>
+                  <input value={newMilestoneName} onChange={e => setNewMilestoneName(e.target.value)} placeholder={newMilestoneKind === 'birthday' ? '例如：老婆生日' : newMilestoneKind === 'festival' ? '例如：七夕' : '例如：第一次旅行'} />
+                </label>
+                <label>
+                  <span>是哪一天</span>
+                  <input type="date" value={newMilestoneDate} onChange={e => setNewMilestoneDate(e.target.value)} />
+                </label>
+                <footer>
+                  <small>保存过的日子会按年回到十日倒计时里；情人节与 520 已自动照看。</small>
+                  <button type="submit" disabled={!newMilestoneName.trim() || !newMilestoneDate}>收好</button>
+                </footer>
+              </form>
+            </section>
+          )}
 
           {/* ===== 日程提醒 Tab ===== */}
           {calendarTab === 'schedule' && (<>
