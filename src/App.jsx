@@ -226,6 +226,9 @@ export default function App({ initialView = 'chat', onHome }) {
   const [fontStyle, setFontStyle] = useState(getSavedFont);
   const [weatherCityInput, setWeatherCityInput] = useState(getHomeWeatherCity);
   const [weatherCitySaved, setWeatherCitySaved] = useState(false);
+  const [dailyJournalEnabled, setDailyJournalEnabled] = useState(true);
+  const [dailyJournalTime, setDailyJournalTime] = useState('23:30');
+  const [dailyJournalSaved, setDailyJournalSaved] = useState(false);
   const [systemPromptInput, setSystemPromptInput] = useState("");
   const [availableModels, setAvailableModels] = useState([]);
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -489,6 +492,8 @@ export default function App({ initialView = 'chat', onHome }) {
           applyAppFont(data.font_style);
         }
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
+        if (typeof data?.daily_journal_enabled === 'boolean') setDailyJournalEnabled(data.daily_journal_enabled);
+        if (data?.daily_journal_time) setDailyJournalTime(String(data.daily_journal_time).slice(0, 5));
         const preferredModel = data?.selected_model || '';
         if (preferredModel) setSelectedModel(preferredModel);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
@@ -503,6 +508,24 @@ export default function App({ initialView = 'chat', onHome }) {
     const saved = saveHomeWeatherCity(weatherCityInput);
     setWeatherCityInput(saved);
     setWeatherCitySaved(true);
+  };
+
+  const saveDailyJournalSchedule = () => {
+    setDailyJournalSaved(false);
+    apiFetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        daily_journal_enabled: dailyJournalEnabled,
+        daily_journal_time: dailyJournalTime,
+      }),
+    })
+      .then(async response => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || '自动补写时间没有保存');
+        setDailyJournalSaved(true);
+      })
+      .catch(console.error);
   };
 
   const changeFontStyle = (key) => {
@@ -2388,6 +2411,23 @@ export default function App({ initialView = 'chat', onHome }) {
           </div>
           <div style={{ fontSize: 10.5, lineHeight: 1.55, color: weatherCitySaved ? C.honeyDeep : C.muted, marginBottom: 18 }}>
             {weatherCitySaved ? (weatherCityInput ? `已保存“${weatherCityInput}”，回到主页会自动刷新。` : '已清空主页天气城市。') : '保存在这台设备里，主页只显示城市与当前天气，不会持续读取定位。'}
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>每天的幸福收尾</div>
+          <div style={{ padding: 12, marginBottom: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 12.5, color: C.text }}>缺项自动补写</div>
+                <div style={{ marginTop: 3, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>当天陆泽没写时，只补缺少的幸福日记或心情日历。</div>
+              </div>
+              <button type="button" role="switch" aria-checked={dailyJournalEnabled} onClick={() => { setDailyJournalEnabled(value => !value); setDailyJournalSaved(false); }} style={{ width: 44, height: 24, padding: 0, border: 0, borderRadius: 999, background: dailyJournalEnabled ? C.honey : C.honeyMid, position: 'relative', cursor: 'pointer', transition: 'background .2s', flexShrink: 0 }}>
+                <span style={{ position: 'absolute', top: 2, left: dailyJournalEnabled ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: C.white, transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 11 }}>
+              <input type="time" value={dailyJournalTime} disabled={!dailyJournalEnabled} onChange={event => { setDailyJournalTime(event.target.value); setDailyJournalSaved(false); }} style={{ flex: 1, minWidth: 0, padding: '8px 10px', color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }} />
+              <button type="button" onClick={saveDailyJournalSchedule} style={{ padding: '8px 13px', color: C.white, background: C.honey, border: 0, borderRadius: 10, cursor: 'pointer', fontSize: 11.5 }}>保存</button>
+            </div>
+            <div style={{ marginTop: 6, color: dailyJournalSaved ? C.honeyDeep : C.muted, fontSize: 9.5 }}>{dailyJournalSaved ? '已经按中国时间保存好。' : '按中国时间执行；原来陆泽想写时自己写的机制仍然保留。'}</div>
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
           <div style={{ display: "flex", gap: 20, marginBottom: 18 }}>
