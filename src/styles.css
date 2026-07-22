@@ -232,7 +232,7 @@ textarea { display: block; margin: 0; }
   padding: max(17px, env(safe-area-inset-top)) 17px max(11px, env(safe-area-inset-bottom));
   display: grid;
   grid-template-rows: auto auto auto minmax(188px, 1fr) auto;
-  gap: clamp(8px, 1.35vh, 12px);
+  gap: clamp(10px, 1.45vh, 14px);
 }
 
 .home-hero {
@@ -332,8 +332,8 @@ textarea { display: block; margin: 0; }
 }
 
 .home-timeline {
-  min-height: 126px;
-  padding: 10px 14px 9px;
+  min-height: 122px;
+  padding: 9px 14px 8px;
   overflow: hidden;
   color: var(--home-muted);
   background: var(--home-card);
@@ -371,7 +371,7 @@ textarea { display: block; margin: 0; }
 .home-timeline-window {
   --timeline-step: 68px;
   position: relative;
-  height: 64px;
+  height: 60px;
   margin: 0 -14px;
   overflow: hidden;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
@@ -484,7 +484,7 @@ textarea { display: block; margin: 0; }
 }
 
 .home-quick-grid {
-  min-height: 86px;
+  min-height: 88px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
@@ -492,8 +492,8 @@ textarea { display: block; margin: 0; }
 .home-note-card {
   position: relative;
   min-width: 0;
-  min-height: 86px;
-  padding: 17px 52px 14px 20px;
+  min-height: 88px;
+  padding: 16px 54px 13px 20px;
   overflow: hidden;
   cursor: pointer;
   text-align: left;
@@ -561,7 +561,7 @@ textarea { display: block; margin: 0; }
 }
 
 .home-note-copy {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -612,45 +612,45 @@ textarea { display: block; margin: 0; }
   width: 100%;
   height: 100%;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  gap: clamp(34px, 11vw, 58px);
-  padding: clamp(10px, 2vh, 18px) 8px 0;
+  gap: clamp(44px, 13vw, 70px);
+  padding: 0 8px clamp(22px, 4.5vh, 50px);
 }
 
 .home-room-app {
-  width: clamp(76px, 22vw, 94px);
+  width: clamp(82px, 23vw, 102px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 7px;
+  gap: 9px;
   cursor: pointer;
   background: transparent;
 }
 
 .home-room-app > span {
-  width: clamp(56px, 16vw, 66px);
-  height: clamp(56px, 16vw, 66px);
+  width: clamp(62px, 17vw, 72px);
+  height: clamp(62px, 17vw, 72px);
   display: grid;
   place-items: center;
   overflow: hidden;
   background: color-mix(in srgb, var(--home-card-solid) 89%, var(--home-butter));
   border: 1px solid var(--home-edge);
-  border-radius: 19px;
+  border-radius: 21px;
   box-shadow: 0 8px 20px color-mix(in srgb, var(--home-shadow) 76%, transparent), inset 0 1px rgba(255, 255, 255, 0.35);
 }
 
 .home-room-app strong {
   color: var(--home-muted);
-  font-size: clamp(9px, 2.6vw, 11px);
+  font-size: clamp(10px, 2.75vw, 12px);
   font-weight: 520;
   letter-spacing: 0.05em;
   white-space: nowrap;
 }
 
 .home-room-glyph {
-  width: 31px;
-  height: 31px;
+  width: 34px;
+  height: 34px;
   fill: none;
   stroke: var(--home-honey-deep);
   stroke-width: 1.6;
@@ -1122,13 +1122,18 @@ textarea { display: block; margin: 0; }
   .home-quick-grid, .home-note-card { min-height: 78px; }
   .home-note-card { padding-top: 13px; padding-bottom: 9px; }
   .home-note-copy { margin-top: 5px; gap: 2px; }
-  .home-room-shelf { padding-top: 4px; }
+  .home-room-shelf { padding: 2px 8px 8px; }
   .home-room-app { gap: 4px; }
   .home-room-app > span { width: 52px; height: 52px; border-radius: 16px; }
   .home-room-glyph { width: 28px; height: 28px; }
   .home-dock { height: 64px; }
   .home-couple-avatar { width: 51px; height: 51px; }
   .home-chat-button > span:last-child { top: calc(50% + 20px); }
+}
+
+@media (min-height: 800px) {
+  .home-layout { gap: clamp(11px, 1.5vh, 15px); }
+  .home-room-shelf { padding-bottom: clamp(34px, 5.5vh, 66px); }
 }
 
 @media (max-width: 350px) {
