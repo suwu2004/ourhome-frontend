@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import Root from './Root.jsx'
 import './styles.css'
 import { applyAppFont, getSavedFont } from './fonts.js'
+import { ThemeProvider } from './ThemeContext.jsx'
 
 applyAppFont(getSavedFont(), { persist: false })
 
@@ -23,4 +24,8 @@ window.addEventListener('orientationchange', scheduleViewportUpdate, { passive: 
 window.visualViewport?.addEventListener('resize', scheduleViewportUpdate, { passive: true })
 window.visualViewport?.addEventListener('scroll', scheduleViewportUpdate, { passive: true })
 
-ReactDOM.createRoot(document.getElementById('root')).render(<Root />)
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <ThemeProvider>
+    <Root />
+  </ThemeProvider>,
+)

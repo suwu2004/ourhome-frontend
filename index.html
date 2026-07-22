@@ -11,6 +11,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="OurHome" />
+    <script>
+      try {
+        const dark = localStorage.getItem('ourhome_dark_mode') === 'true';
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      } catch (_) {}
+    </script>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { overflow: hidden; }

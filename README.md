@@ -30,6 +30,8 @@ npm run build
 
 API key、Tavily key 与 MCP Token 都不要写进前端环境变量；它们在设置页保存，并由后端存入 Supabase Vault。
 
+主页的天气城市在“设置 → 主页天气城市”中填写，保存在当前设备；主页只查询这个城市的当前天气，不会持续申请手机定位。日间/夜间主题会立即同步到主页插画与全部 React 房间。
+
 ## 部署顺序
 
 本次增加了新的后端接口，因此先部署 `ourhome-backend`，确认健康检查成功，再部署前端。主页使用 hash 房间地址，不需要额外的 SPA rewrite。

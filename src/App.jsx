@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ApiProfilesSettings from './ApiProfilesSettings.jsx';
 import IntegrationSettings from './IntegrationSettings.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
+import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
+import { useTheme } from './ThemeContext.jsx';
+import { LIGHT_THEME } from './theme.js';
 import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
 
 const SESSION_KEY = "ourhome_session_id";
@@ -10,21 +13,6 @@ function normalizeModelOptions(models, preferredModel = '') {
   const list = Array.isArray(models) ? models : [];
   return [...new Set([preferredModel, ...list].map(model => String(model || '').trim()).filter(Boolean))];
 }
-
-const H = {
-  cream: "#FFF8F0", surface: "#FFFDF8", white: "#FFFFFF",
-  honey: "#DD9A33", honeyDeep: "#B97A1F", honeyLight: "#FFF3D6",
-  honeyMid: "#F5DFA0", blush: "#FDE8E0", blushDeep: "#E8907A",
-  text: "#2E1F12", muted: "#B89A6A", mutedLight: "#D4BC94",
-  border: "#EFE4CC", borderLight: "#F7EDD8",
-};
-const D = {
-  cream: "#1C140C", surface: "#241B12", white: "#2A2018",
-  honey: "#E8B45A", honeyDeep: "#F0C878", honeyLight: "#3A2C18",
-  honeyMid: "#5A4426", blush: "#3A2620", blushDeep: "#D89A88",
-  text: "#F0E4D2", muted: "#9A8262", mutedLight: "#6E5A42",
-  border: "#3A2E1E", borderLight: "#2E2416",
-};
 
 const initMsgs = [
   { id: 1, role: "ai", text: "欢迎回家，宝宝。", createdAt: "2026-06-11T21:04:00", time: "21:04" },
@@ -57,7 +45,33 @@ function formatMsgDate(date) {
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 }
 
-function Stars({ theme = H }) {
+function createRequestError(data, fallback) {
+  const error = new Error(data?.error || fallback);
+  error.code = data?.code || '';
+  error.model = data?.model || '';
+  return error;
+}
+
+function isModelUnavailableError(error) {
+  const raw = `${error?.code || ''} ${error?.message || ''}`;
+  return /model_unavailable|model_not_found|no available channel|unknown model|model[^\n]*not found/i.test(raw);
+}
+
+function friendlyGenerationError(error, retryAction = '再试一次') {
+  if (isModelUnavailableError(error)) {
+    return `这个模型在当前 API 站点暂时没有可用线路。换一个模型后直接${retryAction}就好，刚才的内容还在。`;
+  }
+  return error?.message || '连接好像有点问题，请再试一次。';
+}
+
+function compactUsageNumber(value) {
+  const amount = Number(value) || 0;
+  if (amount >= 10000) return `${(amount / 10000).toFixed(amount >= 100000 ? 0 : 1)}万`;
+  if (amount >= 1000) return `${(amount / 1000).toFixed(amount >= 10000 ? 0 : 1)}k`;
+  return String(amount);
+}
+
+function Stars({ theme = LIGHT_THEME }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
       <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${theme.border})` }} />
@@ -123,7 +137,7 @@ function CabinScene({ theme, onPick }) {
   );
 }
 
-function Avatar({ isMe, src, theme = H }) {
+function Avatar({ isMe, src, theme = LIGHT_THEME }) {
   return (
     <div style={{
       width: 30, height: 30, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
@@ -157,6 +171,7 @@ function HighlightedText({ text, query }) {
 }
 
 export default function App({ initialView = 'chat', onHome }) {
+  const { darkMode, theme: C, toggleDarkMode } = useTheme();
   const [stage, setStage] = useState("home");
   const [locked, setLocked] = useState(!localStorage.getItem(TOKEN_KEY));
   const [pwInput, setPwInput] = useState("");
@@ -169,6 +184,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const chatInputRef = useRef(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [msgs, setMsgs] = useState(initMsgs);
+  const [tokenUsageOpen, setTokenUsageOpen] = useState(false);
   const [visible, setVisible] = useState(0);
   const [thinking, setThinking] = useState(false);
   const [scrollToMsgId, setScrollToMsgId] = useState(null);
@@ -199,9 +215,17 @@ export default function App({ initialView = 'chat', onHome }) {
   const [partnerBubbleColor, setPartnerBubbleColor] = useState(null);
   const [uploadingWhisperBg, setUploadingWhisperBg] = useState(false);
   const whisperBgInputRef = useRef(null);
-  const [darkMode, setDarkMode] = useState(false);
-  const C = darkMode ? D : H;
+  const chatUsage = useMemo(() => {
+    const lastWithTokens = [...msgs].reverse().find(message => message.role === 'ai' && message.inputTokens);
+    return {
+      totalChars: msgs.reduce((sum, message) => sum + (message.text?.length || 0), 0),
+      currentContextTokens: lastWithTokens?.inputTokens || 0,
+      totalOutputTokens: msgs.reduce((sum, message) => sum + (message.outputTokens || 0), 0),
+    };
+  }, [msgs]);
   const [fontStyle, setFontStyle] = useState(getSavedFont);
+  const [weatherCityInput, setWeatherCityInput] = useState(getHomeWeatherCity);
+  const [weatherCitySaved, setWeatherCitySaved] = useState(false);
   const [systemPromptInput, setSystemPromptInput] = useState("");
   const [availableModels, setAvailableModels] = useState([]);
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -307,6 +331,7 @@ export default function App({ initialView = 'chat', onHome }) {
       .then(data => {
         if (data.token) {
           localStorage.setItem(TOKEN_KEY, data.token);
+          window.dispatchEvent(new Event('ourhome-auth-changed'));
           setLocked(false);
           setPwInput("");
         } else {
@@ -459,7 +484,6 @@ export default function App({ initialView = 'chat', onHome }) {
         if (data?.whisper_bg_color) setWhisperBgColor(data.whisper_bg_color);
         if (data?.my_bubble_color) setMyBubbleColor(data.my_bubble_color);
         if (data?.partner_bubble_color) setPartnerBubbleColor(data.partner_bubble_color);
-        if (typeof data?.dark_mode === 'boolean') setDarkMode(data.dark_mode);
         if (data?.font_style && FONT_STYLES[data.font_style]) {
           setFontStyle(data.font_style);
           applyAppFont(data.font_style);
@@ -475,14 +499,10 @@ export default function App({ initialView = 'chat', onHome }) {
       .catch(console.error);
   }, [chooseModel, loadActiveModels, locked]);
 
-  const toggleDarkMode = () => {
-    const next = !darkMode;
-    setDarkMode(next);
-    apiFetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dark_mode: next }),
-    }).catch(console.error);
+  const saveWeatherCity = () => {
+    const saved = saveHomeWeatherCity(weatherCityInput);
+    setWeatherCityInput(saved);
+    setWeatherCitySaved(true);
   };
 
   const changeFontStyle = (key) => {
@@ -960,6 +980,7 @@ export default function App({ initialView = 'chat', onHome }) {
     setMessageAction(null);
     setRollbackUndo(null);
     setMessageActionError("");
+    setTokenUsageOpen(false);
     sessionIdRef.current = id;
     setSessionId(id);
     localStorage.setItem(SESSION_KEY, id);
@@ -1130,7 +1151,7 @@ export default function App({ initialView = 'chat', onHome }) {
         body: JSON.stringify({ content: newText, model: selectedModel })
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "重新发送失败");
+      if (!response.ok) throw createRequestError(data, "重新发送失败");
       if (sessionIdRef.current !== editingSessionId) return;
 
       const replyCreatedAt = data.createdAt || new Date().toISOString();
@@ -1156,8 +1177,8 @@ export default function App({ initialView = 'chat', onHome }) {
       setInput("");
       setPendingFile(null);
     } catch (error) {
-      console.error(error);
-      setMessageActionError(error.message || "重新发送失败，请再试一次。");
+      if (!isModelUnavailableError(error)) console.error(error);
+      setMessageActionError(friendlyGenerationError(error, '重新发送'));
       focusChatInput();
     } finally {
       setThinking(false);
@@ -1441,7 +1462,7 @@ export default function App({ initialView = 'chat', onHome }) {
         body: JSON.stringify({ session_id: sessionId, model: selectedModel }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "重新生成失败");
+      if (!response.ok) throw createRequestError(data, "重新生成失败");
       if (sessionIdRef.current !== regeneratingSessionId) return;
 
       const replyCreatedAt = data.createdAt || new Date().toISOString();
@@ -1463,8 +1484,8 @@ export default function App({ initialView = 'chat', onHome }) {
       });
       if (shouldAppendReply) setVisible(value => value + 1);
     } catch (error) {
-      console.error(error);
-      setMessageActionError(error.message || "重新生成失败，请再试一次。");
+      if (!isModelUnavailableError(error)) console.error(error);
+      setMessageActionError(friendlyGenerationError(error, '重新生成'));
     } finally {
       setThinking(false);
       setRegenerating(false);
@@ -1508,7 +1529,7 @@ export default function App({ initialView = 'chat', onHome }) {
             time: formatMsgTime(persistedCreatedAt),
           } : message));
         }
-        throw new Error(data?.error || "发送失败");
+        throw createRequestError(data, "发送失败");
       }
       const replyCreatedAt = data.assistantMessage?.createdAt || data.createdAt || new Date().toISOString();
       const persistedUserCreatedAt = data.userMessage?.createdAt || userCreatedAt;
@@ -1533,10 +1554,11 @@ export default function App({ initialView = 'chat', onHome }) {
       ]);
       setVisible(v => v + 1);
     } catch (err) {
-      console.error(err);
-      setMessageActionError(err.message || "发送失败，请再试一次。");
+      if (!isModelUnavailableError(err)) console.error(err);
+      const friendlyError = friendlyGenerationError(err, '重新生成');
+      setMessageActionError(friendlyError);
       const errorCreatedAt = new Date().toISOString();
-      setMsgs(ms => [...ms, { id: `temp-error-${Date.now()}`, role: "ai", text: "连接好像有点问题…消息已经留在这里，可以再试一次。", createdAt: errorCreatedAt, time: formatMsgTime(errorCreatedAt) }]);
+      setMsgs(ms => [...ms, { id: `temp-error-${Date.now()}`, role: "ai", text: isModelUnavailableError(err) ? "这个模型暂时没有可用线路。换好模型后，点下面的“重新生成”就能接着聊。" : "连接好像有点问题…消息已经留在这里，可以再试一次。", createdAt: errorCreatedAt, time: formatMsgTime(errorCreatedAt) }]);
       setVisible(v => v + 1);
     } finally {
       setThinking(false);
@@ -1564,13 +1586,13 @@ export default function App({ initialView = 'chat', onHome }) {
           <div onClick={handleLogin} style={{ padding: "10px 32px", background: pwLoading ? C.honeyMid : `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, borderRadius: 999, fontSize: 14, cursor: pwLoading ? "default" : "pointer", letterSpacing: ".1em", boxShadow: `0 4px 12px rgba(185,122,31,.3)` }}>
             {pwLoading ? "验证中…" : "进门"}
           </div>
-          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: ".15em" }}>ourhome · since 2025.08.07</div>
+          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: ".15em" }}>ourhome · since 2025.03.07</div>
         </div>
       )}
 
       <div style={{ position: "absolute", inset: 0, zIndex: 40, pointerEvents: "none", background: "radial-gradient(circle at 50% 55%, #FFF8D0 0%, #FFE896 28%, transparent 62%)", opacity: stage === "opening" ? 1 : 0, transition: "opacity .9s ease .3s" }} />
       <div style={{ position: "absolute", inset: 0, zIndex: 30, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, background: `radial-gradient(ellipse 80% 50% at 50% 100%, ${C.honeyLight} 0%, transparent 65%), ${C.cream}`, opacity: stage === "home" ? 0 : 1, transition: "opacity .9s ease .4s", pointerEvents: stage === "home" ? "none" : "auto" }}>
-        <div style={{ fontSize: 10, letterSpacing: ".38em", color: C.muted, textTransform: "uppercase" }}>ourhome · since 2025.08.07</div>
+        <div style={{ fontSize: 10, letterSpacing: ".38em", color: C.muted, textTransform: "uppercase" }}>ourhome · since 2025.03.07</div>
         <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: ".1em" }}>欢迎回家</div>
         <div style={{ width: "52%", maxWidth: 170 }}><Stars theme={C} /></div>
         <div style={{ perspective: 900, cursor: "pointer" }} onClick={openDoor}>
@@ -1662,8 +1684,8 @@ export default function App({ initialView = 'chat', onHome }) {
                       disabled={thinking || messageActionLoading || String(m.id).startsWith('temp-')}
                       aria-label={`${isMe ? '我的' : '陆泽的'}消息操作`}
                       title="编辑或回到这里"
-                      style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "rgba(255,255,255,.64)", color: C.muted, cursor: thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: String(m.id).startsWith('temp-') ? .35 : 1, fontSize: 15, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
-                    >•••</button>
+                      style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "transparent", color: C.muted, cursor: thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: String(m.id).startsWith('temp-') ? .28 : .78, fontSize: 20, lineHeight: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 1, fontFamily: "inherit" }}
+                    ><span aria-hidden="true" style={{ transform: "translateY(-2px)" }}>⌄</span></button>
                   </div>
                 </div>
               </div>
@@ -1696,6 +1718,27 @@ export default function App({ initialView = 'chat', onHome }) {
           {messageActionError && !messageAction && (
             <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{messageActionError}</div>
           )}
+          {tokenUsageOpen && (
+            <div id="chat-token-usage" style={{ marginBottom: 8, padding: "10px 11px", borderRadius: 14, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>当前对话用量</div>
+                <button type="button" onClick={() => setTokenUsageOpen(false)} aria-label="收起 token 用量" style={{ width: 28, height: 28, border: 0, borderRadius: "50%", background: "rgba(255,255,255,.68)", color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✕</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
+                {[
+                  [chatUsage.totalChars, '聊天字数'],
+                  [chatUsage.currentContextTokens, '当前上下文'],
+                  [chatUsage.totalOutputTokens, '累计生成'],
+                ].map(([value, label]) => (
+                  <div key={label} style={{ minWidth: 0, textAlign: "center", background: "rgba(255,255,255,.68)", borderRadius: 10, padding: "7px 3px" }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.honeyDeep, overflow: "hidden", textOverflow: "ellipsis" }}>{Number(value).toLocaleString('zh-CN')}</div>
+                    <div style={{ fontSize: 9.5, color: C.muted, marginTop: 1 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 9.5, color: C.muted, lineHeight: 1.5, marginTop: 7 }}>上下文是陆泽下一次回复会带着的聊天量；累计生成是这段对话里已经生成的 token。</div>
+            </div>
+          )}
           {(pendingFile || imageUploading) && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               {imageUploading ? (
@@ -1723,7 +1766,7 @@ export default function App({ initialView = 'chat', onHome }) {
             <button type="button" onClick={send} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "all .2s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
-            <select aria-label="选择聊天模型" value={selectedModel} onChange={e => chooseModel(e.target.value)} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
+            <select aria-label="选择聊天模型" value={selectedModel} onChange={e => { setMessageActionError(""); chooseModel(e.target.value); }} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
               {availableModels.length > 0 ? (
                 availableModels.map(m => <option key={m} value={m}>{m}</option>)
               ) : (
@@ -1738,7 +1781,13 @@ export default function App({ initialView = 'chat', onHome }) {
               title={modelsError || '重新拉取当前 API 站点的模型'}
               style={{ width: 26, height: 26, flexShrink: 0, borderRadius: '50%', border: `1px solid ${modelsError ? C.blushDeep : C.border}`, background: C.surface, color: modelsError ? C.blushDeep : C.honeyDeep, cursor: modelsLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: modelsLoading ? .55 : 1 }}
             >{modelsLoading ? '…' : '↻'}</button>
-            <div style={{ flex: 1, textAlign: "right", fontSize: 9.5, color: C.mutedLight, letterSpacing: ".18em" }}>在云端漫步</div>
+            <button
+              type="button"
+              onClick={() => setTokenUsageOpen(open => !open)}
+              aria-expanded={tokenUsageOpen}
+              aria-controls="chat-token-usage"
+              style={{ minWidth: 86, height: 26, flexShrink: 0, borderRadius: 999, border: `1px solid ${tokenUsageOpen ? C.honeyMid : C.border}`, background: tokenUsageOpen ? C.honeyLight : "transparent", color: tokenUsageOpen ? C.honeyDeep : C.muted, cursor: "pointer", padding: "0 9px", fontFamily: "inherit", fontSize: 9.5, whiteSpace: "nowrap" }}
+            >◎ 上下文 {compactUsageNumber(chatUsage.currentContextTokens)}</button>
           </div>
         </div>
       </div>
@@ -2152,7 +2201,7 @@ export default function App({ initialView = 'chat', onHome }) {
           ))}
         </div>
         <div className="ourhome-safe-bottom" style={{ paddingTop: 14, paddingLeft: 20, paddingRight: 20, borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.muted, letterSpacing: ".15em" }}>
-          <span>since 2025.8.7</span>
+          <span>since 2025.03.07</span>
         </div>
       </aside>
 
@@ -2315,15 +2364,30 @@ export default function App({ initialView = 'chat', onHome }) {
         <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingLeft: 18, paddingRight: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <span style={{ fontSize: 13, color: C.text }}>{darkMode ? "🌙 夜间模式" : "☀️ 日间模式"}</span>
-            <span onClick={toggleDarkMode} style={{ width: 44, height: 24, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
+            <button type="button" role="switch" aria-checked={darkMode} aria-label="切换日间与夜间模式" onClick={toggleDarkMode} style={{ width: 44, height: 24, padding: 0, border: 0, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
               <span style={{ position: "absolute", top: 2, left: darkMode ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: C.white, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" }} />
-            </span>
+            </button>
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>字体</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
             {Object.keys(FONT_STYLES).map(key => (
               <button type="button" aria-pressed={fontStyle === key} key={key} onClick={() => changeFontStyle(key)} style={{ fontFamily: FONT_STYLES[key].family, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, cursor: "pointer", color: fontStyle === key ? C.honeyDeep : C.text, background: fontStyle === key ? C.honeyLight : C.cream, border: `1px solid ${fontStyle === key ? C.honeyDeep : C.border}` }}>{FONT_STYLES[key].label}</button>
             ))}
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>主页天气城市</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+            <input
+              value={weatherCityInput}
+              onChange={event => { setWeatherCityInput(event.target.value); setWeatherCitySaved(false); }}
+              onKeyDown={event => { if (event.key === 'Enter') saveWeatherCity(); }}
+              placeholder="例如：十堰、武汉、上海"
+              maxLength={60}
+              style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "9px 11px" }}
+            />
+            <button type="button" onClick={saveWeatherCity} style={{ flexShrink: 0, padding: "0 14px", border: 0, borderRadius: 12, color: C.white, background: C.honey, cursor: "pointer", fontSize: 12 }}>保存</button>
+          </div>
+          <div style={{ fontSize: 10.5, lineHeight: 1.55, color: weatherCitySaved ? C.honeyDeep : C.muted, marginBottom: 18 }}>
+            {weatherCitySaved ? (weatherCityInput ? `已保存“${weatherCityInput}”，回到主页会自动刷新。` : '已清空主页天气城市。') : '保存在这台设备里，主页只显示城市与当前天气，不会持续读取定位。'}
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
           <div style={{ display: "flex", gap: 20, marginBottom: 18 }}>
@@ -2372,33 +2436,6 @@ export default function App({ initialView = 'chat', onHome }) {
             </div>
             <span onClick={resetBubbleColors} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
           </div>
-
-          {(() => {
-            const totalChars = msgs.reduce((sum, m) => sum + (m.text?.length || 0), 0);
-            const lastWithTokens = [...msgs].reverse().find(m => m.role === 'ai' && m.inputTokens);
-            const currentContextTokens = lastWithTokens?.inputTokens || 0;
-            const totalOutputTokens = msgs.reduce((sum, m) => sum + (m.outputTokens || 0), 0);
-            return (
-              <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, letterSpacing: ".05em" }}>当前对话用量</div>
-                <div style={{ display: "flex", gap: 10 }}>
-                  <div style={{ flex: 1, textAlign: "center", background: C.cream, borderRadius: 10, padding: "8px 4px" }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: C.honeyDeep }}>{totalChars}</div>
-                    <div style={{ fontSize: 10, color: C.mutedLight }}>字</div>
-                  </div>
-                  <div style={{ flex: 1, textAlign: "center", background: C.cream, borderRadius: 10, padding: "8px 4px" }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: C.honeyDeep }}>{currentContextTokens}</div>
-                    <div style={{ fontSize: 10, color: C.mutedLight }}>当前上下文</div>
-                  </div>
-                  <div style={{ flex: 1, textAlign: "center", background: C.cream, borderRadius: 10, padding: "8px 4px" }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: C.honeyDeep }}>{totalOutputTokens}</div>
-                    <div style={{ fontSize: 10, color: C.mutedLight }}>累计生成</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 10, color: C.mutedLight, marginTop: 6, lineHeight: 1.5 }}>"当前上下文"是陆泽现在每次说话要带着的历史聊天量；"累计生成"是他这整个对话里一共说过的字数对应的tokens。</div>
-              </div>
-            );
-          })()}
 
           {view === 'settings' && (
             <>
