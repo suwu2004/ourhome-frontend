@@ -58,9 +58,16 @@ function isModelUnavailableError(error) {
   return /model_unavailable|model_not_found|no available channel|unknown model|model[^\n]*not found/i.test(raw);
 }
 
+function isVisionUnavailableError(error) {
+  return error?.code === 'vision_unavailable';
+}
+
 function friendlyGenerationError(error, retryAction = '再试一次') {
   if (isModelUnavailableError(error)) {
     return `这个模型在当前 API 站点暂时没有可用线路。换一个模型后直接${retryAction}就好，刚才的内容还在。`;
+  }
+  if (isVisionUnavailableError(error)) {
+    return error?.message || `这个模型暂时不能看图。换一个带视觉能力的模型后直接${retryAction}就好，图片和消息都还在。`;
   }
   return error?.message || '连接好像有点问题，请再试一次。';
 }
@@ -1678,7 +1685,17 @@ export default function App({ initialView = 'chat', onHome }) {
       const friendlyError = friendlyGenerationError(err, '重新生成');
       setMessageActionError(friendlyError);
       const errorCreatedAt = new Date().toISOString();
-      setMsgs(ms => [...ms, { id: `temp-error-${Date.now()}`, role: "ai", text: isModelUnavailableError(err) ? "这个模型暂时没有可用线路。换好模型后，点下面的“重新生成”就能接着聊。" : "连接好像有点问题…消息已经留在这里，可以再试一次。", createdAt: errorCreatedAt, time: formatMsgTime(errorCreatedAt) }]);
+      setMsgs(ms => [...ms, {
+        id: `temp-error-${Date.now()}`,
+        role: "ai",
+        text: isModelUnavailableError(err)
+          ? "这个模型暂时没有可用线路。换好模型后，点下面的“重新生成”就能接着聊。"
+          : isVisionUnavailableError(err)
+            ? friendlyError
+            : "连接好像有点问题…消息已经留在这里，可以再试一次。",
+        createdAt: errorCreatedAt,
+        time: formatMsgTime(errorCreatedAt),
+      }]);
       setVisible(v => v + 1);
     } finally {
       setThinking(false);
