@@ -82,25 +82,6 @@ function Stars({ theme = LIGHT_THEME }) {
   );
 }
 
-function MilestoneDoodle({ variant = 'cat' }) {
-  if (variant === 'fox') {
-    return (
-      <svg className="milestone-doodle" viewBox="0 0 92 62" aria-hidden="true">
-        <path className="milestone-doodle-wash" d="M8 52c5-24 22-41 43-39 19 1 32 16 31 36-18 13-56 16-74 3Z" />
-        <path className="milestone-doodle-line" d="M19 43 13 19l20 10c8-5 17-5 25 0l20-10-8 25c-4 12-13 17-26 17-13 0-22-6-25-18Z" />
-        <path className="milestone-doodle-line" d="M31 44c3 3 7 3 10 0m10 0c3 3 7 3 10 0m-15 4c0 4 3 6 7 6" />
-      </svg>
-    );
-  }
-  return (
-    <svg className="milestone-doodle" viewBox="0 0 92 62" aria-hidden="true">
-      <path className="milestone-doodle-wash" d="M8 53c3-23 20-39 43-39 20 0 33 13 34 35-17 14-58 18-77 4Z" />
-      <path className="milestone-doodle-line" d="M19 43c-1-13 3-24 13-31l8 10c7-3 15-3 22 0l8-10c9 9 12 21 9 32-3 12-13 18-30 18-16 0-27-7-30-19Z" />
-      <path className="milestone-doodle-line" d="M33 43c3 3 7 3 10 0m11 0c3 3 7 3 10 0m-16 5c0 3 3 5 7 5m-29-6-10-2m11 8-10 2m56-8 9-2m-10 8 9 2" />
-    </svg>
-  );
-}
-
 function MysteryBox({ x, category, color, ribbon, theme, onOpen }) {
   const [phase, setPhase] = useState('closed');
   const handleClick = () => {
@@ -2075,7 +2056,7 @@ export default function App({ initialView = 'chat', onHome }) {
               {!milestonesLoading && milestones.length === 0 && <div className="milestone-empty">这里还空着，先收好第一个日子吧。</div>}
 
               <div className="milestone-card-list">
-                {milestones.map((ms, index) => {
+                {milestones.map(ms => {
                   const display = milestoneDisplay(ms);
                   if (!display) return null;
                   const kind = MILESTONE_KINDS[display.kind];
@@ -2094,7 +2075,6 @@ export default function App({ initialView = 'chat', onHome }) {
                       {display.state === 'past' && display.nextDays <= 30 && (
                         <p className="milestone-card-next">下一个纪念节点还有 {display.nextDays} 天</p>
                       )}
-                      <MilestoneDoodle variant={index % 2 ? 'fox' : 'cat'} />
                       <button type="button" className="milestone-card-remove" onClick={() => deleteMilestoneRemote(ms.id, ms.label)}>移除</button>
                     </article>
                   );

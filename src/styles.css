@@ -479,7 +479,7 @@ textarea { display: block; margin: 0; }
   position: relative;
   min-width: 0;
   min-height: 86px;
-  padding: 17px 104px 14px 20px;
+  padding: 17px 52px 14px 20px;
   overflow: hidden;
   cursor: pointer;
   text-align: left;
@@ -546,42 +546,51 @@ textarea { display: block; margin: 0; }
   font-weight: 400;
 }
 
-.home-note-card > p {
-  display: -webkit-box;
+.home-note-copy {
   margin: 8px 0 0;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.home-note-message {
+  display: -webkit-box;
+  margin: 0;
   overflow: hidden;
   color: var(--home-ink);
   font-size: clamp(11px, 3vw, 14px);
   line-height: 1.55;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
 }
 
-.home-note-friends {
-  width: 145px;
-  height: auto;
-  overflow: visible;
+.home-note-countdown {
+  overflow: hidden;
+  color: var(--home-muted);
+  font-size: clamp(8px, 2.35vw, 10px);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.home-note-friends--compact {
-  position: absolute;
-  right: 17px;
-  bottom: 0;
-  width: 83px;
-  opacity: 0.9;
+.home-countdown-number {
+  min-width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  margin: 0 2px;
+  padding: 0 4px;
+  color: var(--home-honey-deep);
+  background: color-mix(in srgb, var(--home-lemon) 72%, var(--home-card-solid));
+  border: 1px solid color-mix(in srgb, var(--home-honey) 62%, transparent);
+  border-radius: 7px;
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--home-shadow) 50%, transparent);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
 }
-
-.home-note-friend-wash { opacity: 0.32; }
-.home-note-friend-wash--fox { fill: var(--home-blush-soft); }
-.home-note-friend-wash--cat { fill: var(--home-butter); }
-.home-note-friend-line {
-  fill: none;
-  stroke: var(--home-wood-deep);
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.home-note-friend-heart { fill: var(--home-blush); }
 
 /* 小房间改成可继续扩展的图标架，给主页留出呼吸。 */
 .home-room-shelf {
@@ -625,52 +634,22 @@ textarea { display: block; margin: 0; }
   white-space: nowrap;
 }
 
-.home-room-app .home-mailbox-art { width: 49px; height: 46px; transform: translateY(3px); }
-.home-room-app .home-vault-cat { width: 58px; height: 44px; transform: translateY(4px); }
-
-.home-mailbox-fill {
-  fill: color-mix(in srgb, var(--home-butter) 54%, var(--home-card-solid));
-}
-
-.home-mailbox-outline,
-.home-mailbox-slot,
-.home-mailbox-flag,
-.home-mailbox-letter,
-.home-mailbox-ground {
+.home-room-glyph {
+  width: 31px;
+  height: 31px;
   fill: none;
   stroke: var(--home-honey-deep);
-  stroke-width: 2;
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.home-mailbox-slot,
-.home-mailbox-ground { opacity: 0.55; }
-.home-mailbox-heart { fill: var(--home-blush); }
-
-.home-vault-cat {
-  position: static;
-  width: clamp(90px, 27vw, 118px);
-  height: auto;
-  flex: 0 0 auto;
-  filter: none;
+.home-coin-icon circle {
+  fill: color-mix(in srgb, var(--home-lemon) 35%, var(--home-card-solid));
+  stroke: var(--home-honey-deep);
 }
 
-.home-cat-wash {
-  fill: color-mix(in srgb, var(--home-butter) 24%, transparent);
-}
-
-.home-cat-line,
-.home-cat-face {
-  fill: none;
-  stroke: var(--home-wood-deep);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.home-cat-face { stroke-width: 1.7; }
-.home-cat-heart { fill: var(--home-blush); opacity: 0.82; }
+.home-coin-icon path { stroke-width: 1.45; }
 
 .home-dock {
   position: relative;
@@ -844,14 +823,6 @@ textarea { display: block; margin: 0; }
   color: var(--home-muted);
   font-size: 9px;
   letter-spacing: 0.03em;
-}
-
-.home-memo-drawer > header .home-note-friends {
-  position: absolute;
-  right: 39px;
-  bottom: -8px;
-  width: 100px;
-  opacity: 0.88;
 }
 
 .home-memo-drawer > header > button {
@@ -1136,12 +1107,11 @@ textarea { display: block; margin: 0; }
   .home-moving-scale { bottom: -1px; }
   .home-quick-grid, .home-note-card { min-height: 78px; }
   .home-note-card { padding-top: 13px; padding-bottom: 9px; }
-  .home-note-card > p { margin-top: 6px; -webkit-line-clamp: 1; }
+  .home-note-copy { margin-top: 5px; gap: 2px; }
   .home-room-shelf { padding-top: 4px; }
   .home-room-app { gap: 4px; }
   .home-room-app > span { width: 52px; height: 52px; border-radius: 16px; }
-  .home-room-app .home-mailbox-art { width: 44px; }
-  .home-room-app .home-vault-cat { width: 53px; }
+  .home-room-glyph { width: 28px; height: 28px; }
   .home-dock { height: 64px; }
   .home-couple-avatar { width: 51px; height: 51px; }
   .home-chat-button > span:last-child { top: calc(50% + 20px); }
@@ -1150,8 +1120,7 @@ textarea { display: block; margin: 0; }
 @media (max-width: 350px) {
   .home-layout { padding-right: 12px; padding-left: 12px; }
   .home-quick-grid { grid-template-columns: minmax(0, 1fr); }
-  .home-note-card { padding-right: 90px; padding-left: 16px; }
-  .home-note-friends--compact { right: 9px; width: 76px; }
+  .home-note-card { padding-right: 48px; padding-left: 16px; }
 }
 
 @media (min-width: 600px) {
@@ -1172,7 +1141,6 @@ textarea { display: block; margin: 0; }
   position: relative;
   margin: 2px 3px 17px;
   padding: 4px 76px 13px 2px;
-  border-bottom: 1px solid var(--milestone-line);
 }
 
 .milestone-journal-heading::after {
@@ -1231,12 +1199,11 @@ textarea { display: block; margin: 0; }
 
 .milestone-card {
   position: relative;
-  min-height: 174px;
-  padding: 16px 112px 15px 17px;
+  min-height: 154px;
+  padding: 16px 17px 15px;
   overflow: hidden;
   background:
-    linear-gradient(90deg, transparent 0 27px, color-mix(in srgb, var(--milestone-blush) 22%, transparent) 27px 28px, transparent 28px),
-    repeating-linear-gradient(180deg, transparent 0 27px, color-mix(in srgb, var(--milestone-line) 42%, transparent) 27px 28px),
+    radial-gradient(circle at 92% 14%, color-mix(in srgb, var(--milestone-butter) 65%, transparent), transparent 29%),
     color-mix(in srgb, var(--milestone-paper) 95%, var(--milestone-butter));
   border: 1px solid var(--milestone-line);
   border-radius: 13px 22px 15px 19px;
@@ -1306,14 +1273,24 @@ textarea { display: block; margin: 0; }
 }
 
 .milestone-card-count strong {
+  min-width: 50px;
+  height: 50px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 9px;
+  color: var(--milestone-honey-deep);
+  background: color-mix(in srgb, var(--milestone-butter) 78%, var(--milestone-paper));
+  border: 1px solid var(--milestone-honey);
+  border-radius: 17px 21px 18px 20px;
+  box-shadow: 0 5px 12px color-mix(in srgb, var(--milestone-honey-deep) 13%, transparent), inset 0 1px rgba(255, 255, 255, 0.45);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 35px;
-  font-weight: 500;
+  font-size: 31px;
+  font-weight: 600;
   line-height: 1.1;
   letter-spacing: 0.01em;
 }
 
-.milestone-card-count--today strong { font-size: 28px; }
+.milestone-card-count--today strong { min-width: 66px; font-size: 22px; }
 .milestone-card-count span { color: var(--milestone-muted); font-size: 10px; }
 
 .milestone-card-next {
@@ -1325,24 +1302,6 @@ textarea { display: block; margin: 0; }
   border: 1px solid color-mix(in srgb, var(--milestone-line) 68%, transparent);
   border-radius: 999px;
   font-size: 8px;
-}
-
-.milestone-doodle {
-  position: absolute;
-  right: 14px;
-  bottom: 12px;
-  width: 86px;
-  height: auto;
-  opacity: 0.88;
-}
-
-.milestone-doodle-wash { fill: color-mix(in srgb, var(--milestone-butter) 72%, transparent); }
-.milestone-doodle-line {
-  fill: none;
-  stroke: var(--milestone-honey-deep);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .milestone-card-remove {
