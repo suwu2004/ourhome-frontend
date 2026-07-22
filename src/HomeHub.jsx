@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { getHomeWeatherCity, HOME_PREFERENCES_EVENT } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
+import '@fontsource/parisienne/400.css';
 
 const ANNIVERSARY_START = Date.UTC(2025, 2, 7);
 const HALF_HOUR_MS = 30 * 60 * 1000;
@@ -65,45 +66,39 @@ function tomorrowText() {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function TimelineCompanion() {
+function GoldenMoodStar() {
   return (
-    <svg className="home-timeline-companion" viewBox="0 0 44 54" aria-hidden="true">
-      <circle className="home-companion-head" cx="23" cy="10" r="7" />
-      <path className="home-companion-hair" d="M16 10c0-6 3-9 8-9 5 0 8 4 7 9-3-2-6-3-9-3-1 2-3 3-6 3Z" />
-      <path className="home-companion-coat" d="M17 19c4-3 9-3 13 0l3 19H14l3-19Z" />
-      <path className="home-companion-line" d="m16 22-7 10m22-10 6 10M17 38l-4 12m17-12 4 12" />
-      <path className="home-companion-bag" d="M29 20c4 2 5 5 5 10v5h-6V22Z" />
+    <svg className="home-mood-star" viewBox="0 0 56 56" aria-hidden="true">
+      <circle className="home-star-halo" cx="28" cy="28" r="25" />
+      <path className="home-star-rays" d="M28 3v7M28 46v7M3 28h7M46 28h7M10.3 10.3l5 5M40.7 40.7l5 5M45.7 10.3l-5 5M15.3 40.7l-5 5" />
+      <path className="home-star-body" d="M28 9.5c2.6 9.6 8.9 15.9 18.5 18.5-9.6 2.6-15.9 8.9-18.5 18.5C25.4 36.9 19.1 30.6 9.5 28 19.1 25.4 25.4 19.1 28 9.5Z" />
+      <path className="home-star-heart" d="M28 33.8c-7-4.3-7.3-9-.2-7.1 7.1-1.9 6.8 2.8.2 7.1Z" />
     </svg>
   );
 }
 
 function MailboxIllustration() {
   return (
-    <svg className="home-mailbox-art" viewBox="0 0 260 300" aria-hidden="true">
-      <path className="home-mailbox-shadow" d="M44 264c31-17 140-17 171 0-29 20-141 21-171 0Z" />
-      <path className="home-mailbox-post" d="M133 145h25v123h-25z" />
-      <path className="home-mailbox-post-line" d="M143 153v108m11-103-5 11m4 19-7 10m8 14-7 9" />
-      <path className="home-mailbox-body" d="M55 75c0-31 25-56 56-56h47c31 0 56 25 56 56v91H55V75Z" />
-      <path className="home-mailbox-door" d="M64 77c0-27 21-49 48-49 26 0 48 22 48 49v80H64V77Z" />
-      <path className="home-mailbox-detail" d="M76 78c0-20 16-37 36-37 20 0 36 17 36 37v66H76V78Z" />
-      <rect className="home-mailbox-slot" x="83" y="70" width="59" height="9" rx="4.5" />
-      <path className="home-mailbox-envelope" d="M94 103h38v27H94zM95 105l18 14 18-14" />
-      <path className="home-mailbox-flag" d="M191 30v83m0-78h35l-6 16h-29" />
-      <circle className="home-mailbox-knob" cx="190" cy="113" r="7" />
-      <path className="home-mailbox-leaves" d="M158 252c20-7 30-20 32-39m-25 28c-3-12 1-20 11-25m3 12c9-10 18-12 27-7m-19 23c7-7 15-8 23-3" />
+    <svg className="home-mailbox-art" viewBox="0 0 132 112" aria-hidden="true">
+      <path className="home-mailbox-fill" d="M19 65V40c0-16 13-29 29-29h35c17 0 30 13 30 30v24H19Z" />
+      <path className="home-mailbox-outline" d="M19 65V40c0-16 13-29 29-29h35c17 0 30 13 30 30v24H19Zm42 0V40c0-16-7-29-19-29m18 54v36m-20 0h42" />
+      <path className="home-mailbox-slot" d="M31 32h20" />
+      <path className="home-mailbox-flag" d="M96 17v31m0-29h21l-4 11H96" />
+      <path className="home-mailbox-letter" d="M30 43h21v14H30V43Zm1 1 9.5 7L50 44" />
+      <path className="home-mailbox-heart" d="M77 39c-5-5-11 2 0 10 11-8 5-15 0-10Z" />
+      <path className="home-mailbox-ground" d="M12 101h108" />
     </svg>
   );
 }
 
 function VaultCatIllustration() {
   return (
-    <svg className="home-vault-cat" viewBox="0 0 190 116" aria-hidden="true">
-      <path className="home-cat-tail" d="M64 87c-28 3-40-9-33-24 6-14 25-13 33-2 8 10-2 20-12 17" />
-      <ellipse className="home-cat-body" cx="105" cy="72" rx="54" ry="34" />
-      <path className="home-cat-head" d="M130 60c-2-16 3-29 16-37l8 14c10 0 18 4 25 11l7-12c5 15 3 29-6 39-11 12-33 12-43 1-4-4-6-10-7-16Z" />
-      <path className="home-cat-mark" d="M148 49c4-4 10-5 15-1m-18 12c3 3 7 3 10 0m10 0c3 3 7 3 10 0m-15 4c1 4 4 6 8 6" />
-      <path className="home-cat-paw" d="M76 87c20 9 51 8 70-2" />
-      <path className="home-cat-heart" d="M113 54c-5-6-14 1 0 11 14-10 5-17 0-11Z" />
+    <svg className="home-vault-cat" viewBox="0 0 142 92" aria-hidden="true">
+      <path className="home-cat-wash" d="M20 67c2-24 22-42 50-42 31 0 52 19 51 43-22 15-79 16-101-1Z" />
+      <path className="home-cat-line" d="M24 67c3-23 22-40 49-40 12 0 23 3 31 10m-80 30c18 14 70 15 94 2 12-7 12-23 2-28-9-5-20 2-16 12 3 8 16 7 20-1" />
+      <path className="home-cat-line" d="M44 45c-1-12 3-23 13-30l7 10c7-3 15-3 22 0l8-10c9 9 12 20 9 31-3 13-14 21-30 21-16 0-27-8-29-22Z" />
+      <path className="home-cat-face" d="M58 43c3 3 7 3 10 0m11 0c3 3 7 3 10 0m-16 4c0 4 3 6 7 6m-29-6-10-2m11 8-10 2m55-8 10-2m-11 8 10 2" />
+      <path className="home-cat-heart" d="M34 27c-5-6-13 1 0 11 13-10 5-17 0-11Z" />
     </svg>
   );
 }
@@ -345,8 +340,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
       <div className="home-layout">
         <header className="home-hero">
           <div className="home-title-lockup">
-            <p className="home-kicker">OURHOME</p>
-            <h1>我们的家</h1>
+            <h1>OurHome</h1>
           </div>
           <button className={`home-refresh ${refreshing ? 'is-refreshing' : ''}`} type="button" onClick={refreshHome} aria-label="刷新主页" title="刷新主页">
             <svg viewBox="0 0 40 44" aria-hidden="true"><path d="M15 5h10M20 5v5" /><circle cx="20" cy="25" r="13" /><path d="M20 17v8l6 4M10 12l-4 5M30 12l4 5" /></svg>
@@ -355,49 +349,38 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
         </header>
 
         <section className="home-timeline" aria-label={`当前时间 ${clockText(now)}`}>
-          <div className="home-timeline-heading"><span>今天的轨迹</span><b>{clockText(now)}</b></div>
+          <div className="home-timeline-heading">
+            <b>{clockText(now)}</b>
+            <span>{city ? `${weather?.displayName || city} · ${weatherLine}` : weatherLine}</span>
+          </div>
           <div className="home-timeline-window">
             <span className="home-now-glow" aria-hidden="true" />
             <div className="home-moving-scale" style={{ '--timeline-shift': `${timeline.offset * 68}px` }} aria-hidden="true">
               {timeline.ticks.map(tick => <span className={tick.major ? 'is-major' : ''} key={tick.key}><i /><b>{tick.label}</b></span>)}
             </div>
-            <span className="home-companion-station"><TimelineCompanion /></span>
+            <button className="home-companion-station" type="button" onClick={() => onOpen('calendar')} aria-label="打开心情日历" title="心情日历"><GoldenMoodStar /></button>
             <span className="home-time-marker" aria-hidden="true" />
           </div>
           <p>✦ {phraseFor(now.getHours())} ✦</p>
         </section>
 
-        <section className="home-quick-grid" aria-label="天气日历与便签">
-          <button className="home-calendar-card" type="button" onClick={() => onOpen('calendar')} aria-label="打开心情日历">
-            <span className="home-card-overline">TODAY</span>
-            <strong>{clockText(now)}</strong>
-            <small>{city ? `${weather?.displayName || city} · ${weatherLine}` : weatherLine}</small>
-            <span className="home-calendar-link"><i>♡</i> 心情日历 <b>›</b></span>
-          </button>
-
+        <section className="home-quick-grid" aria-label="我们的小便签">
           <button className="home-note-card" type="button" onClick={() => setMemoOpen(true)} aria-label="打开我们的小便签">
-            <span className="home-note-pin" aria-hidden="true" />
             <span className="home-card-overline">OUR NOTES</span>
-            <strong>我们的小便签 <i>＋</i></strong>
-            <p>{memoState === 'loading' ? '正在翻找便签…' : featuredMemo?.content || '给彼此留一句话'}</p>
-            <small>{featuredMemo ? `${featuredMemo.author === '泽' ? '泽' : '檀'} · ${featuredMemo.memo_type === 'tomorrow' ? '明日备忘' : '温馨提示'}` : '檀和泽都可以写'}</small>
+            <i className="home-note-add">＋</i>
+            <p>{memoState === 'loading' ? '正在翻找便签…' : featuredMemo?.content || '留一句话……'}</p>
           </button>
         </section>
 
         <section className="home-story-card" aria-label="客厅里的时光信差与猫的金库">
-          <div className="home-room-window" aria-hidden="true"><i /><i /><span /></div>
-          <div className="home-room-moulding" aria-hidden="true" />
-          <div className="home-console-table" aria-hidden="true"><i /><i /></div>
           <button className="home-mailbox-hit" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
-            <span className="home-story-index">LETTERS · 01</span>
-            <strong>时光信差</strong>
-            <small>幸福日记 · 悄悄话</small>
-            <i>把今天寄给未来 <b>↗</b></i>
             <MailboxIllustration />
+            <strong>时光信差</strong>
+            <i>›</i>
           </button>
           <button className="home-vault-hit" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
             <VaultCatIllustration />
-            <span><b>猫的金库</b><small>一起攒下小日子</small></span>
+            <span><b>猫的金库</b></span>
             <i>›</i>
           </button>
         </section>
