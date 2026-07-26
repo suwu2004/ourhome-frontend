@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { getHomeWeatherCity, HOME_PREFERENCES_EVENT } from './homePreferences.js';
 import { upcomingOccasions } from './milestoneDates.js';
@@ -7,7 +7,6 @@ import '@fontsource/parisienne/400.css';
 
 const ANNIVERSARY_START = Date.UTC(2025, 2, 7);
 const HALF_HOUR_MS = 30 * 60 * 1000;
-const MAX_MEMO_PAPER_BYTES = 6 * 1024 * 1024;
 
 const WEATHER_DESCRIPTIONS = [
   [[0], '晴朗', '☀'],
@@ -122,16 +121,11 @@ function MemoDrawer({
   error,
   paperImage,
   paperStyle,
-  paperBusy,
-  paperError,
   onClose,
   onSave,
   onToggle,
   onDelete,
-  onPaperUpload,
-  onPaperReset,
 }) {
-  const paperInputRef = useRef(null);
   const [editing, setEditing] = useState(null);
   const [content, setContent] = useState('');
   const [memoType, setMemoType] = useState('note');
@@ -178,29 +172,9 @@ function MemoDrawer({
         <header>
           <div><span>OUR NOTES</span><h2 id="home-memo-title">云端小便签</h2><p>一些温柔的话，和明天别忘记的事。</p></div>
           <div className="home-memo-header-actions">
-            <input
-              ref={paperInputRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={event => {
-                const file = event.target.files?.[0];
-                event.target.value = '';
-                if (file) onPaperUpload(file);
-              }}
-            />
-            <button type="button" className="home-memo-paper-button" onClick={() => paperInputRef.current?.click()} disabled={paperBusy}>
-              {paperBusy ? '铺纸中' : '换纸'}
-            </button>
-            {paperImage && (
-              <button type="button" className="home-memo-paper-button home-memo-paper-button--reset" onClick={onPaperReset} disabled={paperBusy}>
-                默认
-              </button>
-            )}
             <button type="button" className="home-memo-close" onClick={onClose} aria-label="关闭便签">×</button>
           </div>
         </header>
-        {paperError && <p className="home-memo-paper-error" role="alert">{paperError}</p>}
 
         <form className="home-memo-form" onSubmit={submit}>
           <div className="home-memo-kind" aria-label="便签类型">
@@ -258,7 +232,7 @@ function MemoDrawer({
 }
 
 export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
-  const { darkMode, settings, refreshTheme } = useTheme();
+  const { darkMode, settings } = useTheme();
   const [now, setNow] = useState(() => new Date());
   const [city, setCity] = useState(getHomeWeatherCity);
   const [weather, setWeather] = useState(null);
@@ -269,8 +243,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const [memoState, setMemoState] = useState('loading');
   const [memoError, setMemoError] = useState('');
   const [memoOpen, setMemoOpen] = useState(false);
-  const [memoPaperBusy, setMemoPaperBusy] = useState(false);
-  const [memoPaperError, setMemoPaperError] = useState('');
 
   useEffect(() => {
     const update = () => setNow(new Date());
@@ -403,59 +375,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
     }
   };
 
-  const persistMemoPaper = useCallback(async imageUrl => {
-    const response = await apiFetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ home_memo_bg_image_url: imageUrl }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data?.error || '这张便签纸没有保存好');
-    await refreshTheme();
-  }, [refreshTheme]);
-
-  const uploadMemoPaper = useCallback(async file => {
-    if (memoPaperBusy) return;
-    if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
-      setMemoPaperError('请选择 JPG、PNG、WebP 等图片文件。');
-      return;
-    }
-    if (file.size > MAX_MEMO_PAPER_BYTES) {
-      setMemoPaperError('图片不要超过 6MB，手机上传会更稳一些。');
-      return;
-    }
-
-    setMemoPaperBusy(true);
-    setMemoPaperError('');
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploadResponse = await apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData });
-      const uploadData = await uploadResponse.json().catch(() => ({}));
-      if (!uploadResponse.ok || !uploadData?.url) {
-        throw new Error(uploadData?.error || '图片没有上传成功');
-      }
-      await persistMemoPaper(uploadData.url);
-    } catch (error) {
-      setMemoPaperError(error.message || '图片没有上传成功');
-    } finally {
-      setMemoPaperBusy(false);
-    }
-  }, [memoPaperBusy, persistMemoPaper]);
-
-  const resetMemoPaper = useCallback(async () => {
-    if (memoPaperBusy) return;
-    setMemoPaperBusy(true);
-    setMemoPaperError('');
-    try {
-      await persistMemoPaper(null);
-    } catch (error) {
-      setMemoPaperError(error.message || '暂时没有恢复成功');
-    } finally {
-      setMemoPaperBusy(false);
-    }
-  }, [memoPaperBusy, persistMemoPaper]);
-
   const weatherLine = weatherState === 'loading'
     ? '天气在路上…'
     : weatherState === 'error'
@@ -508,7 +427,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
             style={memoPaperStyle}
             type="button"
             onClick={() => {
-              setMemoPaperError('');
               setMemoOpen(true);
             }}
             aria-label="打开我们的小便签"
@@ -557,14 +475,10 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
           error={memoError}
           paperImage={memoPaperImage}
           paperStyle={memoPaperStyle}
-          paperBusy={memoPaperBusy}
-          paperError={memoPaperError}
           onClose={() => setMemoOpen(false)}
           onSave={saveMemo}
           onToggle={toggleMemo}
           onDelete={deleteMemo}
-          onPaperUpload={uploadMemoPaper}
-          onPaperReset={resetMemoPaper}
         />
       )}
     </main>
