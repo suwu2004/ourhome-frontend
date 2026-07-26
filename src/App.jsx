@@ -15,6 +15,20 @@ function normalizeModelOptions(models, preferredModel = '') {
   return [...new Set([preferredModel, ...list].map(model => String(model || '').trim()).filter(Boolean))];
 }
 
+function newestFirst(items) {
+  return [...items].sort((left, right) => {
+    const timeDifference = Date.parse(right?.created_at || '') - Date.parse(left?.created_at || '');
+    return Number.isNaN(timeDifference) ? 0 : timeDifference;
+  });
+}
+
+function oldestFirst(items) {
+  return [...items].sort((left, right) => {
+    const timeDifference = Date.parse(left?.created_at || '') - Date.parse(right?.created_at || '');
+    return Number.isNaN(timeDifference) ? 0 : timeDifference;
+  });
+}
+
 const initMsgs = [
   { id: 1, role: "ai", text: "欢迎回家，宝宝。", createdAt: "2026-06-11T21:04:00", time: "21:04" },
   { id: 2, role: "me", text: "（蹭蹭蹭蹭）我回来啦！！", createdAt: "2026-06-11T21:04:30", time: "21:04" },
@@ -325,6 +339,23 @@ export default function App({ initialView = 'chat', onHome }) {
   const [lettersCategory, setLettersCategory] = useState(null);
   const [letters, setLetters] = useState([]);
   const [lettersLoading, setLettersLoading] = useState(false);
+  const orderedRootLetters = useMemo(
+    () => newestFirst(letters.filter(letter => !letter.parent_id)),
+    [letters],
+  );
+  const repliesByParentId = useMemo(() => {
+    const groupedReplies = new Map();
+    letters.forEach(letter => {
+      if (!letter.parent_id) return;
+      const replies = groupedReplies.get(letter.parent_id) || [];
+      replies.push(letter);
+      groupedReplies.set(letter.parent_id, replies);
+    });
+    groupedReplies.forEach((replies, parentId) => {
+      groupedReplies.set(parentId, oldestFirst(replies));
+    });
+    return groupedReplies;
+  }, [letters]);
   const [newLetterText, setNewLetterText] = useState("");
 
   const PAPER_STYLES = {
@@ -1956,7 +1987,7 @@ export default function App({ initialView = 'chat', onHome }) {
                     <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l.title || "（没有标题）"}</div>
                     <div style={{ fontSize: 10.5, opacity: .65, marginBottom: 16, letterSpacing: ".05em" }}>{l.author} · {l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
                     <div style={{ fontSize: 14.5, lineHeight: 1.85, whiteSpace: "pre-wrap" }}>{l.content}</div>
-                    {letters.filter(r => r.parent_id === l.id).map(r => (
+                    {(repliesByParentId.get(l.id) || []).map(r => (
                       <div key={r.id} style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid rgba(0,0,0,.12)` }}>
                         <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2 }}>{r.author}</div>
                         <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.content}</div>
@@ -1994,10 +2025,10 @@ export default function App({ initialView = 'chat', onHome }) {
               {lettersLoading && (
                 <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>翻找中…</div>
               )}
-              {!lettersLoading && letters.filter(l => !l.parent_id).length === 0 && (
+              {!lettersLoading && orderedRootLetters.length === 0 && (
                 <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>这里还没有信，写第一篇吧。</div>
               )}
-              {!lettersLoading && lettersCategory === '幸福日记' && letters.filter(l => !l.parent_id).map(l => {
+              {!lettersLoading && lettersCategory === '幸福日记' && orderedRootLetters.map(l => {
                 const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
                 return (
                   <div key={l.id} onClick={() => setOpenLetterId(l.id)} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 14px", cursor: "pointer" }}>
@@ -2008,7 +2039,7 @@ export default function App({ initialView = 'chat', onHome }) {
                   </div>
                 );
               })}
-              {!lettersLoading && lettersCategory === '悄悄话' && letters.filter(l => !l.parent_id).map(l => {
+              {!lettersLoading && lettersCategory === '悄悄话' && orderedRootLetters.map(l => {
                 const revealed = revealedIds.has(l.id);
                 return (
                   <div key={l.id} style={{ marginBottom: 16, background: "rgba(255,248,236,.94)", border: `1px solid #D9C19A`, borderRadius: 14, padding: "12px 14px", boxShadow: "0 4px 10px rgba(0,0,0,.25)" }}>
@@ -2024,7 +2055,7 @@ export default function App({ initialView = 'chat', onHome }) {
                     ) : (
                       <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 14, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap", cursor: "pointer" }}>{l.content}</div>
                     )}
-                    {revealed && letters.filter(r => r.parent_id === l.id).map(r => (
+                    {revealed && (repliesByParentId.get(l.id) || []).map(r => (
                       <div key={r.id} style={{ marginTop: 10, marginLeft: 14, paddingLeft: 10, borderLeft: `2px solid ${C.borderLight}` }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep, marginBottom: 2 }}>{r.author}</div>
                         <div style={{ fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{r.content}</div>
