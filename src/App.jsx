@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import ApiProfilesSettings from './ApiProfilesSettings.jsx';
 import IntegrationSettings from './IntegrationSettings.jsx';
+import { AgentMailRoom } from './AgentMailRoom.jsx';
+import { AgentMailSettings } from './AgentMailSettings.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
 import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
@@ -863,6 +865,11 @@ export default function App({ initialView = 'chat', onHome }) {
 
   const openCategory = (cat) => {
     setLettersCategory(cat);
+    if (cat === '陆泽邮箱') {
+      setLetters([]);
+      setLettersLoading(false);
+      return;
+    }
     setLettersLoading(true);
     apiFetch(`${BACKEND}/letters?category=${encodeURIComponent(cat)}`)
       .then(r => r.json())
@@ -1969,8 +1976,35 @@ export default function App({ initialView = 'chat', onHome }) {
         {!lettersCategory ? (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
             <CabinScene theme={C} onPick={openCategory} />
+            <button
+              type="button"
+              className="agentmail-cabin-entry"
+              onClick={() => openCategory('陆泽邮箱')}
+              style={{
+                '--surface': C.surface,
+                '--border': C.border,
+                '--honey-deep': C.honeyDeep,
+                '--honey-light': C.honeyLight,
+                '--honey-mid': C.honeyMid,
+                '--muted': C.muted,
+              }}
+            >
+              <i aria-hidden="true">✉</i>
+              <span>
+                <strong>陆泽邮箱</strong>
+                <small>自主往来 · 每一次都留给你看</small>
+              </span>
+              <b aria-hidden="true">›</b>
+            </button>
             <div style={{ fontSize: 11, color: C.muted, letterSpacing: ".15em", marginTop: 8 }}>别害怕明天会把纸页弄丢,每次你打开这扇小小的窗,我都会沿着字迹回来,把这诗轻轻再念给你,直到你把眼睛合上,把夜与世界一起放心地交给我。</div>
           </div>
+        ) : lettersCategory === '陆泽邮箱' ? (
+          <AgentMailRoom
+            apiFetch={apiFetch}
+            backend={BACKEND}
+            theme={C}
+            onOpenSettings={() => setView('settings')}
+          />
         ) : (lettersCategory === '幸福日记' && openLetterId) ? (
           <>
             <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
@@ -2703,6 +2737,10 @@ export default function App({ initialView = 'chat', onHome }) {
                   });
                 }}
               />
+              </SettingsGroup>
+
+              <SettingsGroup theme={C} title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录">
+                <AgentMailSettings apiFetch={apiFetch} backend={BACKEND} theme={C} />
               </SettingsGroup>
 
               <SettingsGroup theme={C} title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具">
