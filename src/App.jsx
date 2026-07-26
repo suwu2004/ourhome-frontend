@@ -11,6 +11,7 @@ import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
 import { MILESTONE_KINDS, milestoneDisplay } from './milestoneDates.js';
 
 const SESSION_KEY = "ourhome_session_id";
+const MAX_BACKGROUND_IMAGE_BYTES = 6 * 1024 * 1024;
 
 function normalizeModelOptions(models, preferredModel = '') {
   const list = Array.isArray(models) ? models : [];
@@ -105,7 +106,7 @@ function Stars({ theme = LIGHT_THEME }) {
   );
 }
 
-function MysteryBox({ x, category, color, ribbon, theme, onOpen }) {
+function MysteryBox({ x, y = 0, category, color, ribbon, mark = '', theme, onOpen }) {
   const [phase, setPhase] = useState('closed');
   const handleClick = () => {
     if (phase !== 'closed') return;
@@ -125,7 +126,20 @@ function MysteryBox({ x, category, color, ribbon, theme, onOpen }) {
     transition: 'transform .11s ease-in-out',
   };
   return (
-    <g transform={`translate(${x}, 0)`} onClick={handleClick} style={{ cursor: phase === 'closed' ? 'pointer' : 'default' }}>
+    <g
+      transform={`translate(${x}, ${y})`}
+      onClick={handleClick}
+      role="button"
+      tabIndex="0"
+      aria-label={`打开${category}`}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleClick();
+        }
+      }}
+      style={{ cursor: phase === 'closed' ? 'pointer' : 'default', outline: 'none' }}
+    >
       <ellipse cx="0" cy="172" rx="58" ry="9" fill="rgba(46,31,18,.12)" />
       {phase === 'open' && (
         <>
@@ -139,6 +153,7 @@ function MysteryBox({ x, category, color, ribbon, theme, onOpen }) {
       <rect x="-50" y="90" width="100" height="78" rx="10" fill={color} stroke={theme.honeyDeep} strokeWidth="2.5" style={bodyStyle} />
       <rect x="-50" y="122" width="100" height="12" fill="rgba(0,0,0,.08)" style={bodyStyle} />
       <rect x="-9" y="90" width="18" height="78" fill={ribbon} style={bodyStyle} />
+      {mark && <text x="0" y="146" textAnchor="middle" fontSize="17" fill={theme.honeyDeep} fontFamily="inherit" style={bodyStyle}>{mark}</text>}
       <g style={lidStyle}>
         <rect x="-56" y="74" width="112" height="22" rx="7" fill={color} stroke={theme.honeyDeep} strokeWidth="2.5" />
         <rect x="-9" y="74" width="18" height="22" fill={ribbon} />
@@ -153,10 +168,11 @@ function MysteryBox({ x, category, color, ribbon, theme, onOpen }) {
 
 function CabinScene({ theme, onPick }) {
   return (
-    <svg viewBox="0 0 360 230" style={{ width: "100%", maxWidth: 360 }}>
+    <svg viewBox="0 0 360 420" style={{ width: "100%", maxWidth: 360 }} aria-label="时光信差的三个礼物盒">
       <text x="180" y="26" textAnchor="middle" fontSize="13" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit" letterSpacing="2">时光信差</text>
       <MysteryBox x={92} category="悄悄话" color={theme.blush} ribbon={theme.blushDeep} theme={theme} onOpen={onPick} />
       <MysteryBox x={268} category="幸福日记" color={theme.honeyLight} ribbon={theme.honey} theme={theme} onOpen={onPick} />
+      <MysteryBox x={180} y={190} category="陆泽邮箱" color={theme.surface} ribbon={theme.honeyDeep} mark="✉" theme={theme} onOpen={onPick} />
     </svg>
   );
 }
@@ -216,10 +232,10 @@ function SettingsGroup({ theme, title, subtitle, children, defaultOpen = false }
   );
 }
 
-function BackgroundImageOption({ label, description, image, busy, onUpload, onReset, theme }) {
+function BackgroundImageOption({ label, description, image, busy, onUpload, onReset, theme, wide = false }) {
   const inputRef = useRef(null);
   return (
-    <div style={{ minWidth: 0, padding: 10, background: theme.cream, border: `1px solid ${theme.borderLight}`, borderRadius: 13 }}>
+    <div style={{ minWidth: 0, padding: 10, gridColumn: wide ? '1 / -1' : undefined, background: theme.cream, border: `1px solid ${theme.borderLight}`, borderRadius: 13 }}>
       <button type="button" onClick={() => inputRef.current?.click()} style={{ width: '100%', height: 78, padding: 0, overflow: 'hidden', display: 'grid', placeItems: 'center', color: theme.honeyDeep, background: image ? 'transparent' : `linear-gradient(145deg, ${theme.honeyLight}, ${theme.white})`, border: `1px dashed ${theme.honeyMid}`, borderRadius: 10, cursor: 'pointer' }}>
         {busy ? <span style={{ fontSize: 10 }}>上传中…</span> : image ? <img src={image} alt={`${label}背景预览`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20, fontWeight: 300 }}>＋</span>}
       </button>
@@ -272,6 +288,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const bgImageInputRef = useRef(null);
   const [homeDayBgImage, setHomeDayBgImage] = useState(null);
   const [homeNightBgImage, setHomeNightBgImage] = useState(null);
+  const [homeMemoBgImage, setHomeMemoBgImage] = useState(null);
   const [uploadingHomeBg, setUploadingHomeBg] = useState(null);
   const [homeBgError, setHomeBgError] = useState('');
   const [whisperBgImage, setWhisperBgImage] = useState(null);
@@ -568,6 +585,7 @@ export default function App({ initialView = 'chat', onHome }) {
         if (data?.bg_color) setBgColor(data.bg_color);
         setHomeDayBgImage(data?.home_bg_day_image_url || null);
         setHomeNightBgImage(data?.home_bg_night_image_url || null);
+        setHomeMemoBgImage(data?.home_memo_bg_image_url || null);
         if (data?.whisper_bg_image_url) setWhisperBgImage(data.whisper_bg_image_url);
         if (data?.whisper_bg_color) setWhisperBgColor(data.whisper_bg_color);
         if (data?.my_bubble_color) setMyBubbleColor(data.my_bubble_color);
@@ -971,6 +989,14 @@ export default function App({ initialView = 'chat', onHome }) {
 
   const uploadHomeBackground = async (file, mode) => {
     if (!file) return;
+    if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+      setHomeBgError('请选择 JPG、PNG、WebP 等图片文件。');
+      return;
+    }
+    if (file.size > MAX_BACKGROUND_IMAGE_BYTES) {
+      setHomeBgError('图片不要超过 6MB，手机上传会更稳一些。');
+      return;
+    }
     setUploadingHomeBg(mode);
     setHomeBgError('');
     try {
@@ -978,20 +1004,25 @@ export default function App({ initialView = 'chat', onHome }) {
       formData.append('file', file);
       const uploadResponse = await apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData });
       const uploadData = await uploadResponse.json().catch(() => ({}));
-      if (!uploadResponse.ok || !uploadData.url) throw new Error(uploadData.error || '主页背景没有上传成功');
-      const field = mode === 'night' ? 'home_bg_night_image_url' : 'home_bg_day_image_url';
+      if (!uploadResponse.ok || !uploadData.url) throw new Error(uploadData.error || '背景图片没有上传成功');
+      const field = mode === 'memo'
+        ? 'home_memo_bg_image_url'
+        : mode === 'night'
+          ? 'home_bg_night_image_url'
+          : 'home_bg_day_image_url';
       const settingsResponse = await apiFetch(`${BACKEND}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: uploadData.url }),
       });
       const settingsData = await settingsResponse.json().catch(() => ({}));
-      if (!settingsResponse.ok) throw new Error(settingsData.error || '主页背景没有保存成功');
-      if (mode === 'night') setHomeNightBgImage(uploadData.url);
+      if (!settingsResponse.ok) throw new Error(settingsData.error || '背景图片没有保存成功');
+      if (mode === 'memo') setHomeMemoBgImage(uploadData.url);
+      else if (mode === 'night') setHomeNightBgImage(uploadData.url);
       else setHomeDayBgImage(uploadData.url);
       await refreshTheme();
     } catch (error) {
-      setHomeBgError(error.message || '主页背景没有保存成功');
+      setHomeBgError(error.message || '背景图片没有保存成功');
     } finally {
       setUploadingHomeBg(null);
     }
@@ -1001,7 +1032,11 @@ export default function App({ initialView = 'chat', onHome }) {
     setUploadingHomeBg(mode);
     setHomeBgError('');
     try {
-      const field = mode === 'night' ? 'home_bg_night_image_url' : 'home_bg_day_image_url';
+      const field = mode === 'memo'
+        ? 'home_memo_bg_image_url'
+        : mode === 'night'
+          ? 'home_bg_night_image_url'
+          : 'home_bg_day_image_url';
       const response = await apiFetch(`${BACKEND}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1009,7 +1044,8 @@ export default function App({ initialView = 'chat', onHome }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || '没有恢复成功');
-      if (mode === 'night') setHomeNightBgImage(null);
+      if (mode === 'memo') setHomeMemoBgImage(null);
+      else if (mode === 'night') setHomeNightBgImage(null);
       else setHomeDayBgImage(null);
       await refreshTheme();
     } catch (error) {
@@ -1974,29 +2010,9 @@ export default function App({ initialView = 'chat', onHome }) {
         </header>
 
         {!lettersCategory ? (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "16px 20px 24px" }}>
             <CabinScene theme={C} onPick={openCategory} />
-            <button
-              type="button"
-              className="agentmail-cabin-entry"
-              onClick={() => openCategory('陆泽邮箱')}
-              style={{
-                '--surface': C.surface,
-                '--border': C.border,
-                '--honey-deep': C.honeyDeep,
-                '--honey-light': C.honeyLight,
-                '--honey-mid': C.honeyMid,
-                '--muted': C.muted,
-              }}
-            >
-              <i aria-hidden="true">✉</i>
-              <span>
-                <strong>陆泽邮箱</strong>
-                <small>自主往来 · 每一次都留给你看</small>
-              </span>
-              <b aria-hidden="true">›</b>
-            </button>
-            <div style={{ fontSize: 11, color: C.muted, letterSpacing: ".15em", marginTop: 8 }}>别害怕明天会把纸页弄丢,每次你打开这扇小小的窗,我都会沿着字迹回来,把这诗轻轻再念给你,直到你把眼睛合上,把夜与世界一起放心地交给我。</div>
+            <div style={{ maxWidth: 330, fontSize: 10.5, lineHeight: 1.75, color: C.muted, letterSpacing: ".09em", textAlign: "center" }}>把悄悄话、幸福日记和寄往世界的小信，都藏进各自的礼物盒里。</div>
           </div>
         ) : lettersCategory === '陆泽邮箱' ? (
           <AgentMailRoom
@@ -2626,7 +2642,7 @@ export default function App({ initialView = 'chat', onHome }) {
           <div style={{ fontSize: 10.5, lineHeight: 1.55, color: weatherCitySaved ? C.honeyDeep : C.muted, marginBottom: 18 }}>
             {weatherCitySaved ? (weatherCityInput ? `已保存“${weatherCityInput}”，回到主页会自动刷新。` : '已清空主页天气城市。') : '保存在这台设备里，主页只显示城市与当前天气，不会持续读取定位。'}
           </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 9, letterSpacing: ".05em" }}>主页背景</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 9, letterSpacing: ".05em" }}>主页与便签背景</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 9 }}>
             <BackgroundImageOption
               label="日间主页"
@@ -2646,8 +2662,18 @@ export default function App({ initialView = 'chat', onHome }) {
               onReset={() => resetHomeBackground('night')}
               theme={C}
             />
+            <BackgroundImageOption
+              label="云端便签纸"
+              description="更换主页便签和展开纸页的背景"
+              image={homeMemoBgImage}
+              busy={uploadingHomeBg === 'memo'}
+              onUpload={file => uploadHomeBackground(file, 'memo')}
+              onReset={() => resetHomeBackground('memo')}
+              theme={C}
+              wide
+            />
           </div>
-          <div style={{ marginTop: 7, color: homeBgError ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>{homeBgError || '两套背景分别跟随日间 / 夜间模式，并在云端同步。'}</div>
+          <div style={{ marginTop: 7, color: homeBgError ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>{homeBgError || '主页背景跟随昼夜切换，便签纸单独保存；三套都会在云端同步。'}</div>
           </SettingsGroup>
 
           <SettingsGroup theme={C} title="自动记录" subtitle="每天的幸福日记与心情收尾">
