@@ -23,6 +23,15 @@ function detectWebProvider(connection) {
   return `${connection?.name || ''} ${connection?.url || ''}`.toLowerCase().includes('linkup') ? 'linkup' : 'tavily';
 }
 
+function mcpTestNotice(data) {
+  const toolCount = Number(data.tool_count) || 0;
+  const repairCount = Number(data.schema_repairs) || 0;
+  if (!toolCount) return '连接成功，但服务器没有开放只读工具';
+  return repairCount
+    ? `连接成功，发现 ${toolCount} 个只读工具，已兼容修复 ${repairCount} 处参数`
+    : `连接成功，发现 ${toolCount} 个只读工具，参数格式正常`;
+}
+
 export default function IntegrationSettings({ apiFetch, backend, theme, embedded = false }) {
   const [connections, setConnections] = useState([]);
   const [webSearchKey, setWebSearchKey] = useState('');
@@ -142,7 +151,9 @@ export default function IntegrationSettings({ apiFetch, backend, theme, embedded
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '测试失败');
       const providerLabel = WEB_PROVIDERS[data.provider]?.label || connection.name;
-      setNotice(connection.kind === 'mcp' ? `连接成功，发现 ${data.tool_count || 0} 个只读工具` : `${providerLabel} 连接成功，返回 ${data.result_count || 0} 条结果`);
+      setNotice(connection.kind === 'mcp'
+        ? mcpTestNotice(data)
+        : `${providerLabel} 连接成功，返回 ${data.result_count || 0} 条结果`);
     } catch (err) {
       setError(err.message);
     } finally {
