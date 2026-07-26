@@ -67,13 +67,11 @@ function tomorrowText() {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function GoldenMoodStar() {
+function MoodCalendarMark() {
   return (
     <svg className="home-mood-star" viewBox="0 0 56 56" aria-hidden="true">
-      <circle className="home-star-halo" cx="28" cy="28" r="25" />
-      <path className="home-star-rays" d="M28 3v7M28 46v7M3 28h7M46 28h7M10.3 10.3l5 5M40.7 40.7l5 5M45.7 10.3l-5 5M15.3 40.7l-5 5" />
-      <path className="home-star-body" d="M28 9.5c2.6 9.6 8.9 15.9 18.5 18.5-9.6 2.6-15.9 8.9-18.5 18.5C25.4 36.9 19.1 30.6 9.5 28 19.1 25.4 25.4 19.1 28 9.5Z" />
-      <path className="home-star-heart" d="M28 33.8c-7-4.3-7.3-9-.2-7.1 7.1-1.9 6.8 2.8.2 7.1Z" />
+      <path className="home-star-body" d="M28 8.5c1.9 10.2 7.3 15.6 17.5 17.5C35.3 27.9 29.9 33.3 28 43.5 26.1 33.3 20.7 27.9 10.5 26 20.7 24.1 26.1 18.7 28 8.5Z" />
+      <circle className="home-star-center" cx="28" cy="26" r="2.8" />
     </svg>
   );
 }
@@ -394,7 +392,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
             <div className="home-moving-scale" style={{ '--timeline-shift': `${timeline.offset * 68}px` }} aria-hidden="true">
               {timeline.ticks.map(tick => <span className={tick.major ? 'is-major' : ''} key={tick.key}><i /><b>{tick.label}</b></span>)}
             </div>
-            <button className="home-companion-station" type="button" onClick={() => onOpen('calendar')} aria-label="打开心情日历" title="心情日历"><GoldenMoodStar /></button>
+            <button className="home-companion-station" type="button" onClick={() => onOpen('calendar')} aria-label="打开心情日历" title="心情日历"><MoodCalendarMark /></button>
             <span className="home-time-marker" aria-hidden="true" />
           </div>
           <p>✦ {phraseFor(now.getHours())} ✦</p>
