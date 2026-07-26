@@ -8,57 +8,6 @@
 
 /* ===== 陆泽邮箱 / 知情记录 ===== */
 
-.agentmail-cabin-entry {
-  width: min(330px, 100%);
-  margin-top: 2px;
-  padding: 11px 14px;
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 11px;
-  color: inherit;
-  background: color-mix(in srgb, var(--surface, #fffaf0) 92%, transparent);
-  border: 1px solid var(--border, #ead9b9);
-  border-radius: 17px;
-  box-shadow: 0 8px 24px rgba(92, 62, 24, .08);
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.agentmail-cabin-entry > i {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  color: var(--honey-deep, #a56808);
-  background: var(--honey-light, #fff0bf);
-  border: 1px solid var(--honey-mid, #efd38c);
-  border-radius: 13px;
-  font-size: 20px;
-  font-style: normal;
-}
-
-.agentmail-cabin-entry strong {
-  display: block;
-  font-size: 13px;
-  letter-spacing: .08em;
-}
-
-.agentmail-cabin-entry small {
-  display: block;
-  margin-top: 3px;
-  color: var(--muted, #9c8055);
-  font-size: 9.5px;
-  letter-spacing: .04em;
-}
-
-.agentmail-cabin-entry > b {
-  color: var(--honey-deep, #a56808);
-  font-size: 17px;
-  font-weight: 400;
-}
-
 .agentmail-room {
   flex: 1;
   min-height: 0;
@@ -925,7 +874,7 @@ textarea { display: block; margin: 0; }
 
 .home-note-card--custom {
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--home-card-solid) 78%, transparent), color-mix(in srgb, var(--home-butter) 30%, var(--home-card-solid) 70%)),
+    linear-gradient(145deg, color-mix(in srgb, var(--home-card-solid) 48%, transparent), color-mix(in srgb, var(--home-butter) 13%, transparent)),
     var(--home-memo-paper-image) center / cover no-repeat;
 }
 
@@ -945,13 +894,13 @@ textarea { display: block; margin: 0; }
 }
 
 .home-note-card::before {
-  top: -4px;
+  top: -2px;
   left: 22px;
-  width: 54px;
-  height: 11px;
+  width: 48px;
+  height: 7px;
   border-radius: 2px 2px 4px 4px;
-  background: color-mix(in srgb, var(--home-lemon) 31%, transparent);
-  box-shadow: 0 1px 4px color-mix(in srgb, var(--home-shadow) 38%, transparent);
+  background: color-mix(in srgb, var(--home-lemon) 22%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--home-shadow) 25%, transparent);
   transform: rotate(-2deg);
 }
 
@@ -1230,7 +1179,7 @@ textarea { display: block; margin: 0; }
 
 .home-memo-drawer--custom {
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--home-card-solid) 82%, transparent), color-mix(in srgb, var(--home-butter) 28%, var(--home-card-solid) 72%)),
+    linear-gradient(145deg, color-mix(in srgb, var(--home-card-solid) 55%, transparent), color-mix(in srgb, var(--home-butter) 15%, transparent)),
     var(--home-memo-paper-image) center / cover no-repeat;
 }
 
@@ -1278,30 +1227,6 @@ textarea { display: block; margin: 0; }
   gap: 5px;
 }
 
-.home-memo-paper-button {
-  min-width: 42px;
-  height: 30px;
-  padding: 0 9px;
-  cursor: pointer;
-  color: var(--home-honey-deep);
-  background: color-mix(in srgb, var(--home-card-solid) 72%, var(--home-butter));
-  border: 1px solid var(--home-edge) !important;
-  border-radius: 999px;
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  box-shadow: 0 3px 10px color-mix(in srgb, var(--home-shadow) 36%, transparent);
-}
-
-.home-memo-paper-button--reset {
-  color: var(--home-muted);
-  background: color-mix(in srgb, var(--home-card-solid) 76%, transparent);
-}
-
-.home-memo-paper-button:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
 .home-memo-close {
   width: 36px;
   height: 36px;
@@ -1311,13 +1236,6 @@ textarea { display: block; margin: 0; }
   font-size: 24px;
   font-weight: 300;
   line-height: 1;
-}
-
-.home-memo-paper-error {
-  margin: -5px 3px 11px;
-  color: var(--home-blush);
-  font-size: 9px;
-  line-height: 1.45;
 }
 
 .home-memo-form {
