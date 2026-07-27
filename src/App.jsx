@@ -12,6 +12,13 @@ import { MILESTONE_KINDS, milestoneDisplay } from './milestoneDates.js';
 
 const SESSION_KEY = "ourhome_session_id";
 const MAX_BACKGROUND_IMAGE_BYTES = 6 * 1024 * 1024;
+const EMPTY_FAVORITE_DRAFT = {
+  title: '',
+  content: '',
+  category: '秘密抽屉',
+  note: '',
+  is_pinned: false,
+};
 
 function normalizeModelOptions(models, preferredModel = '') {
   const list = Array.isArray(models) ? models : [];
@@ -276,6 +283,10 @@ export default function App({ initialView = 'chat', onHome }) {
   const [memories, setMemories] = useState([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
   const [memoryLog, setMemoryLog] = useState({ todaySummary: null, events: [], openMarks: [] });
+  const [favorites, setFavorites] = useState([]);
+  const [favoriteDraft, setFavoriteDraft] = useState(EMPTY_FAVORITE_DRAFT);
+  const [savingFavorite, setSavingFavorite] = useState(false);
+  const [favoriteError, setFavoriteError] = useState("");
   const [newMemory, setNewMemory] = useState("");
   const [editingMemoryId, setEditingMemoryId] = useState(null);
   const [editingMemoryText, setEditingMemoryText] = useState("");
@@ -1465,14 +1476,16 @@ export default function App({ initialView = 'chat', onHome }) {
     Promise.all([
       apiFetch(`${BACKEND}/memories`).then(r => r.json()),
       apiFetch(`${BACKEND}/memory-log?days=5`).then(r => r.json()),
+      apiFetch(`${BACKEND}/memory-favorites`).then(r => r.json()),
     ])
-      .then(([memoryData, logData]) => {
+      .then(([memoryData, logData, favoriteData]) => {
         setMemories(Array.isArray(memoryData) ? memoryData : []);
         setMemoryLog({
           todaySummary: logData?.todaySummary || null,
           events: Array.isArray(logData?.events) ? logData.events : [],
           openMarks: Array.isArray(logData?.openMarks) ? logData.openMarks : [],
         });
+        setFavorites(Array.isArray(favoriteData) ? favoriteData : []);
         setMemoriesLoading(false);
       })
       .catch(err => {
@@ -1554,6 +1567,118 @@ export default function App({ initialView = 'chat', onHome }) {
         }
       })
       .catch(console.error);
+  };
+
+  const orderFavorites = (items) => [...items].sort((left, right) => {
+    if (Boolean(left.is_pinned) !== Boolean(right.is_pinned)) return left.is_pinned ? -1 : 1;
+    const rightTime = Date.parse(right.created_at || '') || 0;
+    const leftTime = Date.parse(left.created_at || '') || 0;
+    return rightTime - leftTime;
+  });
+
+  const saveManualFavorite = async () => {
+    if (savingFavorite) return;
+    const title = favoriteDraft.title.trim();
+    const content = favoriteDraft.content.trim();
+    if (!title && !content) {
+      setFavoriteError("先写一点想收起来的内容。");
+      return;
+    }
+    setSavingFavorite(true);
+    setFavoriteError("");
+    try {
+      const response = await apiFetch(`${BACKEND}/memory-favorites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          favorite_type: 'note',
+          source: 'manual',
+          title: title || content.slice(0, 28),
+          content,
+          category: favoriteDraft.category.trim() || '秘密抽屉',
+          note: favoriteDraft.note.trim() || null,
+          is_pinned: favoriteDraft.is_pinned,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '收藏失败');
+      setFavorites(items => orderFavorites([data, ...items]));
+      setFavoriteDraft(EMPTY_FAVORITE_DRAFT);
+    } catch (error) {
+      setFavoriteError(error.message || '收藏失败');
+    } finally {
+      setSavingFavorite(false);
+    }
+  };
+
+  const saveMessageFavorite = async (message) => {
+    if (!message || messageActionLoading) return;
+    setMessageActionLoading(true);
+    setMessageActionError("");
+    try {
+      const content = message.text || '';
+      const title = content.trim()
+        ? content.trim().slice(0, 32)
+        : message.image
+          ? '收藏的图片'
+          : message.file?.name || '收藏的附件';
+      const response = await apiFetch(`${BACKEND}/memory-favorites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          favorite_type: message.image ? 'image' : message.file ? 'file' : 'message',
+          source: 'chat',
+          source_message_id: String(message.id),
+          source_url: message.image || message.file?.url || null,
+          title,
+          content,
+          category: '聊天',
+          note: `${message.role === 'me' ? '叶檀' : '陆泽'} · ${message.time || formatMsgTime(message.createdAt)}`,
+          metadata: {
+            role: message.role,
+            created_at: message.createdAt || null,
+            file_name: message.file?.name || null,
+          },
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '收藏失败');
+      setFavorites(items => orderFavorites([data, ...items]));
+      setMessageAction(null);
+    } catch (error) {
+      setMessageActionError(error.message || "收藏失败，请再试一次。");
+    } finally {
+      setMessageActionLoading(false);
+    }
+  };
+
+  const toggleFavoritePinned = async (favorite) => {
+    try {
+      const response = await apiFetch(`${BACKEND}/memory-favorites/${favorite.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_pinned: !favorite.is_pinned }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '更新收藏失败');
+      setFavorites(items => orderFavorites(items.map(item => item.id === favorite.id ? data : item)));
+    } catch (error) {
+      setFavoriteError(error.message || '更新收藏失败');
+    }
+  };
+
+  const deleteFavorite = async (id) => {
+    if (!window.confirm("确定要删掉这条收藏吗？")) return;
+    try {
+      const response = await apiFetch(`${BACKEND}/memory-favorites/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || '删除收藏失败');
+      }
+      setFavorites(items => items.filter(item => item.id !== id));
+    } catch (error) {
+      setFavoriteError(error.message || '删除收藏失败');
+    }
   };
 
   const pickFile = (file) => {
@@ -2562,6 +2687,83 @@ export default function App({ initialView = 'chat', onHome }) {
             )}
           </section>
 
+          <section style={{ marginBottom: 20, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>秘密抽屉</div>
+                <div style={{ marginTop: 2, fontSize: 10, color: C.muted, letterSpacing: ".08em" }}>收藏想回看的句子、链接、图片线索和小纸条</div>
+              </div>
+              <span style={{ flexShrink: 0, color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: "3px 8px", fontSize: 10 }}>{favorites.filter(item => item.is_pinned).length} 置顶</span>
+            </div>
+
+            <div style={{ padding: 12, borderRadius: 14, background: C.white, border: `1px solid ${C.borderLight}`, marginBottom: 12 }}>
+              <input
+                value={favoriteDraft.title}
+                onChange={e => setFavoriteDraft(draft => ({ ...draft, title: e.target.value }))}
+                placeholder="标题，比如：M2 的灵感"
+                style={{ width: "100%", marginBottom: 8, fontSize: 12.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", fontFamily: "inherit" }}
+              />
+              <textarea
+                value={favoriteDraft.content}
+                onChange={e => setFavoriteDraft(draft => ({ ...draft, content: e.target.value }))}
+                rows={3}
+                placeholder="想收进抽屉的内容…"
+                style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", resize: "vertical", fontFamily: "inherit" }}
+              />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center", marginTop: 8 }}>
+                <input
+                  value={favoriteDraft.category}
+                  onChange={e => setFavoriteDraft(draft => ({ ...draft, category: e.target.value }))}
+                  placeholder="分类"
+                  style={{ minWidth: 0, fontSize: 12, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 12px", outline: "none", fontFamily: "inherit" }}
+                />
+                <label style={{ display: "flex", alignItems: "center", gap: 5, color: C.muted, fontSize: 11, whiteSpace: "nowrap" }}>
+                  <input type="checkbox" checked={favoriteDraft.is_pinned} onChange={e => setFavoriteDraft(draft => ({ ...draft, is_pinned: e.target.checked }))} />
+                  置顶给陆泽看
+                </label>
+              </div>
+              <input
+                value={favoriteDraft.note}
+                onChange={e => setFavoriteDraft(draft => ({ ...draft, note: e.target.value }))}
+                placeholder="备注，可不填"
+                style={{ width: "100%", marginTop: 8, fontSize: 12, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 12px", outline: "none", fontFamily: "inherit" }}
+              />
+              {favoriteError && <div role="alert" style={{ marginTop: 8, color: C.blushDeep, fontSize: 11 }}>{favoriteError}</div>}
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 9 }}>
+                <button type="button" onClick={saveManualFavorite} disabled={savingFavorite} style={{ border: 0, background: favoriteDraft.title.trim() || favoriteDraft.content.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, borderRadius: 999, padding: "7px 14px", fontSize: 12, cursor: savingFavorite ? "default" : "pointer", opacity: savingFavorite ? .7 : 1, fontFamily: "inherit" }}>{savingFavorite ? "收进抽屉中…" : "收进抽屉"}</button>
+              </div>
+            </div>
+
+            {memoriesLoading && favorites.length === 0 ? (
+              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "14px 0" }}>翻抽屉中…</div>
+            ) : favorites.length === 0 ? (
+              <div style={{ color: C.muted, fontSize: 12, padding: "10px 0 4px" }}>抽屉还是空的。可以从聊天消息菜单里收藏一句，也可以在这里手动写。</div>
+            ) : (
+              <div style={{ display: "grid", gap: 9 }}>
+                {favorites.slice(0, 30).map(favorite => (
+                  <article key={favorite.id} style={{ padding: "10px 11px", borderRadius: 13, background: favorite.is_pinned ? C.honeyLight : C.white, border: `1px solid ${favorite.is_pinned ? C.honeyMid : C.borderLight}` }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <b style={{ color: C.text, fontSize: 12.5 }}>{favorite.title}</b>
+                          <span style={{ color: C.honeyDeep, background: C.white, borderRadius: 999, padding: "2px 7px", fontSize: 9 }}>{favorite.category || "秘密抽屉"}</span>
+                          {favorite.is_pinned && <span style={{ color: C.blushDeep, fontSize: 10 }}>置顶</span>}
+                        </div>
+                        {favorite.content && <p style={{ margin: "5px 0 0", color: C.text, fontSize: 11.5, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{favorite.content}</p>}
+                        {favorite.note && <small style={{ display: "block", marginTop: 5, color: C.muted, fontSize: 10.5 }}>{favorite.note}</small>}
+                        {favorite.source_url && <a href={favorite.source_url} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 6, color: C.honeyDeep, fontSize: 10.5 }}>打开附件 / 链接</a>}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 1 }}>
+                        <span onClick={() => toggleFavoritePinned(favorite)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>{favorite.is_pinned ? "取消置顶" : "置顶"}</span>
+                        <span onClick={() => deleteFavorite(favorite.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
           <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>人设 / System Prompt</div>
           <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -2644,11 +2846,18 @@ export default function App({ initialView = 'chat', onHome }) {
                   )}
                   <button
                     type="button"
+                    disabled={messageActionLoading}
+                    onClick={() => saveMessageFavorite(messageAction.message)}
+                    style={{ minHeight: 48, border: `1px solid ${C.honeyMid}`, borderRadius: 14, background: C.white, color: C.honeyDeep, cursor: messageActionLoading ? "default" : "pointer", opacity: messageActionLoading ? .65 : 1, fontFamily: "inherit", fontSize: 13.5, fontWeight: 700 }}
+                  >{messageActionLoading ? '收藏中…' : '♡ 收藏到秘密抽屉'}</button>
+                  <button
+                    type="button"
                     disabled={messageAction.afterCount === 0}
                     onClick={() => setMessageAction(current => current ? { ...current, mode: 'rollback' } : null)}
                     style={{ minHeight: 48, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, color: messageAction.afterCount === 0 ? C.mutedLight : C.text, cursor: messageAction.afterCount === 0 ? "default" : "pointer", fontFamily: "inherit", fontSize: 13.5 }}
                   >{messageAction.afterCount === 0 ? '已经在当前时间点' : `↶ 回到这里 · 收起后面 ${messageAction.afterCount} 条`}</button>
                 </div>
+                {messageActionError && <div role="alert" style={{ marginTop: 10, color: C.blushDeep, fontSize: 11, textAlign: "center" }}>{messageActionError}</div>}
               </>
             ) : (
               <>
