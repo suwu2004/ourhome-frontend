@@ -2641,7 +2641,7 @@ export default function App({ initialView = 'chat', onHome }) {
             </div>
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="待续念头" subtitle="没聊完的事和待办，会留在这里提醒" defaultOpen={memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))}>
+          <SettingsGroup theme={C} title="待续念头" subtitle="没聊完的事、待办和后续话题" defaultOpen={memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))}>
             {(memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))) ? (
               <div style={{ display: "grid", gap: 8 }}>
                 {memoryLog.events
