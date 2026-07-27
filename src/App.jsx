@@ -275,6 +275,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const [ready, setReady] = useState(false);
   const [memories, setMemories] = useState([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
+  const [memoryLog, setMemoryLog] = useState({ todaySummary: null, events: [], openMarks: [] });
   const [newMemory, setNewMemory] = useState("");
   const [editingMemoryId, setEditingMemoryId] = useState(null);
   const [editingMemoryText, setEditingMemoryText] = useState("");
@@ -1461,10 +1462,17 @@ export default function App({ initialView = 'chat', onHome }) {
     setView('memories');
     setDrawerOpen(false);
     setMemoriesLoading(true);
-    apiFetch(`${BACKEND}/memories`)
-      .then(r => r.json())
-      .then(data => {
-        setMemories(Array.isArray(data) ? data : []);
+    Promise.all([
+      apiFetch(`${BACKEND}/memories`).then(r => r.json()),
+      apiFetch(`${BACKEND}/memory-log?days=5`).then(r => r.json()),
+    ])
+      .then(([memoryData, logData]) => {
+        setMemories(Array.isArray(memoryData) ? memoryData : []);
+        setMemoryLog({
+          todaySummary: logData?.todaySummary || null,
+          events: Array.isArray(logData?.events) ? logData.events : [],
+          openMarks: Array.isArray(logData?.openMarks) ? logData.openMarks : [],
+        });
         setMemoriesLoading(false);
       })
       .catch(err => {
@@ -1527,6 +1535,24 @@ export default function App({ initialView = 'chat', onHome }) {
     if (!window.confirm("确定要删掉这条记忆吗？")) return;
     apiFetch(`${BACKEND}/memories/${id}`, { method: 'DELETE' })
       .then(() => setMemories(ms => ms.filter(m => m.id !== id)))
+      .catch(console.error);
+  };
+
+  const markMemoryEventResolved = (id) => {
+    apiFetch(`${BACKEND}/memory-events/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'resolved' }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data?.id) {
+          setMemoryLog(log => ({
+            ...log,
+            events: log.events.map(event => event.id === data.id ? data : event),
+          }));
+        }
+      })
       .catch(console.error);
   };
 
@@ -2463,6 +2489,79 @@ export default function App({ initialView = 'chat', onHome }) {
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 记忆</span>
         </header>
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+          <section style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>今日摘要</div>
+                <div style={{ marginTop: 2, fontSize: 10, color: C.muted, letterSpacing: ".08em" }}>今天发生了什么，陆泽先替你捡起来</div>
+              </div>
+              <button type="button" onClick={openMemories} style={{ border: `1px solid ${C.border}`, background: C.white, color: C.honeyDeep, borderRadius: 999, padding: "5px 10px", fontSize: 11, cursor: "pointer" }}>刷新</button>
+            </div>
+            <div style={{ padding: 13, borderRadius: 14, background: `linear-gradient(145deg, ${C.white}, ${C.honeyLight})`, border: `1px solid ${C.border}`, boxShadow: `0 8px 18px ${C.borderLight}77` }}>
+              {memoryLog.todaySummary?.summary ? (
+                <>
+                  <p style={{ margin: 0, color: C.text, fontSize: 13, lineHeight: 1.75, whiteSpace: "pre-wrap" }}>{memoryLog.todaySummary.summary}</p>
+                  {memoryLog.todaySummary.mood && <div style={{ marginTop: 8, color: C.honeyDeep, fontSize: 11 }}>今天的气氛：{memoryLog.todaySummary.mood}</div>}
+                </>
+              ) : (
+                <p style={{ margin: 0, color: C.muted, fontSize: 12.5, lineHeight: 1.7 }}>今天的摘要还没生成。等聊过几轮，它会自己长出来。</p>
+              )}
+            </div>
+          </section>
+
+          {(memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))) && (
+            <section style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>待续念头</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {memoryLog.events
+                  .filter(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))
+                  .slice(0, 5)
+                  .map(event => (
+                    <article key={event.id} style={{ padding: "10px 11px", borderRadius: 13, background: C.white, border: `1px solid ${C.borderLight}` }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start", justifyContent: "space-between" }}>
+                        <div style={{ minWidth: 0 }}>
+                          <b style={{ display: "block", color: C.text, fontSize: 12.5 }}>{event.title}</b>
+                          <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 11.5, lineHeight: 1.55 }}>{event.summary}</p>
+                        </div>
+                        <button type="button" onClick={() => markMemoryEventResolved(event.id)} style={{ flexShrink: 0, border: 0, background: C.honeyLight, color: C.honeyDeep, borderRadius: 999, padding: "4px 8px", fontSize: 10, cursor: "pointer" }}>完成</button>
+                      </div>
+                    </article>
+                  ))}
+                {memoryLog.openMarks.slice(0, 4).map(mark => (
+                  <article key={mark.id} style={{ padding: "10px 11px", borderRadius: 13, background: C.cream, border: `1px dashed ${C.honeyMid}` }}>
+                    <b style={{ display: "block", color: C.honeyDeep, fontSize: 12 }}>{mark.topic || "还没聊完"}</b>
+                    <p style={{ margin: "4px 0 0", color: C.text, fontSize: 11.5, lineHeight: 1.55 }}>{mark.summary}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>大事年表</div>
+            {memoryLog.events.length === 0 ? (
+              <div style={{ color: C.muted, fontSize: 12, padding: "12px 0" }}>还没有年表记录。</div>
+            ) : (
+              <div style={{ display: "grid", gap: 9 }}>
+                {memoryLog.events.slice(0, 12).map(event => (
+                  <article key={event.id} style={{ display: "grid", gridTemplateColumns: "46px 1fr", gap: 10, opacity: event.status === 'resolved' ? .55 : 1 }}>
+                    <time style={{ color: C.mutedLight, fontSize: 10, paddingTop: 2 }}>
+                      {event.occurred_at ? new Date(event.occurred_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : event.event_date}
+                    </time>
+                    <div style={{ paddingBottom: 10, borderBottom: `1px solid ${C.borderLight}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
+                        <b style={{ color: C.text, fontSize: 12.5 }}>{event.title}</b>
+                        <span style={{ color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: "2px 7px", fontSize: 9 }}>{event.event_type}</span>
+                      </div>
+                      <p style={{ margin: 0, color: C.muted, fontSize: 11.5, lineHeight: 1.55 }}>{event.summary}</p>
+                      {event.emotion && <small style={{ display: "block", marginTop: 5, color: C.blushDeep, fontSize: 10 }}>情绪：{event.emotion}</small>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
           <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>人设 / System Prompt</div>
           <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
