@@ -19,6 +19,20 @@ const EMPTY_FAVORITE_DRAFT = {
   note: '',
   is_pinned: false,
 };
+const EMPTY_MEMORY_EVENT_DRAFT = {
+  title: '',
+  summary: '',
+  event_type: 'note',
+};
+const MEMORY_EVENT_TYPE_OPTIONS = [
+  ['note', '记录'],
+  ['project', '项目'],
+  ['todo', '待办'],
+  ['life', '生活'],
+  ['emotion', '情绪'],
+  ['relationship', '关系'],
+  ['memory', '记忆'],
+];
 
 function normalizeModelOptions(models, preferredModel = '') {
   const list = Array.isArray(models) ? models : [];
@@ -291,6 +305,9 @@ export default function App({ initialView = 'chat', onHome }) {
   const [favoriteDraft, setFavoriteDraft] = useState(EMPTY_FAVORITE_DRAFT);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [favoriteError, setFavoriteError] = useState("");
+  const [memoryEventDraft, setMemoryEventDraft] = useState(EMPTY_MEMORY_EVENT_DRAFT);
+  const [savingMemoryEvent, setSavingMemoryEvent] = useState(false);
+  const [memoryEventError, setMemoryEventError] = useState("");
   const [newMemory, setNewMemory] = useState("");
   const [editingMemoryId, setEditingMemoryId] = useState(null);
   const [editingMemoryText, setEditingMemoryText] = useState("");
@@ -1580,6 +1597,37 @@ export default function App({ initialView = 'chat', onHome }) {
       .catch(console.error);
   };
 
+  const saveManualMemoryEvent = async () => {
+    if (savingMemoryEvent) return;
+    const title = memoryEventDraft.title.trim();
+    const summary = memoryEventDraft.summary.trim();
+    if (!title || !summary) {
+      setMemoryEventError("标题和内容都要写一点。");
+      return;
+    }
+    setSavingMemoryEvent(true);
+    setMemoryEventError("");
+    try {
+      const response = await apiFetch(`${BACKEND}/memory-events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          summary,
+          event_type: memoryEventDraft.event_type,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '补年表失败');
+      setMemoryLog(log => ({ ...log, events: [data, ...log.events] }));
+      setMemoryEventDraft(EMPTY_MEMORY_EVENT_DRAFT);
+    } catch (error) {
+      setMemoryEventError(error.message || '补年表失败');
+    } finally {
+      setSavingMemoryEvent(false);
+    }
+  };
+
   const orderFavorites = (items) => [...items].sort((left, right) => {
     if (Boolean(left.is_pinned) !== Boolean(right.is_pinned)) return left.is_pinned ? -1 : 1;
     const rightTime = Date.parse(right.created_at || '') || 0;
@@ -2682,6 +2730,37 @@ export default function App({ initialView = 'chat', onHome }) {
           </SettingsGroup>
 
           <SettingsGroup theme={C} title="大事年表" subtitle="自动生成的重要事件、想法和节点" resetKey={memoryGroupsResetKey}>
+            <div style={{ padding: 12, borderRadius: 14, background: C.white, border: `1px solid ${C.borderLight}`, marginBottom: 12 }}>
+              <input
+                value={memoryEventDraft.title}
+                onChange={e => setMemoryEventDraft(draft => ({ ...draft, title: e.target.value }))}
+                placeholder="标题，比如：M3 记忆库优化"
+                style={{ width: "100%", marginBottom: 8, fontSize: 12.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", fontFamily: "inherit" }}
+              />
+              <textarea
+                value={memoryEventDraft.summary}
+                onChange={e => setMemoryEventDraft(draft => ({ ...draft, summary: e.target.value }))}
+                rows={3}
+                placeholder="补一条想写进年表的大事…"
+                style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", resize: "vertical", fontFamily: "inherit" }}
+              />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
+                <select
+                  value={memoryEventDraft.event_type}
+                  onChange={e => setMemoryEventDraft(draft => ({ ...draft, event_type: e.target.value }))}
+                  style={{ minWidth: 0, flex: 1, fontSize: 12, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 10px", outline: "none", fontFamily: "inherit" }}
+                >
+                  {MEMORY_EVENT_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+                <button
+                  type="button"
+                  onClick={saveManualMemoryEvent}
+                  disabled={savingMemoryEvent}
+                  style={{ flexShrink: 0, border: 0, background: memoryEventDraft.title.trim() && memoryEventDraft.summary.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, borderRadius: 999, padding: "7px 14px", fontSize: 12, cursor: savingMemoryEvent ? "default" : "pointer", opacity: savingMemoryEvent ? .7 : 1, fontFamily: "inherit" }}
+                >{savingMemoryEvent ? "补进年表中…" : "补进年表"}</button>
+              </div>
+              {memoryEventError && <div role="alert" style={{ marginTop: 8, color: C.blushDeep, fontSize: 11 }}>{memoryEventError}</div>}
+            </div>
             {memoryLog.events.length === 0 ? (
               <div style={{ color: C.muted, fontSize: 12, padding: "12px 0" }}>还没有年表记录。</div>
             ) : (
