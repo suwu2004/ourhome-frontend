@@ -306,6 +306,8 @@ export default function App({ initialView = 'chat', onHome }) {
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [favoriteError, setFavoriteError] = useState("");
   const [memoryEventDraft, setMemoryEventDraft] = useState(EMPTY_MEMORY_EVENT_DRAFT);
+  const [editingMemoryEventId, setEditingMemoryEventId] = useState(null);
+  const [editingMemoryEventDraft, setEditingMemoryEventDraft] = useState(EMPTY_MEMORY_EVENT_DRAFT);
   const [savingMemoryEvent, setSavingMemoryEvent] = useState(false);
   const [memoryEventError, setMemoryEventError] = useState("");
   const [newMemory, setNewMemory] = useState("");
@@ -398,6 +400,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const [lettersCategory, setLettersCategory] = useState(null);
   const [letters, setLetters] = useState([]);
   const [lettersLoading, setLettersLoading] = useState(false);
+  const [letterTodaySummary, setLetterTodaySummary] = useState(null);
   const orderedRootLetters = useMemo(
     () => newestFirst(letters.filter(letter => !letter.parent_id)),
     [letters],
@@ -452,7 +455,8 @@ export default function App({ initialView = 'chat', onHome }) {
   const [newLetterTitle, setNewLetterTitle] = useState("");
   const [revealedIds, setRevealedIds] = useState(() => new Set());
   const [openLetterId, setOpenLetterId] = useState(null);
-  const [selectedPaperStyle, setSelectedPaperStyle] = useState('parchment');
+  const [selectedPaperStyle, setSelectedPaperStyle] = useState('floral');
+  const [diaryPaperSaved, setDiaryPaperSaved] = useState(false);
   const [savingLetter, setSavingLetter] = useState(false);
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyText, setReplyText] = useState("");
@@ -637,6 +641,7 @@ export default function App({ initialView = 'chat', onHome }) {
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
         if (typeof data?.daily_journal_enabled === 'boolean') setDailyJournalEnabled(data.daily_journal_enabled);
         if (data?.daily_journal_time) setDailyJournalTime(String(data.daily_journal_time).slice(0, 5));
+        if (data?.diary_paper_style && PAPER_STYLES[data.diary_paper_style]) setSelectedPaperStyle(data.diary_paper_style);
         const preferredModel = data?.selected_model || '';
         if (preferredModel) setSelectedModel(preferredModel);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
@@ -667,6 +672,23 @@ export default function App({ initialView = 'chat', onHome }) {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data?.error || '自动补写时间没有保存');
         setDailyJournalSaved(true);
+      })
+      .catch(console.error);
+  };
+
+  const chooseDiaryPaperStyle = (key) => {
+    if (!PAPER_STYLES[key]) return;
+    setSelectedPaperStyle(key);
+    setDiaryPaperSaved(false);
+    apiFetch(`${BACKEND}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ diary_paper_style: key }),
+    })
+      .then(async response => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || '日记纸没有保存');
+        setDiaryPaperSaved(true);
       })
       .catch(console.error);
   };
@@ -923,16 +945,21 @@ export default function App({ initialView = 'chat', onHome }) {
 
   const openCategory = (cat) => {
     setLettersCategory(cat);
+    setLetterTodaySummary(null);
     if (cat === '陆泽邮箱') {
       setLetters([]);
       setLettersLoading(false);
       return;
     }
     setLettersLoading(true);
-    apiFetch(`${BACKEND}/letters?category=${encodeURIComponent(cat)}`)
-      .then(r => r.json())
-      .then(data => {
+    const letterRequest = apiFetch(`${BACKEND}/letters?category=${encodeURIComponent(cat)}`).then(r => r.json());
+    const summaryRequest = cat === '幸福日记'
+      ? apiFetch(`${BACKEND}/memory-log?days=1`).then(r => r.json()).catch(() => null)
+      : Promise.resolve(null);
+    Promise.all([letterRequest, summaryRequest])
+      .then(([data, summaryData]) => {
         setLetters(Array.isArray(data) ? data : []);
+        setLetterTodaySummary(summaryData?.todaySummary || null);
         setLettersLoading(false);
       })
       .catch(err => { console.error(err); setLettersLoading(false); });
@@ -1504,16 +1531,14 @@ export default function App({ initialView = 'chat', onHome }) {
     Promise.all([
       apiFetch(`${BACKEND}/memories`).then(r => r.json()),
       apiFetch(`${BACKEND}/memory-log?days=5`).then(r => r.json()),
-      apiFetch(`${BACKEND}/memory-favorites`).then(r => r.json()),
     ])
-      .then(([memoryData, logData, favoriteData]) => {
+      .then(([memoryData, logData]) => {
         setMemories(Array.isArray(memoryData) ? memoryData : []);
         setMemoryLog({
           todaySummary: logData?.todaySummary || null,
           events: Array.isArray(logData?.events) ? logData.events : [],
           openMarks: Array.isArray(logData?.openMarks) ? logData.openMarks : [],
         });
-        setFavorites(Array.isArray(favoriteData) ? favoriteData : []);
         setMemoriesLoading(false);
       })
       .catch(err => {
@@ -1625,6 +1650,56 @@ export default function App({ initialView = 'chat', onHome }) {
       setMemoryEventError(error.message || '补年表失败');
     } finally {
       setSavingMemoryEvent(false);
+    }
+  };
+
+  const startEditMemoryEvent = (event) => {
+    setEditingMemoryEventId(event.id);
+    setEditingMemoryEventDraft({
+      title: event.title || '',
+      summary: event.summary || '',
+      event_type: event.event_type || 'note',
+    });
+  };
+
+  const cancelEditMemoryEvent = () => {
+    setEditingMemoryEventId(null);
+    setEditingMemoryEventDraft(EMPTY_MEMORY_EVENT_DRAFT);
+  };
+
+  const saveEditMemoryEvent = async () => {
+    if (!editingMemoryEventId) return;
+    const title = editingMemoryEventDraft.title.trim();
+    const summary = editingMemoryEventDraft.summary.trim();
+    if (!title || !summary) {
+      setMemoryEventError("标题和内容都要写一点。");
+      return;
+    }
+    try {
+      const response = await apiFetch(`${BACKEND}/memory-events/${editingMemoryEventId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, summary, event_type: editingMemoryEventDraft.event_type }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '修改年表失败');
+      setMemoryLog(log => ({ ...log, events: log.events.map(event => event.id === data.id ? data : event) }));
+      cancelEditMemoryEvent();
+    } catch (error) {
+      setMemoryEventError(error.message || '修改年表失败');
+    }
+  };
+
+  const deleteMemoryEvent = async (id) => {
+    if (!window.confirm("删掉这条年表记录吗？")) return;
+    try {
+      const response = await apiFetch(`${BACKEND}/memory-events/${id}`, { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '删除年表失败');
+      setMemoryLog(log => ({ ...log, events: log.events.filter(event => event.id !== id) }));
+      if (editingMemoryEventId === id) cancelEditMemoryEvent();
+    } catch (error) {
+      setMemoryEventError(error.message || '删除年表失败');
     }
   };
 
@@ -2288,6 +2363,16 @@ export default function App({ initialView = 'chat', onHome }) {
               {!lettersLoading && orderedRootLetters.length === 0 && (
                 <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>这里还没有信，写第一篇吧。</div>
               )}
+              {!lettersLoading && lettersCategory === '幸福日记' && (
+                <section style={{ marginBottom: 12, padding: "11px 13px", borderRadius: 15, background: `linear-gradient(145deg, ${C.white}, ${C.honeyLight})`, border: `1px solid ${C.border}`, boxShadow: `0 6px 16px ${C.borderLight}66` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
+                    <span style={{ width: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 8, background: C.white, color: C.honeyDeep, fontSize: 10 }}>✦</span>
+                    <b style={{ color: C.text, fontSize: 12.5 }}>今日摘要</b>
+                    {letterTodaySummary?.mood && <small style={{ color: C.blushDeep, fontSize: 10 }}>今天的气氛：{letterTodaySummary.mood}</small>}
+                  </div>
+                  <p style={{ margin: 0, color: letterTodaySummary?.summary ? C.text : C.muted, fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{letterTodaySummary?.summary || "今天的摘要还没生成。等聊过几轮，它会自己长出来。"}</p>
+                </section>
+              )}
               {!lettersLoading && lettersCategory === '幸福日记' && orderedRootLetters.map(l => {
                 const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
                 return (
@@ -2347,9 +2432,10 @@ export default function App({ initialView = 'chat', onHome }) {
                   <input value={newLetterTitle} onChange={e => setNewLetterTitle(e.target.value)} placeholder="今天的日记起个标题…" style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                     {PAPER_STYLE_KEYS.map(key => (
-                      <div key={key} onClick={() => setSelectedPaperStyle(key)} title={PAPER_STYLES[key].label} style={{ width: 26, height: 26, borderRadius: 8, background: PAPER_STYLES[key].swatch, cursor: "pointer", border: selectedPaperStyle === key ? `2px solid ${C.honeyDeep}` : `1px solid ${C.border}`, boxShadow: selectedPaperStyle === key ? `0 0 0 2px ${C.honeyLight}` : "none" }} />
+                      <div key={key} onClick={() => chooseDiaryPaperStyle(key)} title={PAPER_STYLES[key].label} style={{ width: 26, height: 26, borderRadius: 8, background: PAPER_STYLES[key].swatch, cursor: "pointer", border: selectedPaperStyle === key ? `2px solid ${C.honeyDeep}` : `1px solid ${C.border}`, boxShadow: selectedPaperStyle === key ? `0 0 0 2px ${C.honeyLight}` : "none" }} />
                     ))}
                   </div>
+                  <div style={{ margin: "-4px 0 8px", color: diaryPaperSaved ? C.honeyDeep : C.muted, fontSize: 9.5 }}>{diaryPaperSaved ? "以后陆泽也会用这张纸。" : "点一下纸样，会保存成默认日记纸。"}</div>
                 </>
               )}
               <textarea value={newLetterText} onChange={e => setNewLetterText(e.target.value)} placeholder={lettersCategory === '悄悄话' ? "悄悄说一句…" : `在"${lettersCategory}"写一篇新的…`} rows={2} style={{ width: "100%", fontSize: 14, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
@@ -2682,51 +2768,54 @@ export default function App({ initialView = 'chat', onHome }) {
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存人设"}</span>
             </div>
-          </SettingsGroup>
 
-          <SettingsGroup theme={C} title="今日摘要" subtitle="今天发生了什么，陆泽先替你捡起来" resetKey={memoryGroupsResetKey}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 9 }}>
-              <button type="button" onClick={openMemories} style={{ border: `1px solid ${C.border}`, background: C.white, color: C.honeyDeep, borderRadius: 999, padding: "5px 10px", fontSize: 11, cursor: "pointer" }}>刷新</button>
-            </div>
-            <div style={{ padding: 13, borderRadius: 14, background: `linear-gradient(145deg, ${C.white}, ${C.honeyLight})`, border: `1px solid ${C.border}`, boxShadow: `0 8px 18px ${C.borderLight}77` }}>
-              {memoryLog.todaySummary?.summary ? (
-                <>
-                  <p style={{ margin: 0, color: C.text, fontSize: 13, lineHeight: 1.75, whiteSpace: "pre-wrap" }}>{memoryLog.todaySummary.summary}</p>
-                  {memoryLog.todaySummary.mood && <div style={{ marginTop: 8, color: C.honeyDeep, fontSize: 11 }}>今天的气氛：{memoryLog.todaySummary.mood}</div>}
-                </>
-              ) : (
-                <p style={{ margin: 0, color: C.muted, fontSize: 12.5, lineHeight: 1.7 }}>今天的摘要还没生成。等聊过几轮，它会自己长出来。</p>
-              )}
-            </div>
-          </SettingsGroup>
-
-          <SettingsGroup theme={C} title="待续念头" subtitle="没聊完的事、待办和后续话题" resetKey={memoryGroupsResetKey}>
-            {(memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))) ? (
-              <div style={{ display: "grid", gap: 8 }}>
-                {memoryLog.events
-                  .filter(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))
-                  .slice(0, 5)
-                  .map(event => (
-                    <article key={event.id} style={{ padding: "10px 11px", borderRadius: 13, background: C.white, border: `1px solid ${C.borderLight}` }}>
-                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start", justifyContent: "space-between" }}>
-                        <div style={{ minWidth: 0 }}>
-                          <b style={{ display: "block", color: C.text, fontSize: 12.5 }}>{event.title}</b>
-                          <p style={{ margin: "4px 0 0", color: C.muted, fontSize: 11.5, lineHeight: 1.55 }}>{event.summary}</p>
-                        </div>
-                        <button type="button" onClick={() => markMemoryEventResolved(event.id)} style={{ flexShrink: 0, border: 0, background: C.honeyLight, color: C.honeyDeep, borderRadius: 999, padding: "4px 8px", fontSize: 10, cursor: "pointer" }}>完成</button>
-                      </div>
-                    </article>
-                  ))}
-                {memoryLog.openMarks.slice(0, 4).map(mark => (
-                  <article key={mark.id} style={{ padding: "10px 11px", borderRadius: 13, background: C.cream, border: `1px dashed ${C.honeyMid}` }}>
-                    <b style={{ display: "block", color: C.honeyDeep, fontSize: 12 }}>{mark.topic || "还没聊完"}</b>
-                    <p style={{ margin: "4px 0 0", color: C.text, fontSize: 11.5, lineHeight: 1.55 }}>{mark.summary}</p>
-                  </article>
-                ))}
+            <div style={{ marginTop: 15, paddingTop: 13, borderTop: `1px solid ${C.borderLight}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+                <div>
+                  <b style={{ color: C.text, fontSize: 12.5 }}>长期记忆</b>
+                  <p style={{ margin: "3px 0 0", color: C.muted, fontSize: 10.5 }}>稳定偏好、重要约定和长期资料</p>
+                </div>
               </div>
-            ) : (
-              <div style={{ color: C.muted, fontSize: 12, padding: "6px 0" }}>现在没有待续念头。</div>
-            )}
+  <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+    <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
+    <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
+  </div>
+  {memoriesLoading && (
+    <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>翻找中…</div>
+  )}
+  {!memoriesLoading && memories.length === 0 && (
+    <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>还没有存下来的记忆。</div>
+  )}
+  {!memoriesLoading && memories.map((m, idx) => (
+    <div key={m.id ?? idx} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: idx === memories.length - 1 ? "none" : `1px solid ${C.borderLight}` }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+        {m.timestamp && (
+          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: ".1em", marginBottom: 4 }}>
+            {new Date(m.timestamp).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+          </div>
+        )}
+        {editingMemoryId !== m.id && (
+          <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+            <span onClick={() => startEditMemory(m)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
+            <span onClick={() => deleteMemory(m.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
+          </div>
+        )}
+      </div>
+      {editingMemoryId === m.id ? (
+        <div>
+          <textarea value={editingMemoryText} onChange={e => setEditingMemoryText(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+            <span onClick={cancelEditMemory} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", padding: "4px 8px" }}>取消</span>
+            <span onClick={saveEditMemory} style={{ fontSize: 11.5, color: C.white, cursor: "pointer", padding: "4px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
+          </div>
+        </div>
+      ) : (
+        <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap" }}>{m.summary}</div>
+      )}
+    </div>
+  ))}
+
+            </div>
           </SettingsGroup>
 
           <SettingsGroup theme={C} title="大事年表" subtitle="自动生成的重要事件、想法和节点" resetKey={memoryGroupsResetKey}>
@@ -2771,86 +2860,32 @@ export default function App({ initialView = 'chat', onHome }) {
                       {event.occurred_at ? new Date(event.occurred_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : event.event_date}
                     </time>
                     <div style={{ paddingBottom: 10, borderBottom: `1px solid ${C.borderLight}` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
-                        <b style={{ color: C.text, fontSize: 12.5 }}>{event.title}</b>
-                        <span style={{ color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: "2px 7px", fontSize: 9 }}>{event.event_type}</span>
-                      </div>
-                      <p style={{ margin: 0, color: C.muted, fontSize: 11.5, lineHeight: 1.55 }}>{event.summary}</p>
-                      {event.emotion && <small style={{ display: "block", marginTop: 5, color: C.blushDeep, fontSize: 10 }}>情绪：{event.emotion}</small>}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </SettingsGroup>
-
-          <SettingsGroup theme={C} title="秘密抽屉" subtitle="收藏想回看的句子、链接、图片线索和小纸条" resetKey={memoryGroupsResetKey}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-              <span style={{ color: C.muted, fontSize: 11 }}>置顶收藏会进入陆泽的聊天上下文。</span>
-              <span style={{ flexShrink: 0, color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: "3px 8px", fontSize: 10 }}>{favorites.filter(item => item.is_pinned).length} 置顶</span>
-            </div>
-
-            <div style={{ padding: 12, borderRadius: 14, background: C.white, border: `1px solid ${C.borderLight}`, marginBottom: 12 }}>
-              <input
-                value={favoriteDraft.title}
-                onChange={e => setFavoriteDraft(draft => ({ ...draft, title: e.target.value }))}
-                placeholder="标题，比如：M2 的灵感"
-                style={{ width: "100%", marginBottom: 8, fontSize: 12.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", fontFamily: "inherit" }}
-              />
-              <textarea
-                value={favoriteDraft.content}
-                onChange={e => setFavoriteDraft(draft => ({ ...draft, content: e.target.value }))}
-                rows={3}
-                placeholder="想收进抽屉的内容…"
-                style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", resize: "vertical", fontFamily: "inherit" }}
-              />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center", marginTop: 8 }}>
-                <input
-                  value={favoriteDraft.category}
-                  onChange={e => setFavoriteDraft(draft => ({ ...draft, category: e.target.value }))}
-                  placeholder="分类"
-                  style={{ minWidth: 0, fontSize: 12, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 12px", outline: "none", fontFamily: "inherit" }}
-                />
-                <label style={{ display: "flex", alignItems: "center", gap: 5, color: C.muted, fontSize: 11, whiteSpace: "nowrap" }}>
-                  <input type="checkbox" checked={favoriteDraft.is_pinned} onChange={e => setFavoriteDraft(draft => ({ ...draft, is_pinned: e.target.checked }))} />
-                  置顶给陆泽看
-                </label>
-              </div>
-              <input
-                value={favoriteDraft.note}
-                onChange={e => setFavoriteDraft(draft => ({ ...draft, note: e.target.value }))}
-                placeholder="备注，可不填"
-                style={{ width: "100%", marginTop: 8, fontSize: 12, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 12px", outline: "none", fontFamily: "inherit" }}
-              />
-              {favoriteError && <div role="alert" style={{ marginTop: 8, color: C.blushDeep, fontSize: 11 }}>{favoriteError}</div>}
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 9 }}>
-                <button type="button" onClick={saveManualFavorite} disabled={savingFavorite} style={{ border: 0, background: favoriteDraft.title.trim() || favoriteDraft.content.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, borderRadius: 999, padding: "7px 14px", fontSize: 12, cursor: savingFavorite ? "default" : "pointer", opacity: savingFavorite ? .7 : 1, fontFamily: "inherit" }}>{savingFavorite ? "收进抽屉中…" : "收进抽屉"}</button>
-              </div>
-            </div>
-
-            {memoriesLoading && favorites.length === 0 ? (
-              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "14px 0" }}>翻抽屉中…</div>
-            ) : favorites.length === 0 ? (
-              <div style={{ color: C.muted, fontSize: 12, padding: "10px 0 4px" }}>抽屉还是空的。可以从聊天消息菜单里收藏一句，也可以在这里手动写。</div>
-            ) : (
-              <div style={{ display: "grid", gap: 9 }}>
-                {favorites.slice(0, 30).map(favorite => (
-                  <article key={favorite.id} style={{ padding: "10px 11px", borderRadius: 13, background: favorite.is_pinned ? C.honeyLight : C.white, border: `1px solid ${favorite.is_pinned ? C.honeyMid : C.borderLight}` }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <b style={{ color: C.text, fontSize: 12.5 }}>{favorite.title}</b>
-                          <span style={{ color: C.honeyDeep, background: C.white, borderRadius: 999, padding: "2px 7px", fontSize: 9 }}>{favorite.category || "秘密抽屉"}</span>
-                          {favorite.is_pinned && <span style={{ color: C.blushDeep, fontSize: 10 }}>置顶</span>}
+                      {editingMemoryEventId === event.id ? (
+                        <div>
+                          <input value={editingMemoryEventDraft.title} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, title: e.target.value }))} style={{ width: "100%", marginBottom: 7, fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 9, padding: "7px 9px", outline: "none", fontFamily: "inherit" }} />
+                          <textarea value={editingMemoryEventDraft.summary} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, summary: e.target.value }))} rows={3} style={{ width: "100%", fontSize: 12.5, lineHeight: 1.55, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 9, padding: "7px 9px", outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 6 }}>
+                            <select value={editingMemoryEventDraft.event_type} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, event_type: e.target.value }))} style={{ minWidth: 0, flex: 1, fontSize: 11.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 8px", outline: "none", fontFamily: "inherit" }}>
+                              {MEMORY_EVENT_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                            </select>
+                            <span onClick={cancelEditMemoryEvent} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>取消</span>
+                            <span onClick={saveEditMemoryEvent} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "4px 9px", background: C.honey, borderRadius: 999 }}>保存</span>
+                          </div>
                         </div>
-                        {favorite.content && <p style={{ margin: "5px 0 0", color: C.text, fontSize: 11.5, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{favorite.content}</p>}
-                        {favorite.note && <small style={{ display: "block", marginTop: 5, color: C.muted, fontSize: 10.5 }}>{favorite.note}</small>}
-                        {favorite.source_url && <a href={favorite.source_url} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 6, color: C.honeyDeep, fontSize: 10.5 }}>打开附件 / 链接</a>}
-                      </div>
-                      <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 1 }}>
-                        <span onClick={() => toggleFavoritePinned(favorite)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>{favorite.is_pinned ? "取消置顶" : "置顶"}</span>
-                        <span onClick={() => deleteFavorite(favorite.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
-                      </div>
+                      ) : (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3, flexWrap: "wrap" }}>
+                            <b style={{ color: C.text, fontSize: 12.5 }}>{event.title}</b>
+                            <span style={{ color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: "2px 7px", fontSize: 9 }}>{event.event_type}</span>
+                          </div>
+                          <p style={{ margin: 0, color: C.muted, fontSize: 11.5, lineHeight: 1.55 }}>{event.summary}</p>
+                          {event.emotion && <small style={{ display: "block", marginTop: 5, color: C.blushDeep, fontSize: 10 }}>情绪：{event.emotion}</small>}
+                          <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                            <span onClick={() => startEditMemoryEvent(event)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
+                            <span onClick={() => deleteMemoryEvent(event.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </article>
                 ))}
@@ -2858,46 +2893,6 @@ export default function App({ initialView = 'chat', onHome }) {
             )}
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="记忆" subtitle="手动保存的长期记忆" resetKey={memoryGroupsResetKey}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-              <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
-              <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
-            </div>
-            {memoriesLoading && (
-              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>翻找中…</div>
-            )}
-            {!memoriesLoading && memories.length === 0 && (
-              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>还没有存下来的记忆。</div>
-            )}
-            {!memoriesLoading && memories.map((m, idx) => (
-              <div key={m.id ?? idx} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: idx === memories.length - 1 ? "none" : `1px solid ${C.borderLight}` }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                  {m.timestamp && (
-                    <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: ".1em", marginBottom: 4 }}>
-                      {new Date(m.timestamp).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  )}
-                  {editingMemoryId !== m.id && (
-                    <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-                      <span onClick={() => startEditMemory(m)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
-                      <span onClick={() => deleteMemory(m.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
-                    </div>
-                  )}
-                </div>
-                {editingMemoryId === m.id ? (
-                  <div>
-                    <textarea value={editingMemoryText} onChange={e => setEditingMemoryText(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-                      <span onClick={cancelEditMemory} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", padding: "4px 8px" }}>取消</span>
-                      <span onClick={saveEditMemory} style={{ fontSize: 11.5, color: C.white, cursor: "pointer", padding: "4px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap" }}>{m.summary}</div>
-                )}
-              </div>
-            ))}
-          </SettingsGroup>
         </div>
       </div>
 
@@ -2929,12 +2924,6 @@ export default function App({ initialView = 'chat', onHome }) {
                   {messageAction.message.role === 'me' && messageAction.message.text && (
                     <button type="button" onClick={() => startEditMsg(messageAction.message)} style={{ minHeight: 48, border: `1px solid ${C.honeyMid}`, borderRadius: 14, background: C.honeyLight, color: C.honeyDeep, cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, fontWeight: 700 }}>✎ 重新编辑并发送</button>
                   )}
-                  <button
-                    type="button"
-                    disabled={messageActionLoading}
-                    onClick={() => saveMessageFavorite(messageAction.message)}
-                    style={{ minHeight: 48, border: `1px solid ${C.honeyMid}`, borderRadius: 14, background: C.white, color: C.honeyDeep, cursor: messageActionLoading ? "default" : "pointer", opacity: messageActionLoading ? .65 : 1, fontFamily: "inherit", fontSize: 13.5, fontWeight: 700 }}
-                  >{messageActionLoading ? '收藏中…' : '♡ 收藏到秘密抽屉'}</button>
                   <button
                     type="button"
                     disabled={messageAction.afterCount === 0}
