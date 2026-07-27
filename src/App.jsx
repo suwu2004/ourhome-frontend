@@ -217,8 +217,12 @@ function HighlightedText({ text, query }) {
   return parts.length ? parts : value;
 }
 
-function SettingsGroup({ theme, title, subtitle, children, defaultOpen = false }) {
+function SettingsGroup({ theme, title, subtitle, children, defaultOpen = false, resetKey }) {
   const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    if (resetKey !== undefined) setOpen(false);
+  }, [resetKey]);
+
   return (
     <section style={{ marginBottom: 12, overflow: 'hidden', background: theme.white, border: `1px solid ${theme.border}`, borderRadius: 16, boxShadow: `0 8px 22px ${theme.borderLight}88` }}>
       <button
@@ -330,6 +334,8 @@ export default function App({ initialView = 'chat', onHome }) {
   const [temperatureInput, setTemperatureInput] = useState(0.8);
   const [savingPersona, setSavingPersona] = useState(false);
   const [view, setView] = useState(initialView);
+  const [memoryGroupsResetKey, setMemoryGroupsResetKey] = useState(0);
+  const [settingsGroupsResetKey, setSettingsGroupsResetKey] = useState(0);
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
@@ -337,6 +343,11 @@ export default function App({ initialView = 'chat', onHome }) {
 
   useEffect(() => {
     if (view === 'settings') preloadFontOptions().catch(console.error);
+  }, [view]);
+
+  useEffect(() => {
+    if (view === 'memories') setMemoryGroupsResetKey(key => key + 1);
+    if (view === 'settings') setSettingsGroupsResetKey(key => key + 1);
   }, [view]);
   const [calendarTab, setCalendarTab] = useState('calendar');
   const [dayColors, setDayColors] = useState(() => {
@@ -2614,7 +2625,7 @@ export default function App({ initialView = 'chat', onHome }) {
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 记忆</span>
         </header>
         <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
-          <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性" defaultOpen>
+          <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性" resetKey={memoryGroupsResetKey}>
             <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 11.5, color: C.muted, flexShrink: 0 }}>随机性 {temperatureInput}</span>
@@ -2625,7 +2636,7 @@ export default function App({ initialView = 'chat', onHome }) {
             </div>
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="今日摘要" subtitle="今天发生了什么，陆泽先替你捡起来" defaultOpen>
+          <SettingsGroup theme={C} title="今日摘要" subtitle="今天发生了什么，陆泽先替你捡起来" resetKey={memoryGroupsResetKey}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 9 }}>
               <button type="button" onClick={openMemories} style={{ border: `1px solid ${C.border}`, background: C.white, color: C.honeyDeep, borderRadius: 999, padding: "5px 10px", fontSize: 11, cursor: "pointer" }}>刷新</button>
             </div>
@@ -2641,7 +2652,7 @@ export default function App({ initialView = 'chat', onHome }) {
             </div>
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="待续念头" subtitle="没聊完的事、待办和后续话题" defaultOpen={memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))}>
+          <SettingsGroup theme={C} title="待续念头" subtitle="没聊完的事、待办和后续话题" resetKey={memoryGroupsResetKey}>
             {(memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))) ? (
               <div style={{ display: "grid", gap: 8 }}>
                 {memoryLog.events
@@ -2670,7 +2681,7 @@ export default function App({ initialView = 'chat', onHome }) {
             )}
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="大事年表" subtitle="自动生成的重要事件、想法和节点" defaultOpen>
+          <SettingsGroup theme={C} title="大事年表" subtitle="自动生成的重要事件、想法和节点" resetKey={memoryGroupsResetKey}>
             {memoryLog.events.length === 0 ? (
               <div style={{ color: C.muted, fontSize: 12, padding: "12px 0" }}>还没有年表记录。</div>
             ) : (
@@ -2694,7 +2705,7 @@ export default function App({ initialView = 'chat', onHome }) {
             )}
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="秘密抽屉" subtitle="收藏想回看的句子、链接、图片线索和小纸条" defaultOpen>
+          <SettingsGroup theme={C} title="秘密抽屉" subtitle="收藏想回看的句子、链接、图片线索和小纸条" resetKey={memoryGroupsResetKey}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
               <span style={{ color: C.muted, fontSize: 11 }}>置顶收藏会进入陆泽的聊天上下文。</span>
               <span style={{ flexShrink: 0, color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: "3px 8px", fontSize: 10 }}>{favorites.filter(item => item.is_pinned).length} 置顶</span>
@@ -2768,7 +2779,7 @@ export default function App({ initialView = 'chat', onHome }) {
             )}
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="记忆" subtitle="手动保存的长期记忆">
+          <SettingsGroup theme={C} title="记忆" subtitle="手动保存的长期记忆" resetKey={memoryGroupsResetKey}>
             <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
               <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
               <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
@@ -2917,7 +2928,7 @@ export default function App({ initialView = 'chat', onHome }) {
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>⚙ 设置</span>
         </header>
         <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingLeft: 18, paddingRight: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
-          <SettingsGroup theme={C} title="主题与外观" subtitle="昼夜、字体、天气和主页背景" defaultOpen>
+          <SettingsGroup theme={C} title="主题与外观" subtitle="昼夜、字体、天气和主页背景" resetKey={settingsGroupsResetKey}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <span style={{ fontSize: 13, color: C.text }}>{darkMode ? "🌙 夜间模式" : "☀️ 日间模式"}</span>
             <button type="button" role="switch" aria-checked={darkMode} aria-label="切换日间与夜间模式" onClick={toggleDarkMode} style={{ width: 44, height: 24, padding: 0, border: 0, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
@@ -2979,7 +2990,7 @@ export default function App({ initialView = 'chat', onHome }) {
           <div style={{ marginTop: 7, color: homeBgError ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>{homeBgError || '主页背景跟随昼夜切换，便签纸单独保存；三套都会在云端同步。'}</div>
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="每日收尾" subtitle="定时补写幸福日记与心情日历">
+          <SettingsGroup theme={C} title="每日收尾" subtitle="定时补写幸福日记与心情日历" resetKey={settingsGroupsResetKey}>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>每天的幸福收尾</div>
           <div style={{ padding: 12, marginBottom: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -2999,7 +3010,7 @@ export default function App({ initialView = 'chat', onHome }) {
           </div>
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="聊天装扮" subtitle="头像、聊天墙面和气泡颜色">
+          <SettingsGroup theme={C} title="聊天装扮" subtitle="头像、聊天墙面和气泡颜色" resetKey={settingsGroupsResetKey}>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
           <div style={{ display: "flex", gap: 20, marginBottom: 18 }}>
             <div style={{ textAlign: "center" }}>
@@ -3051,7 +3062,7 @@ export default function App({ initialView = 'chat', onHome }) {
 
           {view === 'settings' && (
             <>
-              <SettingsGroup theme={C} title="API 与模型" subtitle="保存、切换站点并拉取全部模型">
+              <SettingsGroup theme={C} title="API 与模型" subtitle="保存、切换站点并拉取全部模型" resetKey={settingsGroupsResetKey}>
               <ApiProfilesSettings
                 apiFetch={apiFetch}
                 backend={BACKEND}
@@ -3068,17 +3079,17 @@ export default function App({ initialView = 'chat', onHome }) {
               />
               </SettingsGroup>
 
-              <SettingsGroup theme={C} title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录">
+              <SettingsGroup theme={C} title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录" resetKey={settingsGroupsResetKey}>
                 <AgentMailSettings apiFetch={apiFetch} backend={BACKEND} theme={C} />
               </SettingsGroup>
 
-              <SettingsGroup theme={C} title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具">
+              <SettingsGroup theme={C} title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具" resetKey={settingsGroupsResetKey}>
                 <IntegrationSettings apiFetch={apiFetch} backend={BACKEND} theme={C} embedded />
               </SettingsGroup>
             </>
           )}
 
-          <SettingsGroup theme={C} title="数据与导出" subtitle="把聊天记录带回本地">
+          <SettingsGroup theme={C} title="数据与导出" subtitle="把聊天记录带回本地" resetKey={settingsGroupsResetKey}>
             <button onClick={() => {
               apiFetch(`${BACKEND}/export`)
                 .then(r => r.blob())
