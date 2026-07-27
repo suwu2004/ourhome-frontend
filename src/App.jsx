@@ -2613,13 +2613,20 @@ export default function App({ initialView = 'chat', onHome }) {
           <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 记忆</span>
         </header>
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
-          <section style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-              <div>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>今日摘要</div>
-                <div style={{ marginTop: 2, fontSize: 10, color: C.muted, letterSpacing: ".08em" }}>今天发生了什么，陆泽先替你捡起来</div>
-              </div>
+        <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+          <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性" defaultOpen>
+            <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 11.5, color: C.muted, flexShrink: 0 }}>随机性 {temperatureInput}</span>
+              <input type="range" min="0" max="1" step="0.1" value={temperatureInput} onChange={e => setTemperatureInput(e.target.value)} style={{ flex: 1 }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存人设"}</span>
+            </div>
+          </SettingsGroup>
+
+          <SettingsGroup theme={C} title="今日摘要" subtitle="今天发生了什么，陆泽先替你捡起来" defaultOpen>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 9 }}>
               <button type="button" onClick={openMemories} style={{ border: `1px solid ${C.border}`, background: C.white, color: C.honeyDeep, borderRadius: 999, padding: "5px 10px", fontSize: 11, cursor: "pointer" }}>刷新</button>
             </div>
             <div style={{ padding: 13, borderRadius: 14, background: `linear-gradient(145deg, ${C.white}, ${C.honeyLight})`, border: `1px solid ${C.border}`, boxShadow: `0 8px 18px ${C.borderLight}77` }}>
@@ -2632,11 +2639,10 @@ export default function App({ initialView = 'chat', onHome }) {
                 <p style={{ margin: 0, color: C.muted, fontSize: 12.5, lineHeight: 1.7 }}>今天的摘要还没生成。等聊过几轮，它会自己长出来。</p>
               )}
             </div>
-          </section>
+          </SettingsGroup>
 
-          {(memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))) && (
-            <section style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>待续念头</div>
+          <SettingsGroup theme={C} title="待续念头" subtitle="没聊完的事和待办，会留在这里提醒" defaultOpen={memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))}>
+            {(memoryLog.openMarks.length > 0 || memoryLog.events.some(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))) ? (
               <div style={{ display: "grid", gap: 8 }}>
                 {memoryLog.events
                   .filter(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))
@@ -2659,11 +2665,12 @@ export default function App({ initialView = 'chat', onHome }) {
                   </article>
                 ))}
               </div>
-            </section>
-          )}
+            ) : (
+              <div style={{ color: C.muted, fontSize: 12, padding: "6px 0" }}>现在没有待续念头。</div>
+            )}
+          </SettingsGroup>
 
-          <section style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>大事年表</div>
+          <SettingsGroup theme={C} title="大事年表" subtitle="自动生成的重要事件、想法和节点" defaultOpen>
             {memoryLog.events.length === 0 ? (
               <div style={{ color: C.muted, fontSize: 12, padding: "12px 0" }}>还没有年表记录。</div>
             ) : (
@@ -2685,14 +2692,11 @@ export default function App({ initialView = 'chat', onHome }) {
                 ))}
               </div>
             )}
-          </section>
+          </SettingsGroup>
 
-          <section style={{ marginBottom: 20, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+          <SettingsGroup theme={C} title="秘密抽屉" subtitle="收藏想回看的句子、链接、图片线索和小纸条" defaultOpen>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-              <div>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text }}>秘密抽屉</div>
-                <div style={{ marginTop: 2, fontSize: 10, color: C.muted, letterSpacing: ".08em" }}>收藏想回看的句子、链接、图片线索和小纸条</div>
-              </div>
+              <span style={{ color: C.muted, fontSize: 11 }}>置顶收藏会进入陆泽的聊天上下文。</span>
               <span style={{ flexShrink: 0, color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: "3px 8px", fontSize: 10 }}>{favorites.filter(item => item.is_pinned).length} 置顶</span>
             </div>
 
@@ -2762,47 +2766,48 @@ export default function App({ initialView = 'chat', onHome }) {
                 ))}
               </div>
             )}
-          </section>
+          </SettingsGroup>
 
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>记忆</div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
-            <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
-          </div>
-          {memoriesLoading && (
-            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>翻找中…</div>
-          )}
-          {!memoriesLoading && memories.length === 0 && (
-            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>还没有存下来的记忆。</div>
-          )}
-          {!memoriesLoading && memories.map((m, idx) => (
-            <div key={m.id ?? idx} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: idx === memories.length - 1 ? "none" : `1px solid ${C.borderLight}` }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                {m.timestamp && (
-                  <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: ".1em", marginBottom: 4 }}>
-                    {new Date(m.timestamp).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+          <SettingsGroup theme={C} title="记忆" subtitle="手动保存的长期记忆">
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
+              <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
+            </div>
+            {memoriesLoading && (
+              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>翻找中…</div>
+            )}
+            {!memoriesLoading && memories.length === 0 && (
+              <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>还没有存下来的记忆。</div>
+            )}
+            {!memoriesLoading && memories.map((m, idx) => (
+              <div key={m.id ?? idx} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: idx === memories.length - 1 ? "none" : `1px solid ${C.borderLight}` }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                  {m.timestamp && (
+                    <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: ".1em", marginBottom: 4 }}>
+                      {new Date(m.timestamp).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
+                  {editingMemoryId !== m.id && (
+                    <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+                      <span onClick={() => startEditMemory(m)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
+                      <span onClick={() => deleteMemory(m.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
+                    </div>
+                  )}
+                </div>
+                {editingMemoryId === m.id ? (
+                  <div>
+                    <textarea value={editingMemoryText} onChange={e => setEditingMemoryText(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+                      <span onClick={cancelEditMemory} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", padding: "4px 8px" }}>取消</span>
+                      <span onClick={saveEditMemory} style={{ fontSize: 11.5, color: C.white, cursor: "pointer", padding: "4px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
+                    </div>
                   </div>
-                )}
-                {editingMemoryId !== m.id && (
-                  <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-                    <span onClick={() => startEditMemory(m)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
-                    <span onClick={() => deleteMemory(m.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
-                  </div>
+                ) : (
+                  <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap" }}>{m.summary}</div>
                 )}
               </div>
-              {editingMemoryId === m.id ? (
-                <div>
-                  <textarea value={editingMemoryText} onChange={e => setEditingMemoryText(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-                    <span onClick={cancelEditMemory} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", padding: "4px 8px" }}>取消</span>
-                    <span onClick={saveEditMemory} style={{ fontSize: 11.5, color: C.white, cursor: "pointer", padding: "4px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap" }}>{m.summary}</div>
-              )}
-            </div>
-          ))}
+            ))}
+          </SettingsGroup>
         </div>
       </div>
 
@@ -2912,17 +2917,6 @@ export default function App({ initialView = 'chat', onHome }) {
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>⚙ 设置</span>
         </header>
         <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingLeft: 18, paddingRight: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
-          <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性">
-          <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 11.5, color: C.muted, flexShrink: 0 }}>随机性 {temperatureInput}</span>
-            <input type="range" min="0" max="1" step="0.1" value={temperatureInput} onChange={e => setTemperatureInput(e.target.value)} style={{ flex: 1 }} />
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存人设"}</span>
-          </div>
-          </SettingsGroup>
-
           <SettingsGroup theme={C} title="主题与外观" subtitle="昼夜、字体、天气和主页背景" defaultOpen>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <span style={{ fontSize: 13, color: C.text }}>{darkMode ? "🌙 夜间模式" : "☀️ 日间模式"}</span>
