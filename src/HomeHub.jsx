@@ -116,6 +116,7 @@ function CoupleAvatar({ mine, partner }) {
 
 function MemoDrawer({
   memos,
+  unfinished,
   upcoming,
   loading,
   error,
@@ -125,6 +126,8 @@ function MemoDrawer({
   onSave,
   onToggle,
   onDelete,
+  onResolveUnfinished,
+  onDeleteUnfinished,
 }) {
   const [editing, setEditing] = useState(null);
   const [content, setContent] = useState('');
@@ -206,6 +209,25 @@ function MemoDrawer({
           </section>
         )}
 
+        {unfinished.length > 0 && (
+          <section className="home-memo-list" aria-label="未完待续">
+            <div className="home-memo-list-title"><span>TO BE CONTINUED</span><b>未完待续</b></div>
+            {unfinished.slice(0, 6).map(item => (
+              <article className="home-memo-item home-memo-item--ze" key={`${item.kind}-${item.id}`}>
+                <button type="button" className="home-memo-check" aria-label="完成未完待续" onClick={() => onResolveUnfinished(item)}>✓</button>
+                <div>
+                  <span className="home-memo-author home-memo-author--ze">{item.kind === 'event' ? '年表待办' : '陆泽记着'}</span>
+                  <p>{item.title ? `${item.title}：${item.content}` : item.content}</p>
+                  <small>{item.createdAt ? new Date(item.createdAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '未完待续'}</small>
+                </div>
+                <div className="home-memo-actions">
+                  <button type="button" onClick={() => onDeleteUnfinished(item)}>删除</button>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
+
         <div className="home-memo-list">
           <div className="home-memo-list-title"><span>PINNED TOGETHER</span><b>我们的纸条</b></div>
           {loading && <p className="home-memo-empty">正在翻找便签…</p>}
@@ -239,6 +261,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const [weatherState, setWeatherState] = useState('idle');
   const [refreshing, setRefreshing] = useState(false);
   const [memos, setMemos] = useState([]);
+  const [unfinished, setUnfinished] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [memoState, setMemoState] = useState('loading');
   const [memoError, setMemoError] = useState('');
@@ -293,10 +316,23 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
     setMemoState('loading');
     setMemoError('');
     try {
-      const response = await apiFetch(`${BACKEND}/home-memos`);
+      const [response, logResponse] = await Promise.all([
+        apiFetch(`${BACKEND}/home-memos`),
+        apiFetch(`${BACKEND}/memory-log?days=5`).catch(() => null),
+      ]);
       const data = await response.json().catch(() => ({}));
+      const logData = logResponse ? await logResponse.json().catch(() => ({})) : {};
       if (!response.ok) throw new Error(data?.error || '便签暂时没有回来');
       setMemos(Array.isArray(data) ? data : []);
+      const openEvents = Array.isArray(logData?.events)
+        ? logData.events
+            .filter(event => event.status !== 'resolved' && ['todo', 'project'].includes(event.event_type))
+            .map(event => ({ kind: 'event', id: event.id, title: event.title, content: event.summary, createdAt: event.occurred_at || event.created_at }))
+        : [];
+      const openMarks = Array.isArray(logData?.openMarks)
+        ? logData.openMarks.map(mark => ({ kind: 'mark', id: mark.id, title: mark.topic || '', content: mark.summary, createdAt: mark.created_at }))
+        : [];
+      setUnfinished([...openEvents, ...openMarks]);
       setMemoState('ready');
     } catch (error) {
       setMemoError(error.message || '便签暂时没有回来');
@@ -328,8 +364,9 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const timeline = useMemo(() => movingTimeline(now), [now]);
   const weatherDescription = describeWeather(weather?.weatherCode, weather?.isDay);
   const featuredMemo = memos.find(memo => !memo.completed) || memos[0] || null;
+  const featuredUnfinished = unfinished[0] || null;
   const upcoming = useMemo(() => upcomingOccasions(milestones, now, 10), [milestones, now]);
-  const featuredNoteText = featuredMemo?.content || '留一句话……';
+  const featuredNoteText = featuredMemo?.content || (featuredUnfinished ? `未完待续：${featuredUnfinished.title ? `${featuredUnfinished.title} ` : ''}${featuredUnfinished.content}` : '留一句话……');
   const featuredOccasion = upcoming[0] || null;
   const avatars = {
     mine: settings?.my_avatar_url || '',
@@ -372,6 +409,38 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
       await loadMemos();
     } catch (error) {
       setMemoError(error.message || '便签没有删掉');
+    }
+  };
+
+  const resolveUnfinished = async item => {
+    const path = item.kind === 'event' ? `/memory-events/${item.id}` : `/memory-marks/${item.id}`;
+    const body = item.kind === 'event'
+      ? { status: 'resolved' }
+      : { status: 'resolved', should_continue: false };
+    try {
+      const response = await apiFetch(`${BACKEND}${path}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || '未完待续没有完成');
+      await loadMemos();
+    } catch (error) {
+      setMemoError(error.message || '未完待续没有完成');
+    }
+  };
+
+  const deleteUnfinished = async item => {
+    if (!window.confirm('删掉这条未完待续吗？')) return;
+    const path = item.kind === 'event' ? `/memory-events/${item.id}` : `/memory-marks/${item.id}`;
+    try {
+      const response = await apiFetch(`${BACKEND}${path}`, { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || '未完待续没有删掉');
+      await loadMemos();
+    } catch (error) {
+      setMemoError(error.message || '未完待续没有删掉');
     }
   };
 
@@ -470,6 +539,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
       {memoOpen && (
         <MemoDrawer
           memos={memos}
+          unfinished={unfinished}
           upcoming={upcoming}
           loading={memoState === 'loading'}
           error={memoError}
@@ -479,6 +549,8 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
           onSave={saveMemo}
           onToggle={toggleMemo}
           onDelete={deleteMemo}
+          onResolveUnfinished={resolveUnfinished}
+          onDeleteUnfinished={deleteUnfinished}
         />
       )}
     </main>
