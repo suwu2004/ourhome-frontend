@@ -2923,6 +2923,25 @@ export default function App({ initialView = 'chat', onHome }) {
             </div>
             <div style={{ marginTop: 6, color: dailyJournalSaved ? C.honeyDeep : C.muted, fontSize: 9.5 }}>{dailyJournalSaved ? '已经按中国时间保存好。' : '按中国时间执行；记忆页的今日摘要会按聊天另行整理。'}</div>
           </div>
+          <div style={{ padding: 12, marginBottom: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12.5, color: C.text }}>提醒通知</div>
+                <div style={{ marginTop: 3, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>给日程提醒和陆泽主动敲门用；换设备后在这里重新登记。</div>
+              </div>
+              <button
+                type="button"
+                onClick={enablePushNotifications}
+                disabled={subscribing}
+                style={{ padding: '8px 12px', color: C.white, background: notifStatus === 'granted' ? C.honeyDeep : C.honey, border: 0, borderRadius: 10, cursor: subscribing ? 'default' : 'pointer', opacity: subscribing ? .65 : 1, fontSize: 11.5, flexShrink: 0 }}
+              >
+                {subscribing ? '登记中…' : notifStatus === 'granted' ? '重新登记' : '开启通知'}
+              </button>
+            </div>
+            <div style={{ marginTop: 6, color: notifStatus === 'denied' ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>
+              {notifStatus === 'granted' ? '这台设备已经允许通知。' : notifStatus === 'denied' ? '系统已经拒绝通知，需要先在浏览器或手机设置里打开 OurHome 通知。' : '点按钮后同意浏览器弹出的通知权限。'}
+            </div>
+          </div>
           </SettingsGroup>
 
           <SettingsGroup theme={C} title="聊天装扮" subtitle="头像、聊天墙面和气泡颜色" resetKey={settingsGroupsResetKey}>
