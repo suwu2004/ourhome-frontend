@@ -3,6 +3,7 @@ import ApiProfilesSettings from './ApiProfilesSettings.jsx';
 import IntegrationSettings from './IntegrationSettings.jsx';
 import { AgentMailRoom } from './AgentMailRoom.jsx';
 import { AgentMailSettings } from './AgentMailSettings.jsx';
+import { ChatSearchPanel } from './ChatSearchPanel.jsx';
 import { MemoryRoom } from './MemoryRoom.jsx';
 import { SettingsGroup } from './SettingsGroup.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
@@ -1798,21 +1799,27 @@ export default function App({ initialView = 'chat', onHome }) {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchScope, setSearchScope] = useState('current');
-  const [searchMeta, setSearchMeta] = useState({ total: 0, page: 1, hasMore: false });
+  const [searchMeta, setSearchMeta] = useState({ total: 0, page: 1, hasMore: false, mode: 'semantic', semanticAvailable: false });
   const [lastSearchQuery, setLastSearchQuery] = useState('');
 
   const performSearch = (page = 1, append = false) => {
     const keyword = searchQuery.trim();
-    if (!keyword) { setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); return; }
+    if (!keyword) { setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false, mode: 'semantic', semanticAvailable: false }); return; }
     setSearching(true);
-    const params = new URLSearchParams({ q: keyword, page: String(page), limit: '30', scope: searchScope });
+    const params = new URLSearchParams({ q: keyword, page: String(page), limit: '30', scope: searchScope, semantic: '1' });
     if (searchScope === 'current' && sessionId) params.set('session_id', String(sessionId));
     apiFetch(`${BACKEND}/messages/search?${params.toString()}`)
       .then(r => r.json())
       .then(data => {
         const rows = Array.isArray(data) ? data : (Array.isArray(data.results) ? data.results : []);
         setSearchResults(previous => append ? [...previous, ...rows] : rows);
-        setSearchMeta({ total: data.total_messages ?? rows.length, page: data.page || page, hasMore: Boolean(data.has_more) });
+        setSearchMeta({
+          total: data.total_messages ?? rows.length,
+          page: data.page || page,
+          hasMore: Boolean(data.has_more),
+          mode: data.mode || 'keyword',
+          semanticAvailable: Boolean(data.semantic_available),
+        });
         setLastSearchQuery(keyword);
         setSearching(false);
       })
@@ -2808,46 +2815,27 @@ export default function App({ initialView = 'chat', onHome }) {
         )}
       </section>
 
-      <div onClick={() => setSearchOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: searchOpen ? 1 : 0, pointerEvents: searchOpen ? "auto" : "none", transition: "opacity .25s" }} />
-      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "88%", maxWidth: 390, maxHeight: "min(76dvh, 640px)", transform: searchOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: searchOpen ? 1 : 0, pointerEvents: searchOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em", color: C.text }}>🔍 搜索聊天记录</span>
-          <span onClick={() => setSearchOpen(false)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
-        </div>
-        <div style={{ padding: "11px 18px", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter") performSearch(); }} placeholder="输入聊天里的关键词…" style={{ flex: 1, minWidth: 0, fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none" }} />
-            <button onClick={() => performSearch()} style={{ fontSize: 12, color: C.white, background: C.honey, border: "none", borderRadius: 999, padding: "0 16px", cursor: "pointer", letterSpacing: ".05em" }}>{searching ? "搜中…" : "搜"}</button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 9 }}>
-            {[['current', '当前对话'], ['all', '全部对话']].map(([key, label]) => (
-              <button key={key} type="button" onClick={() => { setSearchScope(key); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); }} style={{ border: `1px solid ${searchScope === key ? C.honey : C.border}`, background: searchScope === key ? C.honeyLight : 'transparent', color: searchScope === key ? C.honeyDeep : C.muted, borderRadius: 999, padding: '4px 10px', fontSize: 10.5, cursor: 'pointer' }}>{label}</button>
-            ))}
-            {searchResults.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 10.5, color: C.muted }}>{searchMeta.total} 条消息</span>}
-          </div>
-        </div>
-        <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 18px 18px" }}>
-          {searching && searchResults.length === 0 && (
-            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>翻找中…</div>
-          )}
-          {!searching && lastSearchQuery && searchResults.length === 0 && (
-            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "20px 0" }}>没找到相关的内容。</div>
-          )}
-          {searchResults.map(r => (
-            <button type="button" key={r.id} onClick={() => jumpToSearchResult(r)} style={{ display: 'block', width: '100%', marginBottom: 12, padding: 0, paddingBottom: 12, border: 0, borderBottom: `1px solid ${C.borderLight}`, cursor: "pointer", background: 'transparent', textAlign: 'left', color: 'inherit' }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep }}>{r.role === 'user' ? '檀' : '泽'} · {r.sessions?.name || ''}</span>
-                <span style={{ fontSize: 9.5, color: C.mutedLight }}>{new Date(r.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-              </div>
-              <div style={{ fontSize: 13, lineHeight: 1.55, color: C.text }}><HighlightedText text={r.snippet || r.content} query={lastSearchQuery} /></div>
-              <div style={{ fontSize: 9.5, color: C.mutedLight, marginTop: 4 }}>这条消息出现 {r.occurrences || 1} 次 · 点一下回到原文</div>
-            </button>
-          ))}
-          {searchMeta.hasMore && (
-            <button type="button" disabled={searching} onClick={() => performSearch(searchMeta.page + 1, true)} style={{ display: 'block', margin: '4px auto 0', border: `1px solid ${C.honeyMid}`, color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: '6px 15px', fontSize: 11.5, cursor: 'pointer' }}>{searching ? '继续翻找…' : '加载更多'}</button>
-          )}
-        </div>
-      </div>
+      <ChatSearchPanel
+        open={searchOpen}
+        theme={C}
+        query={searchQuery}
+        setQuery={setSearchQuery}
+        searching={searching}
+        results={searchResults}
+        scope={searchScope}
+        setScope={(nextScope) => {
+          setSearchScope(nextScope);
+          setSearchResults([]);
+          setSearchMeta({ total: 0, page: 1, hasMore: false, mode: 'semantic', semanticAvailable: false });
+        }}
+        meta={searchMeta}
+        lastQuery={lastSearchQuery}
+        onClose={() => setSearchOpen(false)}
+        onSearch={() => performSearch()}
+        onLoadMore={() => performSearch(searchMeta.page + 1, true)}
+        onJump={jumpToSearchResult}
+        HighlightedText={HighlightedText}
+      />
 
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "settings") ? 1 : 0, pointerEvents: (stage === "home" && view === "settings") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
         <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
