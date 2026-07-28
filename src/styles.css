@@ -850,7 +850,7 @@ textarea { display: block; margin: 0; }
 }
 
 .home-quick-grid {
-  min-height: 112px;
+  min-height: 136px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
@@ -858,8 +858,8 @@ textarea { display: block; margin: 0; }
 .home-note-card {
   position: relative;
   min-width: 0;
-  min-height: 112px;
-  padding: 17px 54px 14px 20px;
+  min-height: 136px;
+  padding: 18px 54px 16px 20px;
   overflow: hidden;
   cursor: pointer;
   text-align: left;
@@ -947,7 +947,7 @@ textarea { display: block; margin: 0; }
   font-size: clamp(11px, 3vw, 14px);
   line-height: 1.55;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
 }
 
 .home-note-countdown {

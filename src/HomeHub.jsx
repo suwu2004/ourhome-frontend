@@ -7,6 +7,7 @@ import '@fontsource/parisienne/400.css';
 
 const ANNIVERSARY_START = Date.UTC(2025, 2, 7);
 const HALF_HOUR_MS = 30 * 60 * 1000;
+const MEMO_CONTENT_LIMIT = 50;
 
 const WEATHER_DESCRIPTIONS = [
   [[0], '晴朗', '☀'],
@@ -65,6 +66,15 @@ function tomorrowText() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function trimMemoContent(value) {
+  return String(value || '').slice(0, MEMO_CONTENT_LIMIT);
+}
+
+function compactMemoPreview(value) {
+  const content = trimMemoContent(value).trim();
+  return content || '留一句话……';
 }
 
 function MoodCalendarMark() {
@@ -141,18 +151,19 @@ function MemoDrawer({
 
   const startEdit = memo => {
     setEditing(memo);
-    setContent(memo.content || '');
+    setContent(trimMemoContent(memo.content));
     setMemoType(memo.memo_type || 'note');
     setRemindOn(memo.remind_on || '');
   };
 
   const submit = async event => {
     event.preventDefault();
-    if (!content.trim() || saving) return;
+    const safeContent = trimMemoContent(content).trim();
+    if (!safeContent || saving) return;
     setSaving(true);
     const ok = await onSave({
       id: editing?.id || null,
-      content: content.trim(),
+      content: safeContent,
       memo_type: memoType,
       remind_on: memoType === 'tomorrow' ? (remindOn || tomorrowText()) : null,
     });
@@ -181,9 +192,10 @@ function MemoDrawer({
             <button type="button" className={memoType === 'note' ? 'is-active' : ''} onClick={() => { setMemoType('note'); setRemindOn(''); }}>温馨提示</button>
             <button type="button" className={memoType === 'tomorrow' ? 'is-active' : ''} onClick={() => { setMemoType('tomorrow'); if (!remindOn) setRemindOn(tomorrowText()); }}>明日备忘</button>
           </div>
-          <textarea value={content} onChange={event => setContent(event.target.value)} maxLength={300} placeholder="在门口留一句话……" rows={3} />
+          <textarea value={content} onChange={event => setContent(trimMemoContent(event.target.value))} maxLength={MEMO_CONTENT_LIMIT} placeholder="在门口留一句话……" rows={3} />
           <div className="home-memo-form-foot">
-            {memoType === 'tomorrow' ? <input type="date" value={remindOn} onChange={event => setRemindOn(event.target.value)} aria-label="备忘日期" /> : <span>{content.length}/300</span>}
+            {memoType === 'tomorrow' && <input type="date" value={remindOn} onChange={event => setRemindOn(event.target.value)} aria-label="备忘日期" />}
+            <span>{content.length}/{MEMO_CONTENT_LIMIT}</span>
             <div>
               {editing && <button type="button" className="home-memo-cancel" onClick={() => startNew('note')}>取消修改</button>}
               <button type="submit" className="home-memo-submit" disabled={!content.trim() || saving}>{saving ? '保存中…' : editing ? '保存修改' : '贴上便签'}</button>
@@ -329,7 +341,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const weatherDescription = describeWeather(weather?.weatherCode, weather?.isDay);
   const featuredMemo = memos.find(memo => !memo.completed) || memos[0] || null;
   const upcoming = useMemo(() => upcomingOccasions(milestones, now, 10), [milestones, now]);
-  const featuredNoteText = featuredMemo?.content || '留一句话……';
+  const featuredNoteText = compactMemoPreview(featuredMemo?.content);
   const featuredOccasion = upcoming[0] || null;
   const avatars = {
     mine: settings?.my_avatar_url || '',
@@ -344,10 +356,12 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
 
   const saveMemo = async memo => {
     try {
+      const payload = { ...memo, author: '檀' };
+      if (memo.content !== undefined) payload.content = trimMemoContent(memo.content).trim();
       const response = await apiFetch(`${BACKEND}/home-memos${memo.id ? `/${memo.id}` : ''}`, {
         method: memo.id ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...memo, author: '檀' }),
+        body: JSON.stringify(payload),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || '这张便签没有贴好');

@@ -3,6 +3,8 @@ import ApiProfilesSettings from './ApiProfilesSettings.jsx';
 import IntegrationSettings from './IntegrationSettings.jsx';
 import { AgentMailRoom } from './AgentMailRoom.jsx';
 import { AgentMailSettings } from './AgentMailSettings.jsx';
+import { MemoryRoom } from './MemoryRoom.jsx';
+import { SettingsGroup } from './SettingsGroup.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
 import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
@@ -23,16 +25,8 @@ const EMPTY_MEMORY_EVENT_DRAFT = {
   title: '',
   summary: '',
   event_type: 'note',
+  event_date: '',
 };
-const MEMORY_EVENT_TYPE_OPTIONS = [
-  ['note', '记录'],
-  ['project', '项目'],
-  ['todo', '待办'],
-  ['life', '生活'],
-  ['emotion', '情绪'],
-  ['relationship', '关系'],
-  ['memory', '记忆'],
-];
 
 function normalizeModelOptions(models, preferredModel = '') {
   const list = Array.isArray(models) ? models : [];
@@ -76,6 +70,19 @@ function messageDateKey(date) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function shanghaiDateKey(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const lookup = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${lookup.year}-${lookup.month}-${lookup.day}`;
 }
 
 function formatMsgDate(date) {
@@ -231,32 +238,6 @@ function HighlightedText({ text, query }) {
   return parts.length ? parts : value;
 }
 
-function SettingsGroup({ theme, title, subtitle, children, defaultOpen = false, resetKey }) {
-  const [open, setOpen] = useState(defaultOpen);
-  useEffect(() => {
-    if (resetKey !== undefined) setOpen(false);
-  }, [resetKey]);
-
-  return (
-    <section style={{ marginBottom: 12, overflow: 'hidden', background: theme.white, border: `1px solid ${theme.border}`, borderRadius: 16, boxShadow: `0 8px 22px ${theme.borderLight}88` }}>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(value => !value)}
-        style={{ width: '100%', minHeight: 66, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 11, color: theme.text, background: 'transparent', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
-      >
-        <span aria-hidden="true" style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', flexShrink: 0, color: theme.honeyDeep, background: theme.honeyLight, border: `1px solid ${theme.honeyMid}`, borderRadius: 10, fontFamily: 'Georgia, serif', fontSize: 12 }}>✦</span>
-        <span style={{ minWidth: 0, flex: 1 }}>
-          <strong style={{ display: 'block', fontSize: 13.5, fontWeight: 650, letterSpacing: '.04em' }}>{title}</strong>
-          <small style={{ display: 'block', marginTop: 3, overflow: 'hidden', color: theme.muted, fontSize: 9.5, lineHeight: 1.4, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</small>
-        </span>
-        <span aria-hidden="true" style={{ color: theme.honeyDeep, fontSize: 16, transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' }}>⌄</span>
-      </button>
-      <div hidden={!open} style={{ padding: '14px 14px 15px', borderTop: `1px solid ${theme.borderLight}` }}>{children}</div>
-    </section>
-  );
-}
-
 function BackgroundImageOption({ label, description, image, busy, onUpload, onReset, theme, wide = false }) {
   const inputRef = useRef(null);
   return (
@@ -400,7 +381,6 @@ export default function App({ initialView = 'chat', onHome }) {
   const [lettersCategory, setLettersCategory] = useState(null);
   const [letters, setLetters] = useState([]);
   const [lettersLoading, setLettersLoading] = useState(false);
-  const [letterTodaySummary, setLetterTodaySummary] = useState(null);
   const orderedRootLetters = useMemo(
     () => newestFirst(letters.filter(letter => !letter.parent_id)),
     [letters],
@@ -455,11 +435,11 @@ export default function App({ initialView = 'chat', onHome }) {
   const [newLetterTitle, setNewLetterTitle] = useState("");
   const [revealedIds, setRevealedIds] = useState(() => new Set());
   const [openLetterId, setOpenLetterId] = useState(null);
-  const [selectedPaperStyle, setSelectedPaperStyle] = useState('floral');
-  const [diaryPaperSaved, setDiaryPaperSaved] = useState(false);
+  const [selectedPaperStyle, setSelectedPaperStyle] = useState('parchment');
   const [savingLetter, setSavingLetter] = useState(false);
   const [replyingToId, setReplyingToId] = useState(null);
   const [replyText, setReplyText] = useState("");
+  const [diarySummariesByDate, setDiarySummariesByDate] = useState({});
   const myAvatarInputRef = useRef(null);
   const partnerAvatarInputRef = useRef(null);
   const [sessions, setSessions] = useState([]);
@@ -641,7 +621,6 @@ export default function App({ initialView = 'chat', onHome }) {
         if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
         if (typeof data?.daily_journal_enabled === 'boolean') setDailyJournalEnabled(data.daily_journal_enabled);
         if (data?.daily_journal_time) setDailyJournalTime(String(data.daily_journal_time).slice(0, 5));
-        if (data?.diary_paper_style && PAPER_STYLES[data.diary_paper_style]) setSelectedPaperStyle(data.diary_paper_style);
         const preferredModel = data?.selected_model || '';
         if (preferredModel) setSelectedModel(preferredModel);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
@@ -672,23 +651,6 @@ export default function App({ initialView = 'chat', onHome }) {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data?.error || '自动补写时间没有保存');
         setDailyJournalSaved(true);
-      })
-      .catch(console.error);
-  };
-
-  const chooseDiaryPaperStyle = (key) => {
-    if (!PAPER_STYLES[key]) return;
-    setSelectedPaperStyle(key);
-    setDiaryPaperSaved(false);
-    apiFetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ diary_paper_style: key }),
-    })
-      .then(async response => {
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data?.error || '日记纸没有保存');
-        setDiaryPaperSaved(true);
       })
       .catch(console.error);
   };
@@ -945,25 +907,40 @@ export default function App({ initialView = 'chat', onHome }) {
 
   const openCategory = (cat) => {
     setLettersCategory(cat);
-    setLetterTodaySummary(null);
     if (cat === '陆泽邮箱') {
       setLetters([]);
       setLettersLoading(false);
       return;
     }
     setLettersLoading(true);
-    const letterRequest = apiFetch(`${BACKEND}/letters?category=${encodeURIComponent(cat)}`).then(r => r.json());
-    const summaryRequest = cat === '幸福日记'
-      ? apiFetch(`${BACKEND}/memory-log?days=1`).then(r => r.json()).catch(() => null)
-      : Promise.resolve(null);
-    Promise.all([letterRequest, summaryRequest])
-      .then(([data, summaryData]) => {
+    apiFetch(`${BACKEND}/letters?category=${encodeURIComponent(cat)}`)
+      .then(r => r.json())
+      .then(data => {
         setLetters(Array.isArray(data) ? data : []);
-        setLetterTodaySummary(summaryData?.todaySummary || null);
         setLettersLoading(false);
       })
       .catch(err => { console.error(err); setLettersLoading(false); });
   };
+
+  useEffect(() => {
+    if (lettersCategory !== '幸福日记' || !openLetterId) return;
+    const letter = letters.find(item => item.id === openLetterId);
+    if (!letter) return;
+    const dateKey = shanghaiDateKey(letter?.created_at);
+    if (!dateKey || Object.prototype.hasOwnProperty.call(diarySummariesByDate, dateKey)) return;
+    apiFetch(`${BACKEND}/memory-log?date=${encodeURIComponent(dateKey)}&days=1`)
+      .then(response => response.json())
+      .then(data => {
+        setDiarySummariesByDate(current => ({
+          ...current,
+          [dateKey]: data?.todaySummary || null,
+        }));
+      })
+      .catch(error => {
+        console.error('读取日记摘要失败:', error);
+        setDiarySummariesByDate(current => ({ ...current, [dateKey]: null }));
+      });
+  }, [lettersCategory, openLetterId, letters, diarySummariesByDate]);
 
   const submitNewLetter = () => {
     if (!newLetterText.trim() || savingLetter) return;
@@ -1531,14 +1508,16 @@ export default function App({ initialView = 'chat', onHome }) {
     Promise.all([
       apiFetch(`${BACKEND}/memories`).then(r => r.json()),
       apiFetch(`${BACKEND}/memory-log?days=5`).then(r => r.json()),
+      apiFetch(`${BACKEND}/memory-favorites`).then(r => r.json()),
     ])
-      .then(([memoryData, logData]) => {
+      .then(([memoryData, logData, favoriteData]) => {
         setMemories(Array.isArray(memoryData) ? memoryData : []);
         setMemoryLog({
           todaySummary: logData?.todaySummary || null,
           events: Array.isArray(logData?.events) ? logData.events : [],
           openMarks: Array.isArray(logData?.openMarks) ? logData.openMarks : [],
         });
+        setFavorites(Array.isArray(favoriteData) ? favoriteData : []);
         setMemoriesLoading(false);
       })
       .catch(err => {
@@ -1604,24 +1583,6 @@ export default function App({ initialView = 'chat', onHome }) {
       .catch(console.error);
   };
 
-  const markMemoryEventResolved = (id) => {
-    apiFetch(`${BACKEND}/memory-events/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'resolved' }),
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data?.id) {
-          setMemoryLog(log => ({
-            ...log,
-            events: log.events.map(event => event.id === data.id ? data : event),
-          }));
-        }
-      })
-      .catch(console.error);
-  };
-
   const saveManualMemoryEvent = async () => {
     if (savingMemoryEvent) return;
     const title = memoryEventDraft.title.trim();
@@ -1640,6 +1601,7 @@ export default function App({ initialView = 'chat', onHome }) {
           title,
           summary,
           event_type: memoryEventDraft.event_type,
+          event_date: memoryEventDraft.event_date || undefined,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -1659,6 +1621,7 @@ export default function App({ initialView = 'chat', onHome }) {
       title: event.title || '',
       summary: event.summary || '',
       event_type: event.event_type || 'note',
+      event_date: event.event_date || '',
     });
   };
 
@@ -1679,7 +1642,7 @@ export default function App({ initialView = 'chat', onHome }) {
       const response = await apiFetch(`${BACKEND}/memory-events/${editingMemoryEventId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, summary, event_type: editingMemoryEventDraft.event_type }),
+        body: JSON.stringify({ title, summary, event_type: editingMemoryEventDraft.event_type, event_date: editingMemoryEventDraft.event_date || undefined }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || '修改年表失败');
@@ -2317,34 +2280,45 @@ export default function App({ initialView = 'chat', onHome }) {
                 const l = letters.find(x => x.id === openLetterId);
                 if (!l) return null;
                 const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
+                const diaryDateKey = shanghaiDateKey(l.created_at);
+                const diarySummary = diarySummariesByDate[diaryDateKey];
                 return (
-                  <div style={{ marginTop: 14, background: style.background, border: style.border, borderLeft: style.extraBorderLeft || style.border, borderRadius: 10, padding: "22px 22px", color: style.color, boxShadow: "0 6px 18px rgba(46,31,18,.18)" }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l.title || "（没有标题）"}</div>
-                    <div style={{ fontSize: 10.5, opacity: .65, marginBottom: 16, letterSpacing: ".05em" }}>{l.author} · {l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
-                    <div style={{ fontSize: 14.5, lineHeight: 1.85, whiteSpace: "pre-wrap" }}>{l.content}</div>
-                    {(repliesByParentId.get(l.id) || []).map(r => (
-                      <div key={r.id} style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid rgba(0,0,0,.12)` }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2 }}>{r.author}</div>
-                        <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.content}</div>
+                  <>
+                    <div style={{ marginTop: 14, marginBottom: 10, padding: "11px 13px", color: C.honeyDeep, background: `linear-gradient(145deg, ${C.honeyLight}, ${C.white})`, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: `0 5px 14px ${C.borderLight}88` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                        <span style={{ fontSize: 10, letterSpacing: ".15em", fontWeight: 700 }}>今日摘要</span>
+                        <span style={{ color: C.mutedLight, fontSize: 9.5 }}>{diaryDateKey}</span>
                       </div>
-                    ))}
-                    {replyingToId === l.id ? (
-                      <div style={{ marginTop: 12 }}>
-                        <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: "rgba(255,255,255,.6)", border: `1px solid rgba(0,0,0,.15)`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-                          <span onClick={() => { setReplyingToId(null); setReplyText(""); }} style={{ fontSize: 11, cursor: "pointer", padding: "3px 8px", opacity: .7 }}>取消</span>
-                          <span onClick={() => submitReply(l.id)} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>留言</span>
+                      <p style={{ margin: 0, color: C.muted, fontSize: 11.5, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{diarySummary?.summary || "这一天的摘要还没有生成。"}</p>
+                    </div>
+                    <div style={{ background: style.background, border: style.border, borderLeft: style.extraBorderLeft || style.border, borderRadius: 10, padding: "22px 22px", color: style.color, boxShadow: "0 6px 18px rgba(46,31,18,.18)" }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l.title || "（没有标题）"}</div>
+                      <div style={{ fontSize: 10.5, opacity: .65, marginBottom: 16, letterSpacing: ".05em" }}>{l.author} · {l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                      <div style={{ fontSize: 14.5, lineHeight: 1.85, whiteSpace: "pre-wrap" }}>{l.content}</div>
+                      {(repliesByParentId.get(l.id) || []).map(r => (
+                        <div key={r.id} style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid rgba(0,0,0,.12)` }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2 }}>{r.author}</div>
+                          <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.content}</div>
                         </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
-                        <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .75 }}>{l.author === '泽' ? '叶檀留言' : '回信'}</span>
-                        {l.author !== '泽' && (
-                          <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .9, fontWeight: 600 }}>{aiWriting === l.id ? "陆泽在写…" : "请陆泽回信"}</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                      ))}
+                      {replyingToId === l.id ? (
+                        <div style={{ marginTop: 12 }}>
+                          <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: "rgba(255,255,255,.6)", border: `1px solid rgba(0,0,0,.15)`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
+                            <span onClick={() => { setReplyingToId(null); setReplyText(""); }} style={{ fontSize: 11, cursor: "pointer", padding: "3px 8px", opacity: .7 }}>取消</span>
+                            <span onClick={() => submitReply(l.id)} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>留言</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
+                          <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .75 }}>{l.author === '泽' ? '叶檀留言' : '回信'}</span>
+                          {l.author !== '泽' && (
+                            <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .9, fontWeight: 600 }}>{aiWriting === l.id ? "陆泽在写…" : "请陆泽回信"}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </>
                 );
               })()}
             </div>
@@ -2362,16 +2336,6 @@ export default function App({ initialView = 'chat', onHome }) {
               )}
               {!lettersLoading && orderedRootLetters.length === 0 && (
                 <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>这里还没有信，写第一篇吧。</div>
-              )}
-              {!lettersLoading && lettersCategory === '幸福日记' && (
-                <section style={{ marginBottom: 12, padding: "11px 13px", borderRadius: 15, background: `linear-gradient(145deg, ${C.white}, ${C.honeyLight})`, border: `1px solid ${C.border}`, boxShadow: `0 6px 16px ${C.borderLight}66` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 5 }}>
-                    <span style={{ width: 20, height: 20, display: "grid", placeItems: "center", borderRadius: 8, background: C.white, color: C.honeyDeep, fontSize: 10 }}>✦</span>
-                    <b style={{ color: C.text, fontSize: 12.5 }}>今日摘要</b>
-                    {letterTodaySummary?.mood && <small style={{ color: C.blushDeep, fontSize: 10 }}>今天的气氛：{letterTodaySummary.mood}</small>}
-                  </div>
-                  <p style={{ margin: 0, color: letterTodaySummary?.summary ? C.text : C.muted, fontSize: 12, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{letterTodaySummary?.summary || "今天的摘要还没生成。等聊过几轮，它会自己长出来。"}</p>
-                </section>
               )}
               {!lettersLoading && lettersCategory === '幸福日记' && orderedRootLetters.map(l => {
                 const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
@@ -2432,10 +2396,9 @@ export default function App({ initialView = 'chat', onHome }) {
                   <input value={newLetterTitle} onChange={e => setNewLetterTitle(e.target.value)} placeholder="今天的日记起个标题…" style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
                   <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                     {PAPER_STYLE_KEYS.map(key => (
-                      <div key={key} onClick={() => chooseDiaryPaperStyle(key)} title={PAPER_STYLES[key].label} style={{ width: 26, height: 26, borderRadius: 8, background: PAPER_STYLES[key].swatch, cursor: "pointer", border: selectedPaperStyle === key ? `2px solid ${C.honeyDeep}` : `1px solid ${C.border}`, boxShadow: selectedPaperStyle === key ? `0 0 0 2px ${C.honeyLight}` : "none" }} />
+                      <div key={key} onClick={() => setSelectedPaperStyle(key)} title={PAPER_STYLES[key].label} style={{ width: 26, height: 26, borderRadius: 8, background: PAPER_STYLES[key].swatch, cursor: "pointer", border: selectedPaperStyle === key ? `2px solid ${C.honeyDeep}` : `1px solid ${C.border}`, boxShadow: selectedPaperStyle === key ? `0 0 0 2px ${C.honeyLight}` : "none" }} />
                     ))}
                   </div>
-                  <div style={{ margin: "-4px 0 8px", color: diaryPaperSaved ? C.honeyDeep : C.muted, fontSize: 9.5 }}>{diaryPaperSaved ? "以后陆泽也会用这张纸。" : "点一下纸样，会保存成默认日记纸。"}</div>
                 </>
               )}
               <textarea value={newLetterText} onChange={e => setNewLetterText(e.target.value)} placeholder={lettersCategory === '悄悄话' ? "悄悄说一句…" : `在"${lettersCategory}"写一篇新的…`} rows={2} style={{ width: "100%", fontSize: 14, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
@@ -2753,148 +2716,44 @@ export default function App({ initialView = 'chat', onHome }) {
         </div>
       </aside>
 
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "memories") ? 1 : 0, pointerEvents: (stage === "home" && view === "memories") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
-        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-          <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 记忆</span>
-        </header>
-        <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
-          <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性" resetKey={memoryGroupsResetKey}>
-            <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 11.5, color: C.muted, flexShrink: 0 }}>随机性 {temperatureInput}</span>
-              <input type="range" min="0" max="1" step="0.1" value={temperatureInput} onChange={e => setTemperatureInput(e.target.value)} style={{ flex: 1 }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存人设"}</span>
-            </div>
-
-            <div style={{ marginTop: 15, paddingTop: 13, borderTop: `1px solid ${C.borderLight}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-                <div>
-                  <b style={{ color: C.text, fontSize: 12.5 }}>长期记忆</b>
-                  <p style={{ margin: "3px 0 0", color: C.muted, fontSize: 10.5 }}>稳定偏好、重要约定和长期资料</p>
-                </div>
-              </div>
-  <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-    <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
-    <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
-  </div>
-  {memoriesLoading && (
-    <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>翻找中…</div>
-  )}
-  {!memoriesLoading && memories.length === 0 && (
-    <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>还没有存下来的记忆。</div>
-  )}
-  {!memoriesLoading && memories.map((m, idx) => (
-    <div key={m.id ?? idx} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: idx === memories.length - 1 ? "none" : `1px solid ${C.borderLight}` }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-        {m.timestamp && (
-          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: ".1em", marginBottom: 4 }}>
-            {new Date(m.timestamp).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-          </div>
-        )}
-        {editingMemoryId !== m.id && (
-          <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-            <span onClick={() => startEditMemory(m)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
-            <span onClick={() => deleteMemory(m.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
-          </div>
-        )}
-      </div>
-      {editingMemoryId === m.id ? (
-        <div>
-          <textarea value={editingMemoryText} onChange={e => setEditingMemoryText(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-            <span onClick={cancelEditMemory} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", padding: "4px 8px" }}>取消</span>
-            <span onClick={saveEditMemory} style={{ fontSize: 11.5, color: C.white, cursor: "pointer", padding: "4px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
-          </div>
-        </div>
-      ) : (
-        <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap" }}>{m.summary}</div>
-      )}
-    </div>
-  ))}
-
-            </div>
-          </SettingsGroup>
-
-          <SettingsGroup theme={C} title="大事年表" subtitle="自动生成的重要事件、想法和节点" resetKey={memoryGroupsResetKey}>
-            <div style={{ padding: 12, borderRadius: 14, background: C.white, border: `1px solid ${C.borderLight}`, marginBottom: 12 }}>
-              <input
-                value={memoryEventDraft.title}
-                onChange={e => setMemoryEventDraft(draft => ({ ...draft, title: e.target.value }))}
-                placeholder="标题，比如：M3 记忆库优化"
-                style={{ width: "100%", marginBottom: 8, fontSize: 12.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", fontFamily: "inherit" }}
-              />
-              <textarea
-                value={memoryEventDraft.summary}
-                onChange={e => setMemoryEventDraft(draft => ({ ...draft, summary: e.target.value }))}
-                rows={3}
-                placeholder="补一条想写进年表的大事…"
-                style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", resize: "vertical", fontFamily: "inherit" }}
-              />
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
-                <select
-                  value={memoryEventDraft.event_type}
-                  onChange={e => setMemoryEventDraft(draft => ({ ...draft, event_type: e.target.value }))}
-                  style={{ minWidth: 0, flex: 1, fontSize: 12, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 10px", outline: "none", fontFamily: "inherit" }}
-                >
-                  {MEMORY_EVENT_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-                <button
-                  type="button"
-                  onClick={saveManualMemoryEvent}
-                  disabled={savingMemoryEvent}
-                  style={{ flexShrink: 0, border: 0, background: memoryEventDraft.title.trim() && memoryEventDraft.summary.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, borderRadius: 999, padding: "7px 14px", fontSize: 12, cursor: savingMemoryEvent ? "default" : "pointer", opacity: savingMemoryEvent ? .7 : 1, fontFamily: "inherit" }}
-                >{savingMemoryEvent ? "补进年表中…" : "补进年表"}</button>
-              </div>
-              {memoryEventError && <div role="alert" style={{ marginTop: 8, color: C.blushDeep, fontSize: 11 }}>{memoryEventError}</div>}
-            </div>
-            {memoryLog.events.length === 0 ? (
-              <div style={{ color: C.muted, fontSize: 12, padding: "12px 0" }}>还没有年表记录。</div>
-            ) : (
-              <div style={{ display: "grid", gap: 9 }}>
-                {memoryLog.events.slice(0, 12).map(event => (
-                  <article key={event.id} style={{ display: "grid", gridTemplateColumns: "46px 1fr", gap: 10, opacity: event.status === 'resolved' ? .55 : 1 }}>
-                    <time style={{ color: C.mutedLight, fontSize: 10, paddingTop: 2 }}>
-                      {event.occurred_at ? new Date(event.occurred_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : event.event_date}
-                    </time>
-                    <div style={{ paddingBottom: 10, borderBottom: `1px solid ${C.borderLight}` }}>
-                      {editingMemoryEventId === event.id ? (
-                        <div>
-                          <input value={editingMemoryEventDraft.title} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, title: e.target.value }))} style={{ width: "100%", marginBottom: 7, fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 9, padding: "7px 9px", outline: "none", fontFamily: "inherit" }} />
-                          <textarea value={editingMemoryEventDraft.summary} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, summary: e.target.value }))} rows={3} style={{ width: "100%", fontSize: 12.5, lineHeight: 1.55, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 9, padding: "7px 9px", outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 6 }}>
-                            <select value={editingMemoryEventDraft.event_type} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, event_type: e.target.value }))} style={{ minWidth: 0, flex: 1, fontSize: 11.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 8px", outline: "none", fontFamily: "inherit" }}>
-                              {MEMORY_EVENT_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                            </select>
-                            <span onClick={cancelEditMemoryEvent} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>取消</span>
-                            <span onClick={saveEditMemoryEvent} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "4px 9px", background: C.honey, borderRadius: 999 }}>保存</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3, flexWrap: "wrap" }}>
-                            <b style={{ color: C.text, fontSize: 12.5 }}>{event.title}</b>
-                            <span style={{ color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: "2px 7px", fontSize: 9 }}>{event.event_type}</span>
-                          </div>
-                          <p style={{ margin: 0, color: C.muted, fontSize: 11.5, lineHeight: 1.55 }}>{event.summary}</p>
-                          {event.emotion && <small style={{ display: "block", marginTop: 5, color: C.blushDeep, fontSize: 10 }}>情绪：{event.emotion}</small>}
-                          <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-                            <span onClick={() => startEditMemoryEvent(event)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
-                            <span onClick={() => deleteMemoryEvent(event.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </SettingsGroup>
-
-        </div>
-      </div>
+      <MemoryRoom
+        theme={C}
+        visible={stage === "home" && view === "memories"}
+        leaveRoom={leaveRoom}
+        resetKey={memoryGroupsResetKey}
+        systemPromptInput={systemPromptInput}
+        setSystemPromptInput={setSystemPromptInput}
+        temperatureInput={temperatureInput}
+        setTemperatureInput={setTemperatureInput}
+        savePersona={savePersona}
+        savingPersona={savingPersona}
+        newMemory={newMemory}
+        setNewMemory={setNewMemory}
+        saveMemory={saveMemory}
+        savingMemory={savingMemory}
+        memoriesLoading={memoriesLoading}
+        memories={memories}
+        editingMemoryId={editingMemoryId}
+        editingMemoryText={editingMemoryText}
+        setEditingMemoryText={setEditingMemoryText}
+        startEditMemory={startEditMemory}
+        cancelEditMemory={cancelEditMemory}
+        saveEditMemory={saveEditMemory}
+        deleteMemory={deleteMemory}
+        memoryEventDraft={memoryEventDraft}
+        setMemoryEventDraft={setMemoryEventDraft}
+        saveManualMemoryEvent={saveManualMemoryEvent}
+        savingMemoryEvent={savingMemoryEvent}
+        memoryEventError={memoryEventError}
+        memoryLog={memoryLog}
+        editingMemoryEventId={editingMemoryEventId}
+        editingMemoryEventDraft={editingMemoryEventDraft}
+        setEditingMemoryEventDraft={setEditingMemoryEventDraft}
+        startEditMemoryEvent={startEditMemoryEvent}
+        cancelEditMemoryEvent={cancelEditMemoryEvent}
+        saveEditMemoryEvent={saveEditMemoryEvent}
+        deleteMemoryEvent={deleteMemoryEvent}
+      />
 
       <div
         onClick={() => { if (!messageActionLoading) setMessageAction(null); }}
