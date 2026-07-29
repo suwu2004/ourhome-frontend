@@ -18,7 +18,7 @@ const MAX_BACKGROUND_IMAGE_BYTES = 6 * 1024 * 1024;
 const EMPTY_FAVORITE_DRAFT = {
   title: '',
   content: '',
-  category: '秘密抽屉',
+  category: '收藏',
   note: '',
   is_pinned: false,
 };
@@ -1508,7 +1508,7 @@ export default function App({ initialView = 'chat', onHome }) {
     setMemoriesLoading(true);
     Promise.all([
       apiFetch(`${BACKEND}/memories`).then(r => r.json()),
-      apiFetch(`${BACKEND}/memory-log?days=5`).then(r => r.json()),
+      apiFetch(`${BACKEND}/memory-log?days=30`).then(r => r.json()),
       apiFetch(`${BACKEND}/memory-favorites`).then(r => r.json()),
     ])
       .then(([memoryData, logData, favoriteData]) => {
@@ -1693,7 +1693,7 @@ export default function App({ initialView = 'chat', onHome }) {
           source: 'manual',
           title: title || content.slice(0, 28),
           content,
-          category: favoriteDraft.category.trim() || '秘密抽屉',
+          category: favoriteDraft.category.trim() || '收藏',
           note: favoriteDraft.note.trim() || null,
           is_pinned: favoriteDraft.is_pinned,
         }),
@@ -2911,7 +2911,7 @@ export default function App({ initialView = 'chat', onHome }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <div>
                 <div style={{ fontSize: 12.5, color: C.text }}>缺项自动补写</div>
-                <div style={{ marginTop: 3, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>只负责每天收尾，不管理记忆页的年表和抽屉。</div>
+                <div style={{ marginTop: 3, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>只负责每天收尾，不管理记忆页的年表和收藏。</div>
               </div>
               <button type="button" role="switch" aria-checked={dailyJournalEnabled} onClick={() => { setDailyJournalEnabled(value => !value); setDailyJournalSaved(false); }} style={{ width: 44, height: 24, padding: 0, border: 0, borderRadius: 999, background: dailyJournalEnabled ? C.honey : C.honeyMid, position: 'relative', cursor: 'pointer', transition: 'background .2s', flexShrink: 0 }}>
                 <span style={{ position: 'absolute', top: 2, left: dailyJournalEnabled ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: C.white, transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
