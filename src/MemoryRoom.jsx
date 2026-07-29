@@ -191,7 +191,7 @@ export function MemoryRoom({
           ))}
         </SettingsGroup>
 
-        <SettingsGroup theme={C} title="大事年表" subtitle="按日期合并相似事件，像年表一样保留节点" resetKey={resetKey}>
+        <SettingsGroup theme={C} title="大事年表" subtitle="手动添加，或明确让陆泽把重要事情记进年表" resetKey={resetKey}>
           <div style={{ padding: 12, borderRadius: 14, background: C.white, border: `1px solid ${C.borderLight}`, marginBottom: 12 }}>
             <input
               value={memoryEventDraft.title}
@@ -230,7 +230,7 @@ export function MemoryRoom({
             {memoryEventError && <div role="alert" style={{ marginTop: 8, color: C.blushDeep, fontSize: 11 }}>{memoryEventError}</div>}
           </div>
           {timelineEvents.length === 0 ? (
-            <div style={{ color: C.muted, fontSize: 12, padding: "12px 0" }}>还没有年表记录。</div>
+            <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.7, padding: "12px 0" }}>还没有年表记录。可以在这里手动写，也可以在聊天里告诉陆泽“这件事记进年表”。</div>
           ) : (
             <div style={{ display: "grid", gap: 9 }}>
               {timelineEvents.slice(0, 12).map(group => {
