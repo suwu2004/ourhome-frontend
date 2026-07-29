@@ -1508,7 +1508,7 @@ export default function App({ initialView = 'chat', onHome }) {
     setMemoriesLoading(true);
     Promise.all([
       apiFetch(`${BACKEND}/memories`).then(r => r.json()),
-      apiFetch(`${BACKEND}/memory-log?days=30`).then(r => r.json()),
+      apiFetch(`${BACKEND}/memory-log?days=365`).then(r => r.json()),
       apiFetch(`${BACKEND}/memory-favorites`).then(r => r.json()),
     ])
       .then(([memoryData, logData, favoriteData]) => {
