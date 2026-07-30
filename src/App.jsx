@@ -64,6 +64,22 @@ function formatMsgTime(date) {
   return `${hh}:${mi}`;
 }
 
+function mapDbMessage(m) {
+  return {
+    id: m.id,
+    role: m.role === "user" ? "me" : "ai",
+    text: m.content,
+    image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
+    file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
+    thinking: m.reasoning_content || null,
+    inputTokens: m.input_tokens || 0,
+    outputTokens: m.output_tokens || 0,
+    thinkingOpen: false,
+    createdAt: m.created_at,
+    time: formatMsgTime(m.created_at),
+  };
+}
+
 function messageDateKey(date) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
@@ -480,26 +496,62 @@ export default function App({ initialView = 'chat', onHome }) {
     return apiFetch(`${BACKEND}/sessions/${id}/messages`)
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped = data.map(m => ({
-            id: m.id,
-            role: m.role === "user" ? "me" : "ai",
-            text: m.content,
-            image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
-            file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
-            thinking: m.reasoning_content || null,
-            inputTokens: m.input_tokens || 0,
-            outputTokens: m.output_tokens || 0,
-            thinkingOpen: false,
-            createdAt: m.created_at,
-            time: formatMsgTime(m.created_at),
-          }));
-          setMsgs(mapped);
-          setVisible(mapped.length);
-          setHasHistory(true);
-        }
+        const mapped = (Array.isArray(data) ? data : []).map(mapDbMessage);
+        setMsgs(mapped);
+        setVisible(mapped.length);
+        setHasHistory(mapped.length > 0);
       });
   };
+
+  const openChatNotification = useCallback(({ session_id, sessionId: camelSessionId, message_id, messageId: camelMessageId } = {}) => {
+    const targetSessionId = session_id || camelSessionId || sessionIdRef.current;
+    const targetMessageId = message_id || camelMessageId || null;
+    setStage("home");
+    setView('chat');
+    if (!targetSessionId) return;
+    sessionIdRef.current = targetSessionId;
+    setSessionId(targetSessionId);
+    localStorage.setItem(SESSION_KEY, targetSessionId);
+    loadMessagesFor(targetSessionId)
+      .then(() => {
+        if (targetMessageId) {
+          setScrollToMsgId(targetMessageId);
+          setHighlightMsgId(targetMessageId);
+          setHighlightQuery('');
+          window.setTimeout(() => setHighlightMsgId(current => current === targetMessageId ? null : current), 2400);
+        }
+      })
+      .catch(console.error);
+    apiFetch(`${BACKEND}/sessions`)
+      .then(r => r.json())
+      .then(data => setSessions(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (locked) return undefined;
+    const handleServiceWorkerMessage = (event) => {
+      const payload = event.data || {};
+      if (payload.type !== 'ourhome-notification-click') return;
+      openChatNotification(payload);
+    };
+    navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
+  }, [locked, openChatNotification]);
+
+  useEffect(() => {
+    if (locked) return;
+    const params = new URLSearchParams(window.location.search);
+    const sessionParam = params.get('notification_session');
+    const messageParam = params.get('notification_message');
+    if (!sessionParam && !messageParam) return;
+    openChatNotification({ session_id: sessionParam, message_id: messageParam });
+    params.delete('notification_session');
+    params.delete('notification_message');
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash || '#chat'}`;
+    window.history.replaceState(null, '', nextUrl);
+  }, [locked, openChatNotification]);
 
   useEffect(() => {
     apiFetch(`${BACKEND}/sessions`)
@@ -1233,22 +1285,10 @@ export default function App({ initialView = 'chat', onHome }) {
     apiFetch(`${BACKEND}/sessions/${id}/messages`)
       .then(r => r.json())
       .then(data => {
-        const mapped = (Array.isArray(data) ? data : []).map(m => ({
-          id: m.id,
-          role: m.role === "user" ? "me" : "ai",
-          text: m.content,
-          image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
-          file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
-          thinking: m.reasoning_content || null,
-          inputTokens: m.input_tokens || 0,
-          outputTokens: m.output_tokens || 0,
-          thinkingOpen: false,
-          createdAt: m.created_at,
-          time: formatMsgTime(m.created_at),
-        }));
+        const mapped = (Array.isArray(data) ? data : []).map(mapDbMessage);
         setMsgs(mapped);
         setVisible(mapped.length);
-        setHasHistory(true);
+        setHasHistory(mapped.length > 0);
       })
       .catch(console.error);
     setDrawerOpen(false);
