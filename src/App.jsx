@@ -15,6 +15,8 @@ import { MILESTONE_KINDS, milestoneDisplay } from './milestoneDates.js';
 
 const SESSION_KEY = "ourhome_session_id";
 const MAX_BACKGROUND_IMAGE_BYTES = 6 * 1024 * 1024;
+const SESSION_TOKEN_SOFT_LIMIT = 250_000;
+const SESSION_TOKEN_HARD_LIMIT = 290_000;
 const EMPTY_FAVORITE_DRAFT = {
   title: '',
   content: '',
@@ -303,6 +305,9 @@ export default function App({ initialView = 'chat', onHome }) {
   const [pendingSearchJump, setPendingSearchJump] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const sessionIdRef = useRef(null);
+  const [sessionSummary, setSessionSummary] = useState(null);
+  const [sessionSummaryLoading, setSessionSummaryLoading] = useState(false);
+  const [sessionSummaryError, setSessionSummaryError] = useState('');
   const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
   const [hasHistory, setHasHistory] = useState(false);
   const [ready, setReady] = useState(false);
@@ -348,6 +353,11 @@ export default function App({ initialView = 'chat', onHome }) {
       totalOutputTokens: msgs.reduce((sum, message) => sum + (message.outputTokens || 0), 0),
     };
   }, [msgs]);
+  const sessionTokenPressure = chatUsage.currentContextTokens >= SESSION_TOKEN_HARD_LIMIT
+    ? 'hard'
+    : chatUsage.currentContextTokens >= SESSION_TOKEN_SOFT_LIMIT
+      ? 'soft'
+      : 'normal';
   const [fontStyle, setFontStyle] = useState(getSavedFont);
   const [weatherCityInput, setWeatherCityInput] = useState(getHomeWeatherCity);
   const [weatherCitySaved, setWeatherCitySaved] = useState(false);
@@ -507,14 +517,35 @@ export default function App({ initialView = 'chat', onHome }) {
   };
 
   const loadMessagesFor = (id) => {
-    return apiFetch(`${BACKEND}/sessions/${id}/messages`)
-      .then(r => r.json())
-      .then(data => {
+    setSessionSummaryError('');
+    return Promise.all([
+      apiFetch(`${BACKEND}/sessions/${id}/messages`).then(r => r.json()),
+      apiFetch(`${BACKEND}/sessions/${id}/summary`).then(r => r.json()).catch(() => null),
+    ])
+      .then(([data, summary]) => {
         const mapped = (Array.isArray(data) ? data : []).map(mapDbMessage);
         setMsgs(mapped);
         setVisible(mapped.length);
         setHasHistory(mapped.length > 0);
+        setSessionSummary(summary && summary.id ? summary : null);
       });
+  };
+
+  const generateCurrentSessionSummary = async () => {
+    if (!sessionId || sessionSummaryLoading) return;
+    setSessionSummaryLoading(true);
+    setSessionSummaryError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/sessions/${sessionId}/summary`, { method: 'POST' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '窗口简介没有生成成功');
+      setSessionSummary(data);
+      setTokenUsageOpen(true);
+    } catch (error) {
+      setSessionSummaryError(error.message || '窗口简介没有生成成功');
+    } finally {
+      setSessionSummaryLoading(false);
+    }
   };
 
   const openChatNotification = useCallback(({ session_id, sessionId: camelSessionId, message_id, messageId: camelMessageId } = {}) => {
@@ -2300,8 +2331,19 @@ export default function App({ initialView = 'chat', onHome }) {
               <button type="button" onClick={undoRollback} disabled={messageActionLoading} style={{ minWidth: 52, minHeight: 34, border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.white, color: C.honeyDeep, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>{messageActionLoading ? "恢复中…" : "撤销"}</button>
             </div>
           )}
+          {sessionTokenPressure !== 'normal' && !editingMessage && (
+            <div role="status" style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: sessionTokenPressure === 'hard' ? "rgba(214,120,104,.12)" : C.honeyLight, border: `1px solid ${sessionTokenPressure === 'hard' ? C.blushDeep : C.honeyMid}` }}>
+              <span style={{ flex: 1, minWidth: 0, color: sessionTokenPressure === 'hard' ? C.blushDeep : C.honeyDeep, fontSize: 10.8, lineHeight: 1.55 }}>
+                {sessionTokenPressure === 'hard' ? '这个窗口已经很接近截断临界点，先生成简介再开新窗口会更稳。' : '这个窗口快接近长聊临界点了，可以先给它留一份简介。'}
+              </span>
+              <button type="button" onClick={generateCurrentSessionSummary} disabled={sessionSummaryLoading} style={{ flexShrink: 0, minHeight: 30, border: 0, borderRadius: 999, padding: "0 10px", background: sessionSummaryLoading ? C.honeyMid : C.honey, color: C.white, fontSize: 10.5, cursor: sessionSummaryLoading ? "default" : "pointer", fontFamily: "inherit" }}>{sessionSummaryLoading ? "生成中…" : sessionSummary ? "更新简介" : "生成简介"}</button>
+            </div>
+          )}
           {messageActionError && !messageAction && (
             <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{messageActionError}</div>
+          )}
+          {sessionSummaryError && (
+            <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{sessionSummaryError}</div>
           )}
           {voiceError && (
             <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: C.honeyLight, color: C.honeyDeep, fontSize: 10.5, lineHeight: 1.5 }}>{voiceError}</div>
@@ -2325,6 +2367,18 @@ export default function App({ initialView = 'chat', onHome }) {
                 ))}
               </div>
               <div style={{ fontSize: 9.5, color: C.muted, lineHeight: 1.5, marginTop: 7 }}>上下文是陆泽下一次回复会带着的聊天量；累计生成是这段对话里已经生成的 token。</div>
+              <div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${C.honeyMid}` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep }}>{sessionSummary?.title || "窗口简介"}</div>
+                    <div style={{ marginTop: 2, fontSize: 9.5, color: C.muted }}>{sessionSummary ? `${sessionSummary.message_count || msgs.length} 条消息 · 已托管在云端` : "这个聊天窗口还没有生成简介"}</div>
+                  </div>
+                  <button type="button" onClick={generateCurrentSessionSummary} disabled={sessionSummaryLoading || !sessionId} style={{ flexShrink: 0, minHeight: 28, border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.white, color: C.honeyDeep, cursor: sessionSummaryLoading ? "default" : "pointer", padding: "0 9px", fontFamily: "inherit", fontSize: 10 }}>{sessionSummaryLoading ? "生成中…" : sessionSummary ? "更新" : "生成"}</button>
+                </div>
+                {sessionSummary?.summary && (
+                  <p style={{ margin: "7px 0 0", color: C.text, fontSize: 10.5, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto" }}>{sessionSummary.summary}</p>
+                )}
+              </div>
             </div>
           )}
           {(pendingFile || imageUploading) && (
