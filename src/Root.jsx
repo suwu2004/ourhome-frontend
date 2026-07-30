@@ -4,7 +4,7 @@ import { HomeHub } from './HomeHub.jsx';
 import { useTheme } from './ThemeContext.jsx';
 import VaultPage from './VaultPage.jsx';
 
-const roomKeys = new Set(['chat', 'letters', 'memories', 'calendar', 'vault', 'settings']);
+const roomKeys = new Set(['chat', 'phone', 'letters', 'memories', 'calendar', 'vault', 'settings']);
 
 function roomFromHash() {
   const key = window.location.hash.replace(/^#/, '');
