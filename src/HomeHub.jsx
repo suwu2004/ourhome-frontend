@@ -104,6 +104,15 @@ function CoinIcon() {
   );
 }
 
+function PhoneIcon() {
+  return (
+    <svg className="home-room-glyph home-phone-icon" viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M10.5 6.5 8 9c-.8.8-1 2-.4 3.3 2.4 5.4 6.7 9.7 12.1 12.1 1.3.6 2.5.4 3.3-.4l2.5-2.5-5-4.4-2.2 2.2c-2.3-1.2-4.4-3.3-5.6-5.6l2.2-2.2-4.4-5Z" />
+      <path d="M20.5 7.5c2.2.7 3.3 1.8 4 4M20 3.8c4.3 1 6.8 3.6 7.9 7.9" />
+    </svg>
+  );
+}
+
 function OccasionReminder({ occasion }) {
   if (!occasion) return null;
   if (occasion.days === 0) return <>今天是「{occasion.label}」♡</>;
@@ -458,6 +467,10 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
           <button className="home-room-app home-room-app--letters" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
             <span><EnvelopeIcon /></span>
             <strong>时光信差</strong>
+          </button>
+          <button className="home-room-app home-room-app--phone" type="button" onClick={() => onOpen('phone')} aria-label="打开电话房间">
+            <span><PhoneIcon /></span>
+            <strong>打电话</strong>
           </button>
           <button className="home-room-app home-room-app--vault" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
             <span><CoinIcon /></span>
