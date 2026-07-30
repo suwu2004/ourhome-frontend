@@ -89,6 +89,16 @@ function messageDateKey(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function cleanSpeechText(value) {
+  return String(value || '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/[*_~`#>]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function shanghaiDateKey(value) {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return '';
@@ -353,6 +363,10 @@ export default function App({ initialView = 'chat', onHome }) {
   const [view, setView] = useState(initialView);
   const [memoryGroupsResetKey, setMemoryGroupsResetKey] = useState(0);
   const [settingsGroupsResetKey, setSettingsGroupsResetKey] = useState(0);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState(null);
+  const [voiceError, setVoiceError] = useState('');
+  const lastAutoSpokenMsgIdRef = useRef(null);
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
@@ -1379,6 +1393,48 @@ export default function App({ initialView = 'chat', onHome }) {
     });
   };
 
+  const stopVoice = useCallback(() => {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    setSpeakingMsgId(null);
+  }, []);
+
+  const speakMessage = useCallback((message) => {
+    const text = cleanSpeechText(message?.text);
+    if (!text) return;
+    if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance === 'undefined') {
+      setVoiceError('这个浏览器暂时不能直接朗读。');
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'zh-CN';
+    utterance.rate = 0.92;
+    utterance.pitch = 0.92;
+    const voices = window.speechSynthesis.getVoices?.() || [];
+    const preferredVoice = voices.find(voice => /zh|中文|Chinese|Mandarin/i.test(`${voice.lang} ${voice.name}`));
+    if (preferredVoice) utterance.voice = preferredVoice;
+    utterance.onstart = () => {
+      setVoiceError('');
+      setSpeakingMsgId(message.id);
+    };
+    utterance.onend = () => setSpeakingMsgId(current => current === message.id ? null : current);
+    utterance.onerror = () => {
+      setSpeakingMsgId(current => current === message.id ? null : current);
+      setVoiceError('这次没有读出来，换个浏览器语音再试。');
+    };
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  useEffect(() => () => stopVoice(), [stopVoice]);
+
+  useEffect(() => {
+    if (!voiceMode || thinking) return;
+    const lastAiMessage = [...msgs].reverse().find(message => message.role === 'ai' && message.text && !String(message.id).startsWith('temp-error'));
+    if (!lastAiMessage || lastAutoSpokenMsgIdRef.current === lastAiMessage.id) return;
+    lastAutoSpokenMsgIdRef.current = lastAiMessage.id;
+    speakMessage(lastAiMessage);
+  }, [msgs, thinking, speakMessage, voiceMode]);
+
   const openMessageActions = (message) => {
     if (thinking || messageActionLoading || String(message.id).startsWith('temp-')) return;
     const index = msgs.findIndex(item => item.id === message.id);
@@ -2128,6 +2184,20 @@ export default function App({ initialView = 'chat', onHome }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={() => {
+                  setVoiceMode(enabled => {
+                    const next = !enabled;
+                    if (!next) stopVoice();
+                    return next;
+                  });
+                  setVoiceError('');
+                }}
+                aria-pressed={voiceMode}
+                aria-label={voiceMode ? "关闭通话朗读" : "打开通话朗读"}
+                title={voiceMode ? "关闭通话朗读" : "打开通话朗读"}
+                style={{ fontSize: 13, color: voiceMode ? C.white : C.honeyDeep, background: voiceMode ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >☎</button>
               <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
             </div>
           </div>
@@ -2184,6 +2254,15 @@ export default function App({ initialView = 'chat', onHome }) {
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
                     <span style={{ fontSize: 9.5, color: C.mutedLight }}>{m.time || formatMsgTime(m.createdAt)}</span>
+                    {!isMe && m.text && (
+                      <button
+                        type="button"
+                        onClick={() => speakingMsgId === m.id ? stopVoice() : speakMessage(m)}
+                        aria-label={speakingMsgId === m.id ? "停止朗读" : "播放陆泽回复"}
+                        title={speakingMsgId === m.id ? "停止朗读" : "播放陆泽回复"}
+                        style={{ width: 30, height: 30, border: `1px solid ${speakingMsgId === m.id ? C.honeyMid : C.border}`, borderRadius: 999, background: speakingMsgId === m.id ? C.honeyLight : "rgba(255,255,255,.55)", color: speakingMsgId === m.id ? C.honeyDeep : C.muted, cursor: "pointer", fontSize: 13, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
+                      >{speakingMsgId === m.id ? "■" : "▶"}</button>
+                    )}
                     <button
                       type="button"
                       onClick={() => openMessageActions(m)}
@@ -2223,6 +2302,9 @@ export default function App({ initialView = 'chat', onHome }) {
           )}
           {messageActionError && !messageAction && (
             <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{messageActionError}</div>
+          )}
+          {voiceError && (
+            <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: C.honeyLight, color: C.honeyDeep, fontSize: 10.5, lineHeight: 1.5 }}>{voiceError}</div>
           )}
           {tokenUsageOpen && (
             <div id="chat-token-usage" style={{ marginBottom: 8, padding: "10px 11px", borderRadius: 14, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
