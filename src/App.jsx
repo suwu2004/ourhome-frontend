@@ -449,6 +449,17 @@ export default function App({ initialView = 'chat', onHome }) {
     },
   };
   const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
+  const getPaperStyle = (key) => {
+    const base = PAPER_STYLES[key] || PAPER_STYLES.parchment;
+    if (!darkMode) return base;
+    return {
+      ...base,
+      background: `linear-gradient(145deg, ${C.white}, ${C.surface})`,
+      border: `1px solid ${C.border}`,
+      color: C.text,
+      extraBorderLeft: base.extraBorderLeft ? `3px solid ${C.honeyMid}` : undefined,
+    };
+  };
   const [newLetterTitle, setNewLetterTitle] = useState("");
   const [revealedIds, setRevealedIds] = useState(() => new Set());
   const [openLetterId, setOpenLetterId] = useState(null);
@@ -2281,7 +2292,7 @@ export default function App({ initialView = 'chat', onHome }) {
               {(() => {
                 const l = letters.find(x => x.id === openLetterId);
                 if (!l) return null;
-                const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
+                const style = getPaperStyle(l.paper_style);
                 const diaryDateKey = shanghaiDateKey(l.created_at);
                 const diarySummary = diarySummariesByDate[diaryDateKey];
                 return (
@@ -2340,7 +2351,7 @@ export default function App({ initialView = 'chat', onHome }) {
                 <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>这里还没有信，写第一篇吧。</div>
               )}
               {!lettersLoading && lettersCategory === '幸福日记' && orderedRootLetters.map(l => {
-                const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
+                const style = getPaperStyle(l.paper_style);
                 return (
                   <div key={l.id} onClick={() => setOpenLetterId(l.id)} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 14px", cursor: "pointer" }}>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: style.swatch, flexShrink: 0, border: "1px solid rgba(0,0,0,.15)" }} />
@@ -2353,7 +2364,7 @@ export default function App({ initialView = 'chat', onHome }) {
               {!lettersLoading && lettersCategory === '悄悄话' && orderedRootLetters.map(l => {
                 const revealed = revealedIds.has(l.id);
                 return (
-                  <div key={l.id} style={{ marginBottom: 16, background: "rgba(255,248,236,.94)", border: `1px solid #D9C19A`, borderRadius: 14, padding: "12px 14px", boxShadow: "0 4px 10px rgba(0,0,0,.25)" }}>
+                  <div key={l.id} style={{ marginBottom: 16, background: darkMode ? C.white : "rgba(255,248,236,.94)", border: `1px solid ${darkMode ? C.border : "#D9C19A"}`, borderRadius: 14, padding: "12px 14px", boxShadow: "0 4px 10px rgba(0,0,0,.25)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: C.honeyDeep }}>{l.author}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2362,7 +2373,7 @@ export default function App({ initialView = 'chat', onHome }) {
                       </div>
                     </div>
                     {!revealed ? (
-                      <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 13, color: "#A78A5E", cursor: "pointer", padding: "10px 0", textAlign: "center", letterSpacing: ".1em", border: `1px dashed #D9C19A`, borderRadius: 8 }}>🔒 轻触查看悄悄话</div>
+                      <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 13, color: darkMode ? C.mutedLight : "#A78A5E", cursor: "pointer", padding: "10px 0", textAlign: "center", letterSpacing: ".1em", border: `1px dashed ${darkMode ? C.borderLight : "#D9C19A"}`, borderRadius: 8 }}>🔒 轻触查看悄悄话</div>
                     ) : (
                       <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 14, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap", cursor: "pointer" }}>{l.content}</div>
                     )}
