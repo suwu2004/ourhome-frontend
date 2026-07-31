@@ -11,6 +11,7 @@ const emptyDraft = {
   previousText: '',
   request: '',
   mode: 'main',
+  playMode: 'interactive',
   lengthMode: 'long',
   save: true,
 };
@@ -112,8 +113,9 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     if (selectedModel) setModel(selectedModel);
   }, [selectedModel]);
 
-  const generate = async () => {
-    if (!draft.premise.trim() && !draft.characters.trim() && !draft.request.trim()) {
+  const generate = async (overrideRequest = null) => {
+    const requestText = overrideRequest ?? draft.request;
+    if (!draft.premise.trim() && !draft.characters.trim() && !requestText.trim()) {
       setError('先给小剧场一点设定、角色，或者这次想看的剧情。');
       return;
     }
@@ -129,8 +131,9 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
           characters: draft.characters,
           rules: draft.rules,
           previous_text: draft.previousText,
-          request: draft.request,
+          request: requestText,
           mode: draft.mode,
+          play_mode: draft.playMode,
           length_mode: draft.lengthMode,
           save: draft.save,
           model,
@@ -149,6 +152,11 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     } finally {
       setGenerating(false);
     }
+  };
+
+  const choosePath = choice => {
+    updateDraft({ request: `沿着这个走向继续：${choice}` });
+    generate(`沿着这个走向继续：${choice}`);
   };
 
   const continueFrom = work => {
@@ -213,6 +221,12 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
                   <button key={value} type="button" onClick={() => updateDraft({ mode: value })} style={{ border: `1px solid ${draft.mode === value ? C.honeyMid : C.border}`, background: draft.mode === value ? C.honeyLight : C.surface, color: draft.mode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
                 ))}
                 {[
+                  ['interactive', '互动推进'],
+                  ['story', '沉浸长文'],
+                ].map(([value, label]) => (
+                  <button key={value} type="button" onClick={() => updateDraft({ playMode: value })} style={{ border: `1px solid ${draft.playMode === value ? C.honeyMid : C.border}`, background: draft.playMode === value ? C.honeyLight : C.surface, color: draft.playMode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
+                ))}
+                {[
                   ['short', '短一点'],
                   ['long', '长文'],
                   ['extra_long', '超长'],
@@ -240,6 +254,24 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
               <article style={{ border: `1px solid ${C.border}`, borderRadius: 14, background: 'linear-gradient(180deg, #fffdfa, #fff7ec)', padding: '18px 16px', color: C.text, boxShadow: `0 12px 28px ${C.borderLight}88` }}>
                 <h2 style={{ margin: '0 0 12px', fontSize: 18, color: C.text }}>{result.title || '小剧场'}</h2>
                 <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.9, fontSize: 15 }}>{result.content}</div>
+                {Array.isArray(result.choices) && result.choices.length > 0 && (
+                  <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+                    <div style={{ color: C.honeyDeep, fontSize: 12, fontWeight: 700, letterSpacing: '.12em', marginBottom: 8 }}>可选走向</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {result.choices.map((choice, index) => (
+                        <button
+                          key={`${choice}-${index}`}
+                          type="button"
+                          onClick={() => choosePath(choice)}
+                          disabled={generating}
+                          style={{ textAlign: 'left', border: `1px solid ${C.border}`, borderRadius: 12, background: C.surface, color: C.text, padding: '10px 11px', fontFamily: 'inherit', cursor: generating ? 'default' : 'pointer', lineHeight: 1.55 }}
+                        >
+                          {index + 1}. {choice}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </article>
             )}
           </div>
