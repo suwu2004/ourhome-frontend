@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 
 const emptySettings = {
+  worldbook_text: '',
+  worldbook_only: false,
   premise: '',
   characters: '',
   rules: '',
@@ -95,6 +97,7 @@ function normalizeDraftSettings(value = {}) {
   return {
     ...emptySettings,
     ...value,
+    worldbook_only: Boolean(value.worldbook_only),
     chat_background_mode: value.chat_background_mode || 'main',
   };
 }
@@ -105,6 +108,8 @@ function parseTheaterImport(rawText) {
   if (!text) return draft;
 
   const buckets = { ...emptySettings };
+  buckets.worldbook_text = text;
+  buckets.worldbook_only = true;
   let current = 'premise';
   const lines = text.split('\n');
 
@@ -136,11 +141,14 @@ function parseTheaterImport(rawText) {
     premise: buckets.premise.trim(),
     characters: buckets.characters.trim(),
     rules: buckets.rules.trim(),
+    worldbook_text: buckets.worldbook_text.trim(),
+    worldbook_only: buckets.worldbook_only,
     user_name: buckets.user_name.trim(),
     assistant_name: buckets.assistant_name.trim(),
   });
   if (!draft.settings.premise && !draft.settings.characters && !draft.settings.rules) {
-    draft.settings.premise = text;
+    draft.settings.worldbook_text = text;
+    draft.settings.worldbook_only = true;
   }
   return draft;
 }
@@ -263,7 +271,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
 
   const importWorld = async () => {
     const draft = parseTheaterImport(importText);
-    if (!draft.settings.premise.trim() && !draft.settings.characters.trim() && !draft.settings.rules.trim()) {
+    if (!draft.settings.worldbook_text.trim() && !draft.settings.premise.trim() && !draft.settings.characters.trim() && !draft.settings.rules.trim()) {
       setError('先把世界观、人设或者规则贴进来。');
       return;
     }
@@ -494,7 +502,8 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginTop: 10 }}>
               {[
                 ['书名', importPreview.title],
-                ['世界观', importPreview.settings.premise ? `${importPreview.settings.premise.length} 字` : '未识别'],
+                ['全文', importPreview.settings.worldbook_text ? `${importPreview.settings.worldbook_text.length} 字` : '未识别'],
+                ['世界观', importPreview.settings.premise ? `${importPreview.settings.premise.length} 字` : '可空'],
                 ['人设', importPreview.settings.characters ? `${importPreview.settings.characters.length} 字` : '未识别'],
                 ['规则', importPreview.settings.rules ? `${importPreview.settings.rules.length} 字` : '未识别'],
               ].map(([label, value]) => (
@@ -561,7 +570,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const renderBook = () => {
     if (!selectedBook) return null;
     const messages = selectedBook.messages || [];
-    const settingsReady = bookDraft.settings.premise.trim() || bookDraft.settings.characters.trim();
+    const settingsReady = bookDraft.settings.worldbook_text.trim() || bookDraft.settings.premise.trim() || bookDraft.settings.characters.trim();
     const userDisplayName = bookDraft.settings.user_name?.trim() || '你';
     const assistantDisplayName = bookDraft.settings.assistant_name?.trim() || '小剧场';
     if (bookPane === 'settings') {
@@ -588,6 +597,24 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
                     <input value={bookDraft.settings.assistant_name || ''} onChange={event => patchDraftSettings({ assistant_name: event.target.value })} placeholder="比如：哥哥、陆泽、旁白…" style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '8px 12px', outline: 'none', fontFamily: 'inherit', fontSize: 13 }} />
                   </label>
                 </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.muted, fontSize: 12, marginBottom: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(bookDraft.settings.worldbook_only)}
+                    onChange={event => patchDraftSettings({ worldbook_only: event.target.checked })}
+                  />
+                  只按完整世界书读取，不强迫拆角色卡和禁区
+                </label>
+                <Field
+                  theme={C}
+                  label="完整世界书"
+                  hint={bookDraft.settings.worldbook_text ? `${bookDraft.settings.worldbook_text.length} 字` : '上传 Word 后会自动放这里'}
+                  rows={7}
+                  value={bookDraft.settings.worldbook_text}
+                  onChange={value => patchDraftSettings({ worldbook_text: value })}
+                  placeholder="可以整段放世界书全文。打开“只按完整世界书读取”后，下面的分栏可以留空。"
+                />
+                <div style={{ height: 12 }} />
                 <Field theme={C} label="世界观 / 剧情设定" rows={5} value={bookDraft.settings.premise} onChange={value => patchDraftSettings({ premise: value })} placeholder="这里写这个小世界的基础设定。" />
                 <div style={{ height: 10 }} />
                 <Field theme={C} label="角色卡 / 关系" rows={5} value={bookDraft.settings.characters} onChange={value => patchDraftSettings({ characters: value })} placeholder="人物性格、关系张力、称呼、不能崩的点。" />
