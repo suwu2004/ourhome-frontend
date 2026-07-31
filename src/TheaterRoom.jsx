@@ -7,6 +7,22 @@ const emptySettings = {
   rules: '',
 };
 
+const importStarter = `剧场名：
+
+世界观：
+
+人设 / 角色关系：
+
+禁区 / 写作规则：
+`;
+
+const theaterImportSections = [
+  ['title', /^(?:#+\s*)?(?:剧场名|小剧场名|书名|标题|世界名|世界名称)\s*[：:]\s*(.*)$/i],
+  ['premise', /^(?:#+\s*)?(?:世界观|背景|剧情设定|故事设定|世界设定|故事背景|设定)\s*[：:]?\s*(.*)$/i],
+  ['characters', /^(?:#+\s*)?(?:人设|人物设定|角色卡|角色|角色关系|关系|人物关系|cp|主角)\s*[：:]?\s*(.*)$/i],
+  ['rules', /^(?:#+\s*)?(?:禁区|避雷|规则|写作规则|注意事项|不能|不要|防ooc|防 OOC|ooc)\s*[：:]?\s*(.*)$/i],
+];
+
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -53,6 +69,53 @@ function makeBookDraft(title = '未命名小剧本') {
   return { title, settings: { ...emptySettings } };
 }
 
+function appendSection(target, key, value) {
+  const text = String(value || '').trim();
+  if (!text) return;
+  target[key] = [target[key], text].filter(Boolean).join('\n').trim();
+}
+
+function parseTheaterImport(rawText) {
+  const text = String(rawText || '').replace(/\r\n/g, '\n').trim();
+  const draft = makeBookDraft('导入的小世界');
+  if (!text) return draft;
+
+  const buckets = { premise: '', characters: '', rules: '' };
+  let current = 'premise';
+  const lines = text.split('\n');
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    const matched = theaterImportSections.find(([, pattern]) => pattern.test(trimmed));
+    if (matched) {
+      const [section, pattern] = matched;
+      const inline = trimmed.match(pattern)?.[1]?.trim() || '';
+      if (section === 'title') {
+        if (inline) draft.title = inline.slice(0, 80);
+        current = 'premise';
+      } else {
+        current = section;
+        appendSection(buckets, current, inline);
+      }
+      return;
+    }
+    appendSection(buckets, current, line);
+  });
+
+  const headingTitle = text.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  if (draft.title === '导入的小世界' && headingTitle) draft.title = headingTitle.slice(0, 80);
+
+  draft.settings = {
+    premise: buckets.premise.trim(),
+    characters: buckets.characters.trim(),
+    rules: buckets.rules.trim(),
+  };
+  if (!draft.settings.premise && !draft.settings.characters && !draft.settings.rules) {
+    draft.settings.premise = text;
+  }
+  return draft;
+}
+
 export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availableModels = [] }) {
   const C = theme;
   const [books, setBooks] = useState([]);
@@ -63,6 +126,10 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const [chatInput, setChatInput] = useState('');
   const [chatting, setChatting] = useState(false);
   const [error, setError] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importPreview, setImportPreview] = useState(makeBookDraft('导入的小世界'));
+  const [importingWorld, setImportingWorld] = useState(false);
   const [mode, setMode] = useState('interactive');
   const [lengthMode, setLengthMode] = useState('long');
   const [model, setModel] = useState(selectedModel || '');
@@ -134,6 +201,45 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       setError(err.message);
     } finally {
       setSavingBook(false);
+    }
+  };
+
+  const updateImportText = value => {
+    setImportText(value);
+    setImportPreview(parseTheaterImport(value));
+  };
+
+  const openImportPanel = () => {
+    setError('');
+    setImportOpen(true);
+    if (!importText.trim()) updateImportText(importStarter);
+  };
+
+  const importWorld = async () => {
+    const draft = parseTheaterImport(importText);
+    if (!draft.settings.premise.trim() && !draft.settings.characters.trim() && !draft.settings.rules.trim()) {
+      setError('先把世界观、人设或者规则贴进来。');
+      return;
+    }
+    setImportingWorld(true);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/theater/books`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '这个小世界没有导入成功');
+      setBooks(items => [data, ...items]);
+      setSelectedBookId(data.id);
+      setImportOpen(false);
+      setImportText('');
+      setImportPreview(makeBookDraft('导入的小世界'));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImportingWorld(false);
     }
   };
 
@@ -235,9 +341,47 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             <div style={{ color: C.text, fontSize: 20, fontWeight: 700 }}>剧场书架</div>
             <div style={{ color: C.mutedLight, fontSize: 11, letterSpacing: '.12em', marginTop: 3 }}>每一本书，都是一个小世界。</div>
           </div>
-          <button type="button" onClick={createBook} disabled={savingBook} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '10px 15px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer', opacity: savingBook ? .65 : 1 }}>＋ 新书</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={openImportPanel} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '10px 13px', fontFamily: 'inherit', cursor: 'pointer' }}>导入世界</button>
+            <button type="button" onClick={createBook} disabled={savingBook} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '10px 15px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer', opacity: savingBook ? .65 : 1 }}>＋ 新书</button>
+          </div>
         </div>
         {error && <div style={{ marginBottom: 12, color: C.blushDeep, fontSize: 12 }}>{error}</div>}
+        {importOpen && (
+          <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14, marginBottom: 16, boxShadow: `0 10px 26px ${C.borderLight}66` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+              <div>
+                <div style={{ color: C.text, fontWeight: 700 }}>一键导入小世界</div>
+                <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 3 }}>把世界观、人设、关系和禁区整段贴进来，不会额外花 API 额度。</div>
+              </div>
+              <button type="button" onClick={() => setImportOpen(false)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer' }}>收起</button>
+            </div>
+            <textarea
+              value={importText}
+              onChange={event => updateImportText(event.target.value)}
+              rows={8}
+              placeholder="可以直接贴：剧场名、世界观、人设、关系、禁区、写作规则……"
+              style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${C.border}`, borderRadius: 13, background: C.surface, color: C.text, padding: '10px 11px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 13, lineHeight: 1.65 }}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginTop: 10 }}>
+              {[
+                ['书名', importPreview.title],
+                ['世界观', importPreview.settings.premise ? `${importPreview.settings.premise.length} 字` : '未识别'],
+                ['人设', importPreview.settings.characters ? `${importPreview.settings.characters.length} 字` : '未识别'],
+                ['规则', importPreview.settings.rules ? `${importPreview.settings.rules.length} 字` : '未识别'],
+              ].map(([label, value]) => (
+                <div key={label} style={{ border: `1px solid ${C.borderLight}`, borderRadius: 12, background: C.cream, padding: '8px 9px', minWidth: 0 }}>
+                  <span style={{ display: 'block', color: C.mutedLight, fontSize: 9, letterSpacing: '.12em' }}>{label}</span>
+                  <b style={{ display: 'block', color: C.text, fontSize: 12, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</b>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <button type="button" onClick={() => updateImportText(importStarter)} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.muted, padding: '8px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>填模板</button>
+              <button type="button" onClick={importWorld} disabled={importingWorld} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '8px 14px', fontFamily: 'inherit', cursor: importingWorld ? 'default' : 'pointer', opacity: importingWorld ? .65 : 1 }}>{importingWorld ? '导入中' : '生成一本书'}</button>
+            </div>
+          </section>
+        )}
         {loadingBooks && <div style={{ color: C.muted, padding: '24px 0', textAlign: 'center' }}>正在整理书架…</div>}
         {!loadingBooks && books.length === 0 && (
           <button type="button" onClick={createBook} style={{ width: '100%', border: `1.5px dashed ${C.honeyMid}`, borderRadius: 16, background: C.white, color: C.honeyDeep, padding: '30px 18px', fontFamily: 'inherit', fontSize: 15, cursor: 'pointer' }}>
