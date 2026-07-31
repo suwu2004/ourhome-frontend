@@ -2761,6 +2761,7 @@ export default function App({ initialView = 'chat', onHome }) {
         leaveRoom={leaveRoom}
         selectedModel={selectedModel}
         availableModels={availableModels}
+        mainChatBackground={{ image: bgImage, color: bgColor || "#FDFAF5" }}
       />
 
       <MusicRoom
