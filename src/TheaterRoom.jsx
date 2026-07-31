@@ -345,7 +345,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
           messages: [
             ...(book.messages || []),
             data.user_message,
-            { ...data.assistant_message, choices: data.choices || [] },
+            data.assistant_message,
           ].filter(Boolean),
           message_count: (book.message_count || 0) + 2,
           last_message_at: data.assistant_message?.created_at || new Date().toISOString(),
@@ -438,7 +438,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
                   minHeight: 188,
                   border: `1px solid ${C.border}`,
                   borderRadius: 12,
-                  background: `linear-gradient(135deg, ${index % 3 === 0 ? '#fff8dc' : index % 3 === 1 ? '#fff0e8' : '#eef8ef'}, ${C.white})`,
+                  background: `linear-gradient(135deg, ${index % 3 === 0 ? C.honeyLight : index % 3 === 1 ? C.blush : C.surface}, ${C.white})`,
                   color: C.text,
                   boxShadow: `0 12px 24px ${C.borderLight}88`,
                   padding: 14,
@@ -507,7 +507,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
                     ['long', '长'],
                     ['extra_long', '超长'],
                   ].map(([value, label]) => (
-                    <button key={value} type="button" onClick={() => setLengthMode(value)} style={{ border: `1px solid ${lengthMode === value ? C.blush : C.border}`, background: lengthMode === value ? '#FFF0E9' : C.surface, color: lengthMode === value ? C.blushDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
+                    <button key={value} type="button" onClick={() => setLengthMode(value)} style={{ border: `1px solid ${lengthMode === value ? C.blush : C.border}`, background: lengthMode === value ? C.blush : C.surface, color: lengthMode === value ? C.blushDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
                   ))}
                 </div>
                 <select value={model} onChange={event => setModel(event.target.value)} style={{ width: '100%', marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.muted, borderRadius: 999, padding: '7px 10px', fontFamily: 'inherit', fontSize: 11 }}>
@@ -536,7 +536,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
           <button type="button" onClick={() => setBookPane('settings')} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.honeyDeep, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 }}>设定</button>
         </div>
 
-        <div style={{ flex: 1, minHeight: 0, maxWidth: 760, width: '100%', margin: '0 auto', border: `1px solid ${C.border}`, borderRadius: 18, background: 'linear-gradient(180deg, #fffdfa, #fff8ef)', padding: 12, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, minHeight: 0, maxWidth: 760, width: '100%', margin: '0 auto', border: `1px solid ${C.border}`, borderRadius: 18, background: `linear-gradient(180deg, ${C.white}, ${C.surface})`, padding: 12, display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px 12px' }}>
             {messages.length === 0 && (
               <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.8, padding: '30px 10px', textAlign: 'center' }}>
@@ -547,13 +547,6 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
               <div key={message.id} style={{ alignSelf: message.role === 'user' ? 'flex-end' : 'stretch', maxWidth: message.role === 'user' ? '82%' : '100%' }}>
                 <div style={{ color: message.role === 'user' ? C.honeyDeep : C.mutedLight, fontSize: 10, marginBottom: 4, textAlign: message.role === 'user' ? 'right' : 'left' }}>{message.role === 'user' ? '你 / 导演' : '小剧场'} · {formatDate(message.created_at)}</div>
                 <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.85, fontSize: message.role === 'user' ? 13.5 : 14.5, color: C.text, background: message.role === 'user' ? C.honeyLight : C.white, border: `1px solid ${message.role === 'user' ? C.honeyMid : C.border}`, borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : 13, padding: '10px 12px' }}>{message.content}</div>
-                {Array.isArray(message.choices) && message.choices.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 8 }}>
-                    {message.choices.map((choice, index) => (
-                      <button key={`${choice}-${index}`} type="button" onClick={() => sendChat(`选择走向 ${index + 1}：${choice}`)} disabled={chatting} style={{ textAlign: 'left', border: `1px solid ${C.border}`, borderRadius: 12, background: C.surface, color: C.text, padding: '9px 10px', fontFamily: 'inherit', cursor: chatting ? 'default' : 'pointer' }}>{index + 1}. {choice}</button>
-                    ))}
-                  </div>
-                )}
               </div>
             ))}
             {chatting && <div style={{ color: C.muted, fontSize: 12, padding: '4px 2px' }}>小剧场正在接戏…</div>}
@@ -561,7 +554,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
           </div>
           {error && <div style={{ color: C.blushDeep, fontSize: 12, marginBottom: 8 }}>{error}</div>}
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 8, border: `1.5px solid ${C.border}`, borderRadius: 20, background: C.surface, padding: '7px 7px 7px 10px' }}>
-            <textarea value={chatInput} onChange={event => setChatInput(event.target.value)} rows={1} placeholder="在小剧场里说话、下导演指令、选择走向……" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: C.text, resize: 'none', fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6, padding: '5px 0' }} />
+            <textarea value={chatInput} onChange={event => setChatInput(event.target.value)} rows={1} placeholder="在小剧场里说话、下导演指令、继续剧情……" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: C.text, resize: 'none', fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6, padding: '5px 0' }} />
             <button type="button" onClick={() => sendChat()} disabled={chatting || !chatInput.trim()} style={{ width: 36, height: 36, border: 'none', borderRadius: '50%', background: chatInput.trim() && !chatting ? `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontFamily: 'inherit', cursor: chatInput.trim() && !chatting ? 'pointer' : 'default' }}>↑</button>
           </div>
         </div>
