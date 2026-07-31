@@ -851,9 +851,10 @@ textarea { display: block; margin: 0; }
 }
 
 .home-quick-grid {
-  min-height: 136px;
+  min-height: 204px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
 }
 
 .home-note-card {
@@ -977,6 +978,105 @@ textarea { display: block; margin: 0; }
   font-weight: 700;
   line-height: 1;
   vertical-align: middle;
+}
+
+.home-music-card {
+  position: relative;
+  min-width: 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  background: color-mix(in srgb, var(--home-card-solid) 88%, var(--home-butter));
+  border: 1px solid var(--home-edge) !important;
+  border-radius: 18px;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--home-shadow) 74%, transparent), inset 0 1px rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(13px);
+}
+
+.home-music-record {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--home-card-solid) 0 18%, var(--home-lemon) 19% 27%, var(--home-honey-deep) 28% 31%, color-mix(in srgb, var(--home-ink) 84%, var(--home-honey-deep)) 32% 100%);
+  box-shadow: 0 5px 13px color-mix(in srgb, var(--home-shadow) 70%, transparent);
+}
+
+.home-music-record i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--home-card-solid);
+  border: 1px solid color-mix(in srgb, var(--home-honey) 64%, transparent);
+}
+
+.home-music-card.is-playing .home-music-record {
+  animation: home-record-spin 3.8s linear infinite;
+}
+
+@keyframes home-record-spin {
+  to { transform: rotate(360deg); }
+}
+
+.home-music-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.home-music-copy small {
+  color: var(--home-honey-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.home-music-copy b {
+  overflow: hidden;
+  color: var(--home-ink);
+  font-size: clamp(11px, 3vw, 13px);
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-music-copy em {
+  overflow: hidden;
+  color: var(--home-muted);
+  font-size: clamp(8px, 2.3vw, 10px);
+  font-style: normal;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-music-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-music-actions span {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  color: var(--home-honey-deep);
+  background: color-mix(in srgb, var(--home-lemon) 42%, var(--home-card-solid));
+  border: 1px solid color-mix(in srgb, var(--home-honey) 58%, transparent);
+  border-radius: 50%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
 }
 
 /* 小房间改成可继续扩展的图标架，给主页留出呼吸。 */
@@ -1506,8 +1606,11 @@ textarea { display: block; margin: 0; }
   .home-time-marker { bottom: 13px; }
   .home-timeline-window::before { bottom: 17px; }
   .home-moving-scale { bottom: -1px; }
-  .home-quick-grid, .home-note-card { min-height: 96px; }
+  .home-quick-grid { min-height: 158px; gap: 7px; }
+  .home-note-card { min-height: 92px; }
   .home-note-card { padding-top: 13px; padding-bottom: 10px; }
+  .home-music-card { min-height: 48px; padding-top: 6px; padding-bottom: 6px; }
+  .home-music-record { width: 35px; height: 35px; }
   .home-note-copy { margin-top: 5px; gap: 2px; }
   .home-room-shelf { padding: 2px 8px 8px; }
   .home-room-app { gap: 4px; }
