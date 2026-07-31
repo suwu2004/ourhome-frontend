@@ -82,6 +82,12 @@ function musicTrackLabel(track) {
   return [track.title, track.artist].filter(Boolean).join(' · ') || '未命名歌曲';
 }
 
+function musicLyricLine(track) {
+  const text = String(track?.lyrics || track?.note || '').trim();
+  if (!text) return '搜一首歌，客厅就会响起来。';
+  return text.split('\n').map(line => line.trim()).filter(Boolean).slice(0, 2).join(' / ');
+}
+
 function MoodCalendarMark() {
   return (
     <svg className="home-mood-star" viewBox="0 0 56 56" aria-hidden="true">
@@ -262,7 +268,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const [memoError, setMemoError] = useState('');
   const [memoOpen, setMemoOpen] = useState(false);
   const [musicTracks, setMusicTracks] = useState([]);
-  const [musicState, setMusicState] = useState({ track_id: null, is_playing: false });
+  const [musicState, setMusicState] = useState({ track_id: null, is_playing: false, shuffle: false });
   const [musicLoading, setMusicLoading] = useState(false);
   const [musicError, setMusicError] = useState('');
 
@@ -349,7 +355,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
       if (!tracksResponse.ok) throw new Error(tracksData?.error || '唱片机暂时没有回来');
       if (!stateResponse.ok) throw new Error(stateData?.error || '播放状态暂时没有回来');
       setMusicTracks(Array.isArray(tracksData) ? tracksData : []);
-      setMusicState(stateData || { track_id: null, is_playing: false });
+      setMusicState({ track_id: null, is_playing: false, shuffle: false, ...(stateData || {}) });
     } catch (error) {
       console.error('一起听预览加载失败', error);
       setMusicError(error.message || '唱片机暂时没有回来');
@@ -465,16 +471,41 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
     }
   };
 
+  const pickHomeMusicTrack = direction => {
+    if (!musicTracks.length) return null;
+    if (musicState.shuffle && musicTracks.length > 1) {
+      const candidates = musicTracks.filter(track => String(track.id) !== String(activeMusicTrack?.id));
+      return candidates[Math.floor(Math.random() * candidates.length)] || musicTracks[0];
+    }
+    const index = Math.max(0, musicTracks.findIndex(track => String(track.id) === String(activeMusicTrack?.id)));
+    return musicTracks[(index + direction + musicTracks.length) % musicTracks.length];
+  };
+
   const playNextHomeTrack = async event => {
     event.stopPropagation();
     if (!musicTracks.length) {
       onOpen('music');
       return;
     }
-    const index = Math.max(0, musicTracks.findIndex(track => String(track.id) === String(activeMusicTrack?.id)));
-    const nextTrack = musicTracks[(index + 1) % musicTracks.length];
+    const nextTrack = pickHomeMusicTrack(1);
     await saveMusicState({ track_id: nextTrack.id, is_playing: Boolean(nextTrack.audio_url) });
     if (!nextTrack.audio_url) onOpen('music');
+  };
+
+  const playPreviousHomeTrack = async event => {
+    event.stopPropagation();
+    if (!musicTracks.length) {
+      onOpen('music');
+      return;
+    }
+    const previousTrack = pickHomeMusicTrack(-1);
+    await saveMusicState({ track_id: previousTrack.id, is_playing: Boolean(previousTrack.audio_url) });
+    if (!previousTrack.audio_url) onOpen('music');
+  };
+
+  const toggleHomeShuffle = event => {
+    event.stopPropagation();
+    saveMusicState({ shuffle: !musicState.shuffle });
   };
 
   useEffect(() => {
@@ -556,11 +587,13 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
             <span className="home-music-copy">
               <small>LISTEN TOGETHER</small>
               <b>{musicLoading ? '唱片转起来了…' : musicTrackLabel(activeMusicTrack)}</b>
-              <em>{musicError || (musicCanPlay ? '在客厅一起听一会儿。' : '可以上传音频，或收藏原曲链接。')}</em>
+              <em>{musicError || musicLyricLine(activeMusicTrack)}</em>
             </span>
             <span className="home-music-actions">
+              <span role="button" tabIndex="0" onClick={playPreviousHomeTrack} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') playPreviousHomeTrack(event); }}>‹</span>
               <span role="button" tabIndex="0" onClick={toggleHomeMusic} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleHomeMusic(event); }}>{musicState.is_playing ? 'Ⅱ' : '▶'}</span>
-              <span role="button" tabIndex="0" onClick={playNextHomeTrack} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') playNextHomeTrack(event); }}>↻</span>
+              <span role="button" tabIndex="0" onClick={playNextHomeTrack} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') playNextHomeTrack(event); }}>›</span>
+              <span className={musicState.shuffle ? 'is-active' : ''} role="button" tabIndex="0" onClick={toggleHomeShuffle} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleHomeShuffle(event); }}>R</span>
             </span>
             <audio ref={musicAudioRef} src={activeMusicTrack?.audio_url || ''} onEnded={event => playNextHomeTrack(event)} />
           </button>
