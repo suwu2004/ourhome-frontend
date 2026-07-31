@@ -5,7 +5,6 @@ import { AgentMailRoom } from './AgentMailRoom.jsx';
 import { AgentMailSettings } from './AgentMailSettings.jsx';
 import { ChatSearchPanel } from './ChatSearchPanel.jsx';
 import { MemoryRoom } from './MemoryRoom.jsx';
-import { PhoneRoom } from './PhoneRoom.jsx';
 import { SettingsGroup } from './SettingsGroup.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
 import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
@@ -24,12 +23,6 @@ const EMPTY_FAVORITE_DRAFT = {
   category: '收藏',
   note: '',
   is_pinned: false,
-};
-const EMPTY_MEMORY_EVENT_DRAFT = {
-  title: '',
-  summary: '',
-  event_type: 'note',
-  event_date: '',
 };
 
 function normalizeModelOptions(models, preferredModel = '') {
@@ -304,16 +297,10 @@ export default function App({ initialView = 'chat', onHome }) {
   const [ready, setReady] = useState(false);
   const [memories, setMemories] = useState([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
-  const [memoryLog, setMemoryLog] = useState({ todaySummary: null, events: [], openMarks: [] });
   const [favorites, setFavorites] = useState([]);
   const [favoriteDraft, setFavoriteDraft] = useState(EMPTY_FAVORITE_DRAFT);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [favoriteError, setFavoriteError] = useState("");
-  const [memoryEventDraft, setMemoryEventDraft] = useState(EMPTY_MEMORY_EVENT_DRAFT);
-  const [editingMemoryEventId, setEditingMemoryEventId] = useState(null);
-  const [editingMemoryEventDraft, setEditingMemoryEventDraft] = useState(EMPTY_MEMORY_EVENT_DRAFT);
-  const [savingMemoryEvent, setSavingMemoryEvent] = useState(false);
-  const [memoryEventError, setMemoryEventError] = useState("");
   const [newMemory, setNewMemory] = useState("");
   const [editingMemoryId, setEditingMemoryId] = useState(null);
   const [editingMemoryText, setEditingMemoryText] = useState("");
@@ -1411,25 +1398,6 @@ export default function App({ initialView = 'chat', onHome }) {
     });
   };
 
-  const openPhoneRoom = () => {
-    setView('phone');
-    setDrawerOpen(false);
-  };
-
-  const openChatAfterPhone = (messageId) => {
-    setView('chat');
-    if (!sessionId) return;
-    loadMessagesFor(sessionId)
-      .then(() => {
-        if (!messageId) return;
-        setScrollToMsgId(messageId);
-        setHighlightMsgId(messageId);
-        setHighlightQuery('');
-        window.setTimeout(() => setHighlightMsgId(current => current === messageId ? null : current), 2400);
-      })
-      .catch(console.error);
-  };
-
   const openMessageActions = (message) => {
     if (thinking || messageActionLoading || String(message.id).startsWith('temp-')) return;
     const index = msgs.findIndex(item => item.id === message.id);
@@ -1599,16 +1567,10 @@ export default function App({ initialView = 'chat', onHome }) {
     setMemoriesLoading(true);
     Promise.all([
       apiFetch(`${BACKEND}/memories`).then(r => r.json()),
-      apiFetch(`${BACKEND}/memory-log?days=365`).then(r => r.json()),
       apiFetch(`${BACKEND}/memory-favorites`).then(r => r.json()),
     ])
-      .then(([memoryData, logData, favoriteData]) => {
+      .then(([memoryData, favoriteData]) => {
         setMemories(Array.isArray(memoryData) ? memoryData : []);
-        setMemoryLog({
-          todaySummary: logData?.todaySummary || null,
-          events: Array.isArray(logData?.events) ? logData.events : [],
-          openMarks: Array.isArray(logData?.openMarks) ? logData.openMarks : [],
-        });
         setFavorites(Array.isArray(favoriteData) ? favoriteData : []);
         setMemoriesLoading(false);
       })
@@ -1673,89 +1635,6 @@ export default function App({ initialView = 'chat', onHome }) {
     apiFetch(`${BACKEND}/memories/${id}`, { method: 'DELETE' })
       .then(() => setMemories(ms => ms.filter(m => m.id !== id)))
       .catch(console.error);
-  };
-
-  const saveManualMemoryEvent = async () => {
-    if (savingMemoryEvent) return;
-    const title = memoryEventDraft.title.trim();
-    const summary = memoryEventDraft.summary.trim();
-    if (!title || !summary) {
-      setMemoryEventError("标题和内容都要写一点。");
-      return;
-    }
-    setSavingMemoryEvent(true);
-    setMemoryEventError("");
-    try {
-      const response = await apiFetch(`${BACKEND}/memory-events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          summary,
-          event_type: memoryEventDraft.event_type,
-          event_date: memoryEventDraft.event_date || undefined,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || '补年表失败');
-      setMemoryLog(log => ({ ...log, events: [data, ...log.events] }));
-      setMemoryEventDraft(EMPTY_MEMORY_EVENT_DRAFT);
-    } catch (error) {
-      setMemoryEventError(error.message || '补年表失败');
-    } finally {
-      setSavingMemoryEvent(false);
-    }
-  };
-
-  const startEditMemoryEvent = (event) => {
-    setEditingMemoryEventId(event.id);
-    setEditingMemoryEventDraft({
-      title: event.title || '',
-      summary: event.summary || '',
-      event_type: event.event_type || 'note',
-      event_date: event.event_date || '',
-    });
-  };
-
-  const cancelEditMemoryEvent = () => {
-    setEditingMemoryEventId(null);
-    setEditingMemoryEventDraft(EMPTY_MEMORY_EVENT_DRAFT);
-  };
-
-  const saveEditMemoryEvent = async () => {
-    if (!editingMemoryEventId) return;
-    const title = editingMemoryEventDraft.title.trim();
-    const summary = editingMemoryEventDraft.summary.trim();
-    if (!title || !summary) {
-      setMemoryEventError("标题和内容都要写一点。");
-      return;
-    }
-    try {
-      const response = await apiFetch(`${BACKEND}/memory-events/${editingMemoryEventId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, summary, event_type: editingMemoryEventDraft.event_type, event_date: editingMemoryEventDraft.event_date || undefined }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || '修改年表失败');
-      setMemoryLog(log => ({ ...log, events: log.events.map(event => event.id === data.id ? data : event) }));
-      cancelEditMemoryEvent();
-    } catch (error) {
-      setMemoryEventError(error.message || '修改年表失败');
-    }
-  };
-
-  const deleteMemoryEvent = async (id) => {
-    if (!window.confirm("删掉这条年表记录吗？")) return;
-    try {
-      const response = await apiFetch(`${BACKEND}/memory-events/${id}`, { method: 'DELETE' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || '删除年表失败');
-      setMemoryLog(log => ({ ...log, events: log.events.filter(event => event.id !== id) }));
-      if (editingMemoryEventId === id) cancelEditMemoryEvent();
-    } catch (error) {
-      setMemoryEventError(error.message || '删除年表失败');
-    }
   };
 
   const orderFavorites = (items) => [...items].sort((left, right) => {
@@ -2164,17 +2043,6 @@ export default function App({ initialView = 'chat', onHome }) {
         <div style={{ fontSize: 11, color: C.muted, letterSpacing: ".42em" }}>{stage === "door" ? "轻 轻 推 开" : "门 开 了 …"}</div>
       </div>
 
-      {stage === "home" && view === "phone" && (
-        <PhoneRoom
-          theme={C}
-          sessionId={sessionId}
-          selectedModel={selectedModel}
-          partnerAvatar={partnerAvatar}
-          onHome={leaveRoom}
-          onOpenChat={openChatAfterPhone}
-        />
-      )}
-
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "chat") ? 1 : 0, pointerEvents: (stage === "home" && view === "chat") ? "auto" : "none", transition: "opacity .4s ease" }}>
         <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, flexShrink: 0 }}>
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 10 }}>
@@ -2190,12 +2058,6 @@ export default function App({ initialView = 'chat', onHome }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
-              <button
-                onClick={openPhoneRoom}
-                aria-label="进入电话房间"
-                title="电话房间"
-                style={{ fontSize: 13, color: C.white, background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >☎</button>
               <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
             </div>
           </div>
@@ -2878,19 +2740,6 @@ export default function App({ initialView = 'chat', onHome }) {
         cancelEditMemory={cancelEditMemory}
         saveEditMemory={saveEditMemory}
         deleteMemory={deleteMemory}
-        memoryEventDraft={memoryEventDraft}
-        setMemoryEventDraft={setMemoryEventDraft}
-        saveManualMemoryEvent={saveManualMemoryEvent}
-        savingMemoryEvent={savingMemoryEvent}
-        memoryEventError={memoryEventError}
-        memoryLog={memoryLog}
-        editingMemoryEventId={editingMemoryEventId}
-        editingMemoryEventDraft={editingMemoryEventDraft}
-        setEditingMemoryEventDraft={setEditingMemoryEventDraft}
-        startEditMemoryEvent={startEditMemoryEvent}
-        cancelEditMemoryEvent={cancelEditMemoryEvent}
-        saveEditMemoryEvent={saveEditMemoryEvent}
-        deleteMemoryEvent={deleteMemoryEvent}
       />
 
       <div
