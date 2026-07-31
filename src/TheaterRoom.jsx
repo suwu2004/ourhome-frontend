@@ -120,6 +120,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const C = theme;
   const [books, setBooks] = useState([]);
   const [selectedBookId, setSelectedBookId] = useState(null);
+  const [bookPane, setBookPane] = useState('settings');
   const [bookDraft, setBookDraft] = useState(makeBookDraft());
   const [loadingBooks, setLoadingBooks] = useState(false);
   const [savingBook, setSavingBook] = useState(false);
@@ -199,6 +200,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       if (!response.ok) throw new Error(data.error || '小世界没有创建成功');
       setBooks(items => [data, ...items]);
       setSelectedBookId(data.id);
+      setBookPane('settings');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -235,6 +237,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       if (!response.ok) throw new Error(data.error || '这个小世界没有导入成功');
       setBooks(items => [data, ...items]);
       setSelectedBookId(data.id);
+      setBookPane('settings');
       setImportOpen(false);
       setImportText('');
       setImportPreview(makeBookDraft('导入的小世界'));
@@ -257,6 +260,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       if (!response.ok) throw new Error(data.error || '世界书没有导入成功');
       setBooks(items => [data, ...items]);
       setSelectedBookId(data.id);
+      setBookPane('settings');
       setImportOpen(false);
       setImportText('');
       setImportPreview(makeBookDraft('导入的小世界'));
@@ -269,7 +273,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   };
 
   const saveBook = async () => {
-    if (!selectedBook) return;
+    if (!selectedBook) return false;
     setSavingBook(true);
     setError('');
     try {
@@ -281,8 +285,10 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '设定没有保存成功');
       setBooks(items => items.map(book => (book.id === data.id ? { ...book, ...data, messages: book.messages || [] } : book)));
+      return true;
     } catch (err) {
       setError(err.message);
+      return false;
     } finally {
       setSavingBook(false);
     }
@@ -355,6 +361,13 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
 
   const goBackToShelf = () => {
     setSelectedBookId(null);
+    setBookPane('settings');
+    setError('');
+  };
+
+  const openBook = (bookId, pane = 'settings') => {
+    setSelectedBookId(bookId);
+    setBookPane(pane);
     setError('');
   };
 
@@ -420,7 +433,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             <div key={book.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <button
                 type="button"
-                onClick={() => setSelectedBookId(book.id)}
+                onClick={() => openBook(book.id)}
                 style={{
                   minHeight: 188,
                   border: `1px solid ${C.border}`,
@@ -459,80 +472,98 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     if (!selectedBook) return null;
     const messages = selectedBook.messages || [];
     const settingsReady = bookDraft.settings.premise.trim() || bookDraft.settings.characters.trim();
-    return (
-      <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.white, padding: '12px 14px' }}>
-          <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 9 }}>
-            <button type="button" onClick={goBackToShelf} style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', cursor: 'pointer' }}>← 书架</button>
-            <input value={bookDraft.title} onChange={event => setBookDraft(current => ({ ...current, title: event.target.value }))} style={{ flex: '1 1 180px', minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '8px 12px', outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
-            <button type="button" onClick={saveBook} disabled={savingBook} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '8px 12px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer' }}>{savingBook ? '保存中' : '保存设定'}</button>
+    if (bookPane === 'settings') {
+      return (
+        <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.white, padding: '12px 14px' }}>
+            <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 9 }}>
+              <button type="button" onClick={goBackToShelf} style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', cursor: 'pointer' }}>← 书架</button>
+              <input value={bookDraft.title} onChange={event => setBookDraft(current => ({ ...current, title: event.target.value }))} style={{ flex: '1 1 180px', minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '8px 12px', outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
+              <button type="button" onClick={saveBook} disabled={savingBook} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '8px 12px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer' }}>{savingBook ? '保存中' : '保存设定'}</button>
+            </div>
           </div>
-        </div>
 
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px min(16px, 4vw)' }}>
-          <section style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 14 }}>
-            <aside style={{ flex: '1 1 290px', minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 13 }}>
-              <Field theme={C} label="世界观 / 剧情设定" rows={4} value={bookDraft.settings.premise} onChange={value => patchDraftSettings({ premise: value })} placeholder="这里写这个小世界的基础设定。" />
-              <div style={{ height: 10 }} />
-              <Field theme={C} label="角色卡 / 关系" rows={4} value={bookDraft.settings.characters} onChange={value => patchDraftSettings({ characters: value })} placeholder="人物性格、关系张力、称呼、不能崩的点。" />
-              <div style={{ height: 10 }} />
-              <Field theme={C} label="禁区 / 写作规则" rows={3} value={bookDraft.settings.rules} onChange={value => patchDraftSettings({ rules: value })} placeholder="不要突兀和解、不要现代词、不要跳出剧情解释……" />
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                {[
-                  ['interactive', '互动'],
-                  ['story', '纯文'],
-                ].map(([value, label]) => (
-                  <button key={value} type="button" onClick={() => setMode(value)} style={{ border: `1px solid ${mode === value ? C.honeyMid : C.border}`, background: mode === value ? C.honeyLight : C.surface, color: mode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
-                ))}
-                {[
-                  ['short', '短'],
-                  ['long', '长'],
-                  ['extra_long', '超长'],
-                ].map(([value, label]) => (
-                  <button key={value} type="button" onClick={() => setLengthMode(value)} style={{ border: `1px solid ${lengthMode === value ? C.blush : C.border}`, background: lengthMode === value ? '#FFF0E9' : C.surface, color: lengthMode === value ? C.blushDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
-                ))}
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px min(16px, 4vw) 24px' }}>
+            <section style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 13 }}>
+                <Field theme={C} label="世界观 / 剧情设定" rows={5} value={bookDraft.settings.premise} onChange={value => patchDraftSettings({ premise: value })} placeholder="这里写这个小世界的基础设定。" />
+                <div style={{ height: 10 }} />
+                <Field theme={C} label="角色卡 / 关系" rows={5} value={bookDraft.settings.characters} onChange={value => patchDraftSettings({ characters: value })} placeholder="人物性格、关系张力、称呼、不能崩的点。" />
+                <div style={{ height: 10 }} />
+                <Field theme={C} label="禁区 / 写作规则" rows={4} value={bookDraft.settings.rules} onChange={value => patchDraftSettings({ rules: value })} placeholder="不要突兀和解、不要现代词、不要跳出剧情解释……" />
               </div>
-              <select value={model} onChange={event => setModel(event.target.value)} style={{ width: '100%', marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.muted, borderRadius: 999, padding: '7px 10px', fontFamily: 'inherit', fontSize: 11 }}>
-                {modelOptions.length ? modelOptions.map(item => <option key={item} value={item}>{item}</option>) : <option value="">默认模型</option>}
-              </select>
-            </aside>
 
-            <section style={{ flex: '2 1 360px', minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 14, background: 'linear-gradient(180deg, #fffdfa, #fff8ef)', padding: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <div>
-                  <div style={{ color: C.text, fontWeight: 700 }}>{bookDraft.title || '未命名小剧本'}</div>
-                  <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.12em' }}>{settingsReady ? '设定已准备，可以开始 chat' : '先填一点设定，再开始 chat'}</div>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 13 }}>
+                <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>玩法</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {[
+                    ['interactive', '互动'],
+                    ['story', '纯文'],
+                  ].map(([value, label]) => (
+                    <button key={value} type="button" onClick={() => setMode(value)} style={{ border: `1px solid ${mode === value ? C.honeyMid : C.border}`, background: mode === value ? C.honeyLight : C.surface, color: mode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
+                  ))}
+                  {[
+                    ['short', '短'],
+                    ['long', '长'],
+                    ['extra_long', '超长'],
+                  ].map(([value, label]) => (
+                    <button key={value} type="button" onClick={() => setLengthMode(value)} style={{ border: `1px solid ${lengthMode === value ? C.blush : C.border}`, background: lengthMode === value ? '#FFF0E9' : C.surface, color: lengthMode === value ? C.blushDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
+                  ))}
                 </div>
+                <select value={model} onChange={event => setModel(event.target.value)} style={{ width: '100%', marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.muted, borderRadius: 999, padding: '7px 10px', fontFamily: 'inherit', fontSize: 11 }}>
+                  {modelOptions.length ? modelOptions.map(item => <option key={item} value={item}>{item}</option>) : <option value="">默认模型</option>}
+                </select>
               </div>
-              <div style={{ minHeight: 300, maxHeight: '54vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px 12px' }}>
-                {messages.length === 0 && (
-                  <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.8, padding: '30px 10px', textAlign: 'center' }}>
-                    这本书还没有开演。你可以直接用聊天的方式说：从哪里开始、你扮演谁、想让剧情怎么动。
-                  </div>
-                )}
-                {messages.map(message => (
-                  <div key={message.id} style={{ alignSelf: message.role === 'user' ? 'flex-end' : 'stretch', maxWidth: message.role === 'user' ? '82%' : '100%' }}>
-                    <div style={{ color: message.role === 'user' ? C.honeyDeep : C.mutedLight, fontSize: 10, marginBottom: 4, textAlign: message.role === 'user' ? 'right' : 'left' }}>{message.role === 'user' ? '你 / 导演' : '小剧场'} · {formatDate(message.created_at)}</div>
-                    <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.85, fontSize: message.role === 'user' ? 13.5 : 14.5, color: C.text, background: message.role === 'user' ? C.honeyLight : C.white, border: `1px solid ${message.role === 'user' ? C.honeyMid : C.border}`, borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : 13, padding: '10px 12px' }}>{message.content}</div>
-                    {Array.isArray(message.choices) && message.choices.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 8 }}>
-                        {message.choices.map((choice, index) => (
-                          <button key={`${choice}-${index}`} type="button" onClick={() => sendChat(`选择走向 ${index + 1}：${choice}`)} disabled={chatting} style={{ textAlign: 'left', border: `1px solid ${C.border}`, borderRadius: 12, background: C.surface, color: C.text, padding: '9px 10px', fontFamily: 'inherit', cursor: chatting ? 'default' : 'pointer' }}>{index + 1}. {choice}</button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {chatting && <div style={{ color: C.muted, fontSize: 12, padding: '4px 2px' }}>小剧场正在接戏…</div>}
-                <div ref={chatEndRef} />
-              </div>
-              {error && <div style={{ color: C.blushDeep, fontSize: 12, marginBottom: 8 }}>{error}</div>}
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, border: `1.5px solid ${C.border}`, borderRadius: 20, background: C.surface, padding: '7px 7px 7px 10px' }}>
-                <textarea value={chatInput} onChange={event => setChatInput(event.target.value)} rows={1} placeholder="在小剧场里说话、下导演指令、选择走向……" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: C.text, resize: 'none', fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6, padding: '5px 0' }} />
-                <button type="button" onClick={() => sendChat()} disabled={chatting || !chatInput.trim()} style={{ width: 36, height: 36, border: 'none', borderRadius: '50%', background: chatInput.trim() && !chatting ? `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontFamily: 'inherit', cursor: chatInput.trim() && !chatting ? 'pointer' : 'default' }}>↑</button>
+
+              {error && <div style={{ color: C.blushDeep, fontSize: 12 }}>{error}</div>}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 10 }}>
+                <button type="button" onClick={saveBook} disabled={savingBook} style={{ minHeight: 46, border: `1px solid ${C.border}`, borderRadius: 14, background: C.surface, color: C.honeyDeep, fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer' }}>{savingBook ? '保存中' : '只保存'}</button>
+                <button type="button" onClick={async () => { if (await saveBook()) setBookPane('chat'); }} disabled={savingBook} style={{ minHeight: 46, border: 'none', borderRadius: 14, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer', opacity: savingBook ? .65 : 1 }}>{settingsReady ? '进入 chat' : '先这样开始 chat'}</button>
               </div>
             </section>
-          </section>
+          </div>
+        </main>
+      );
+    }
+
+    return (
+      <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '12px min(16px, 4vw) 14px' }}>
+        <div style={{ flexShrink: 0, maxWidth: 760, width: '100%', margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: C.text, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookDraft.title || '未命名小剧本'}</div>
+            <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.12em' }}>{mode === 'interactive' ? '互动推进' : '沉浸纯文'} · {lengthMode === 'extra_long' ? '超长' : lengthMode === 'short' ? '短' : '长'}</div>
+          </div>
+          <button type="button" onClick={() => setBookPane('settings')} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.honeyDeep, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 }}>设定</button>
+        </div>
+
+        <div style={{ flex: 1, minHeight: 0, maxWidth: 760, width: '100%', margin: '0 auto', border: `1px solid ${C.border}`, borderRadius: 18, background: 'linear-gradient(180deg, #fffdfa, #fff8ef)', padding: 12, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px 12px' }}>
+            {messages.length === 0 && (
+              <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.8, padding: '30px 10px', textAlign: 'center' }}>
+                这本书还没有开演。你可以直接说：从哪里开始、你扮演谁、想让剧情怎么动。
+              </div>
+            )}
+            {messages.map(message => (
+              <div key={message.id} style={{ alignSelf: message.role === 'user' ? 'flex-end' : 'stretch', maxWidth: message.role === 'user' ? '82%' : '100%' }}>
+                <div style={{ color: message.role === 'user' ? C.honeyDeep : C.mutedLight, fontSize: 10, marginBottom: 4, textAlign: message.role === 'user' ? 'right' : 'left' }}>{message.role === 'user' ? '你 / 导演' : '小剧场'} · {formatDate(message.created_at)}</div>
+                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.85, fontSize: message.role === 'user' ? 13.5 : 14.5, color: C.text, background: message.role === 'user' ? C.honeyLight : C.white, border: `1px solid ${message.role === 'user' ? C.honeyMid : C.border}`, borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : 13, padding: '10px 12px' }}>{message.content}</div>
+                {Array.isArray(message.choices) && message.choices.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 8 }}>
+                    {message.choices.map((choice, index) => (
+                      <button key={`${choice}-${index}`} type="button" onClick={() => sendChat(`选择走向 ${index + 1}：${choice}`)} disabled={chatting} style={{ textAlign: 'left', border: `1px solid ${C.border}`, borderRadius: 12, background: C.surface, color: C.text, padding: '9px 10px', fontFamily: 'inherit', cursor: chatting ? 'default' : 'pointer' }}>{index + 1}. {choice}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {chatting && <div style={{ color: C.muted, fontSize: 12, padding: '4px 2px' }}>小剧场正在接戏…</div>}
+            <div ref={chatEndRef} />
+          </div>
+          {error && <div style={{ color: C.blushDeep, fontSize: 12, marginBottom: 8 }}>{error}</div>}
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'flex-end', gap: 8, border: `1.5px solid ${C.border}`, borderRadius: 20, background: C.surface, padding: '7px 7px 7px 10px' }}>
+            <textarea value={chatInput} onChange={event => setChatInput(event.target.value)} rows={1} placeholder="在小剧场里说话、下导演指令、选择走向……" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: C.text, resize: 'none', fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6, padding: '5px 0' }} />
+            <button type="button" onClick={() => sendChat()} disabled={chatting || !chatInput.trim()} style={{ width: 36, height: 36, border: 'none', borderRadius: '50%', background: chatInput.trim() && !chatting ? `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontFamily: 'inherit', cursor: chatInput.trim() && !chatting ? 'pointer' : 'default' }}>↑</button>
+          </div>
         </div>
       </main>
     );
@@ -544,7 +575,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
         <span onClick={selectedBook ? goBackToShelf : leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: 'pointer', padding: 4 }}>←</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: '.05em' }}>{selectedBook ? selectedBook.title : '小剧场'}</div>
-          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: '.14em' }}>{selectedBook ? 'story chat' : 'theater bookshelf'}</div>
+          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: '.14em' }}>{selectedBook ? (bookPane === 'chat' ? 'story chat' : 'story settings') : 'theater bookshelf'}</div>
         </div>
         <button type="button" onClick={loadBooks} disabled={loadingBooks} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.honeyDeep, borderRadius: 999, padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: loadingBooks ? 'default' : 'pointer' }}>{loadingBooks ? '整理中' : '刷新'}</button>
       </header>
