@@ -985,7 +985,7 @@ textarea { display: block; margin: 0; }
   min-width: 0;
   min-height: 58px;
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 9px 11px;
@@ -1061,9 +1061,12 @@ textarea { display: block; margin: 0; }
 }
 
 .home-music-actions {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: -2px;
 }
 
 .home-music-actions span {
@@ -1077,6 +1080,12 @@ textarea { display: block; margin: 0; }
   border-radius: 50%;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 12px;
+}
+
+.home-music-actions span.is-active {
+  color: var(--home-card-solid);
+  background: var(--home-honey-deep);
+  border-color: var(--home-honey-deep);
 }
 
 /* 小房间改成可继续扩展的图标架，给主页留出呼吸。 */
