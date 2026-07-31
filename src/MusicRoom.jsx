@@ -290,6 +290,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
 
           <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
             <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>直接搜歌</div>
+            <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.6, margin: '-3px 0 9px' }}>搜索到的是官方试听片段，通常只有 30 秒；想听完整音频，可以在下面上传自己的音乐文件。</div>
             <form onSubmit={searchMusic} style={{ display: 'flex', gap: 8 }}>
               <input value={query} onChange={event => setQuery(event.target.value)} placeholder="输入歌名、歌手，比如周杰伦 晴天" style={{ ...inputStyle(C), flex: 1, minWidth: 0 }} />
               <button type="submit" disabled={searching} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '0 15px', fontFamily: 'inherit', cursor: searching ? 'default' : 'pointer', opacity: searching ? .65 : 1 }}>{searching ? '搜着' : '搜索'}</button>
