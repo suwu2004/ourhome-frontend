@@ -1,29 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 
-const THEATER_DRAFT_KEY = 'ourhome_theater_draft_v1';
-
-const emptyDraft = {
-  theaterName: '未命名小剧场',
+const emptySettings = {
   premise: '',
   characters: '',
   rules: '',
-  previousText: '',
-  request: '',
-  mode: 'main',
-  playMode: 'interactive',
-  lengthMode: 'long',
-  save: true,
 };
-
-function readDraft() {
-  try {
-    const raw = localStorage.getItem(THEATER_DRAFT_KEY);
-    return raw ? { ...emptyDraft, ...JSON.parse(raw) } : emptyDraft;
-  } catch {
-    return emptyDraft;
-  }
-}
 
 function formatDate(value) {
   const date = new Date(value);
@@ -67,242 +49,335 @@ function Field({ label, hint, value, onChange, rows = 4, placeholder, theme }) {
   );
 }
 
+function makeBookDraft(title = '未命名小剧本') {
+  return { title, settings: { ...emptySettings } };
+}
+
 export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availableModels = [] }) {
   const C = theme;
-  const [draft, setDraft] = useState(readDraft);
-  const [model, setModel] = useState(selectedModel || '');
-  const [works, setWorks] = useState([]);
-  const [loadingWorks, setLoadingWorks] = useState(false);
-  const [generating, setGenerating] = useState(false);
+  const [books, setBooks] = useState([]);
+  const [selectedBookId, setSelectedBookId] = useState(null);
+  const [bookDraft, setBookDraft] = useState(makeBookDraft());
+  const [loadingBooks, setLoadingBooks] = useState(false);
+  const [savingBook, setSavingBook] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [chatting, setChatting] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState(null);
+  const [mode, setMode] = useState('interactive');
+  const [lengthMode, setLengthMode] = useState('long');
+  const [model, setModel] = useState(selectedModel || '');
+  const chatEndRef = useRef(null);
+
+  const selectedBook = useMemo(
+    () => books.find(book => String(book.id) === String(selectedBookId)) || null,
+    [books, selectedBookId],
+  );
 
   const modelOptions = useMemo(
     () => [...new Set([model, selectedModel, ...availableModels].map(item => String(item || '').trim()).filter(Boolean))],
     [availableModels, model, selectedModel],
   );
 
-  const updateDraft = patch => {
-    setDraft(current => {
-      const next = { ...current, ...patch };
-      localStorage.setItem(THEATER_DRAFT_KEY, JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const loadWorks = async () => {
-    setLoadingWorks(true);
-    setError('');
-    try {
-      const response = await apiFetch(`${BACKEND}/letters?category=${encodeURIComponent('小剧场')}`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || '小剧场书架没有打开');
-      setWorks(Array.isArray(data) ? [...data].sort((a, b) => Date.parse(b.created_at || '') - Date.parse(a.created_at || '')) : []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoadingWorks(false);
-    }
-  };
-
-  useEffect(() => {
-    if (visible) loadWorks();
-  }, [visible]);
-
   useEffect(() => {
     if (selectedModel) setModel(selectedModel);
   }, [selectedModel]);
 
-  const generate = async (overrideRequest = null) => {
-    const requestText = overrideRequest ?? draft.request;
-    if (!draft.premise.trim() && !draft.characters.trim() && !requestText.trim()) {
-      setError('先给小剧场一点设定、角色，或者这次想看的剧情。');
-      return;
-    }
-    setGenerating(true);
+  useEffect(() => {
+    if (visible) loadBooks();
+  }, [visible]);
+
+  useEffect(() => {
+    if (!selectedBook) return;
+    setBookDraft({
+      title: selectedBook.title || '未命名小剧本',
+      settings: { ...emptySettings, ...(selectedBook.settings || {}) },
+    });
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 80);
+  }, [selectedBook?.id]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [selectedBook?.messages?.length, chatting]);
+
+  const loadBooks = async () => {
+    setLoadingBooks(true);
     setError('');
     try {
-      const response = await apiFetch(`${BACKEND}/theater/generate`, {
+      const response = await apiFetch(`${BACKEND}/theater/books`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '剧场书架没有打开');
+      setBooks(Array.isArray(data) ? data : []);
+      if (selectedBookId && !data.some(book => String(book.id) === String(selectedBookId))) {
+        setSelectedBookId(null);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingBooks(false);
+    }
+  };
+
+  const createBook = async () => {
+    setSavingBook(true);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/theater/books`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(makeBookDraft(`小世界 ${books.length + 1}`)),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '小世界没有创建成功');
+      setBooks(items => [data, ...items]);
+      setSelectedBookId(data.id);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingBook(false);
+    }
+  };
+
+  const saveBook = async () => {
+    if (!selectedBook) return;
+    setSavingBook(true);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/theater/books/${selectedBook.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookDraft),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '设定没有保存成功');
+      setBooks(items => items.map(book => (book.id === data.id ? { ...book, ...data, messages: book.messages || [] } : book)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingBook(false);
+    }
+  };
+
+  const deleteBook = async book => {
+    if (!window.confirm(`删除《${book.title || '未命名小剧本'}》和里面的互动记录吗？`)) return;
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/theater/books/${book.id}`, { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '删除失败');
+      setBooks(items => items.filter(item => item.id !== book.id));
+      if (String(selectedBookId) === String(book.id)) setSelectedBookId(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const patchDraftSettings = patch => {
+    setBookDraft(current => ({
+      ...current,
+      settings: { ...current.settings, ...patch },
+    }));
+  };
+
+  const sendChat = async (overrideText = null) => {
+    const text = (overrideText ?? chatInput).trim();
+    if (!selectedBook) return;
+    if (!text) {
+      setError('先在小剧场里说一句。');
+      return;
+    }
+    setChatting(true);
+    setError('');
+    setChatInput('');
+    try {
+      const response = await apiFetch(`${BACKEND}/theater/books/${selectedBook.id}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          theater_name: draft.theaterName,
-          premise: draft.premise,
-          characters: draft.characters,
-          rules: draft.rules,
-          previous_text: draft.previousText,
-          request: requestText,
-          mode: draft.mode,
-          play_mode: draft.playMode,
-          length_mode: draft.lengthMode,
-          save: draft.save,
+          message: text,
+          play_mode: mode,
+          length_mode: lengthMode,
           model,
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || '小剧场这次没有写成');
-      setResult(data);
-      updateDraft({
-        previousText: [draft.previousText, data.content].filter(Boolean).join('\n\n'),
-        request: '',
-      });
-      if (data.saved) await loadWorks();
+      if (!response.ok) throw new Error(data.error || '小剧场这次没有接上');
+      setBooks(items => items.map(book => {
+        if (String(book.id) !== String(selectedBook.id)) return book;
+        return {
+          ...book,
+          messages: [
+            ...(book.messages || []),
+            data.user_message,
+            { ...data.assistant_message, choices: data.choices || [] },
+          ].filter(Boolean),
+          message_count: (book.message_count || 0) + 2,
+          last_message_at: data.assistant_message?.created_at || new Date().toISOString(),
+        };
+      }));
     } catch (err) {
       setError(err.message);
+      setChatInput(text);
     } finally {
-      setGenerating(false);
+      setChatting(false);
     }
   };
 
-  const choosePath = choice => {
-    updateDraft({ request: `沿着这个走向继续：${choice}` });
-    generate(`沿着这个走向继续：${choice}`);
-  };
-
-  const continueFrom = work => {
-    updateDraft({
-      theaterName: draft.theaterName === emptyDraft.theaterName && work.title ? work.title : draft.theaterName,
-      previousText: work.content || '',
-      request: '',
-      mode: 'main',
-    });
-    setResult({ title: work.title, content: work.content, saved: work });
-  };
-
-  const deleteWork = async id => {
-    if (!window.confirm('删除这篇小剧场作品吗？')) return;
+  const goBackToShelf = () => {
+    setSelectedBookId(null);
     setError('');
-    try {
-      const response = await apiFetch(`${BACKEND}/letters/${id}`, { method: 'DELETE' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || '删除失败');
-      setWorks(items => items.filter(item => item.id !== id));
-    } catch (err) {
-      setError(err.message);
-    }
+  };
+
+  const renderShelf = () => (
+    <main style={{ flex: 1, overflowY: 'auto', padding: '18px min(18px, 4vw) 28px' }}>
+      <section style={{ maxWidth: 920, margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div>
+            <div style={{ color: C.text, fontSize: 20, fontWeight: 700 }}>剧场书架</div>
+            <div style={{ color: C.mutedLight, fontSize: 11, letterSpacing: '.12em', marginTop: 3 }}>每一本书，都是一个小世界。</div>
+          </div>
+          <button type="button" onClick={createBook} disabled={savingBook} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '10px 15px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer', opacity: savingBook ? .65 : 1 }}>＋ 新书</button>
+        </div>
+        {error && <div style={{ marginBottom: 12, color: C.blushDeep, fontSize: 12 }}>{error}</div>}
+        {loadingBooks && <div style={{ color: C.muted, padding: '24px 0', textAlign: 'center' }}>正在整理书架…</div>}
+        {!loadingBooks && books.length === 0 && (
+          <button type="button" onClick={createBook} style={{ width: '100%', border: `1.5px dashed ${C.honeyMid}`, borderRadius: 16, background: C.white, color: C.honeyDeep, padding: '30px 18px', fontFamily: 'inherit', fontSize: 15, cursor: 'pointer' }}>
+            还没有小剧本。点这里创建第一本书。
+          </button>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: 14 }}>
+          {books.map((book, index) => (
+            <div key={book.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setSelectedBookId(book.id)}
+                style={{
+                  minHeight: 188,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 12,
+                  background: `linear-gradient(135deg, ${index % 3 === 0 ? '#fff8dc' : index % 3 === 1 ? '#fff0e8' : '#eef8ef'}, ${C.white})`,
+                  color: C.text,
+                  boxShadow: `0 12px 24px ${C.borderLight}88`,
+                  padding: 14,
+                  textAlign: 'left',
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span>
+                  <span style={{ display: 'block', color: C.honeyDeep, fontSize: 10, letterSpacing: '.16em', marginBottom: 8 }}>BOOK {String(index + 1).padStart(2, '0')}</span>
+                  <b style={{ display: 'block', fontSize: 17, lineHeight: 1.35 }}>{book.title || '未命名小剧本'}</b>
+                </span>
+                <span style={{ color: C.muted, fontSize: 11, lineHeight: 1.6 }}>
+                  {book.message_count ? `${book.message_count} 条互动` : '设定待填写'}
+                  <br />
+                  {book.last_message_at ? formatDate(book.last_message_at) : formatDate(book.created_at)}
+                </span>
+              </button>
+              <button type="button" onClick={() => deleteBook(book)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>删除</button>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+
+  const renderBook = () => {
+    if (!selectedBook) return null;
+    const messages = selectedBook.messages || [];
+    const settingsReady = bookDraft.settings.premise.trim() || bookDraft.settings.characters.trim();
+    return (
+      <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.white, padding: '12px 14px' }}>
+          <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 9 }}>
+            <button type="button" onClick={goBackToShelf} style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', cursor: 'pointer' }}>← 书架</button>
+            <input value={bookDraft.title} onChange={event => setBookDraft(current => ({ ...current, title: event.target.value }))} style={{ flex: '1 1 180px', minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '8px 12px', outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
+            <button type="button" onClick={saveBook} disabled={savingBook} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '8px 12px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer' }}>{savingBook ? '保存中' : '保存设定'}</button>
+          </div>
+        </div>
+
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px min(16px, 4vw)' }}>
+          <section style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 14 }}>
+            <aside style={{ flex: '1 1 290px', minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 13 }}>
+              <Field theme={C} label="世界观 / 剧情设定" rows={4} value={bookDraft.settings.premise} onChange={value => patchDraftSettings({ premise: value })} placeholder="这里写这个小世界的基础设定。" />
+              <div style={{ height: 10 }} />
+              <Field theme={C} label="角色卡 / 关系" rows={4} value={bookDraft.settings.characters} onChange={value => patchDraftSettings({ characters: value })} placeholder="人物性格、关系张力、称呼、不能崩的点。" />
+              <div style={{ height: 10 }} />
+              <Field theme={C} label="禁区 / 写作规则" rows={3} value={bookDraft.settings.rules} onChange={value => patchDraftSettings({ rules: value })} placeholder="不要突兀和解、不要现代词、不要跳出剧情解释……" />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                {[
+                  ['interactive', '互动'],
+                  ['story', '纯文'],
+                ].map(([value, label]) => (
+                  <button key={value} type="button" onClick={() => setMode(value)} style={{ border: `1px solid ${mode === value ? C.honeyMid : C.border}`, background: mode === value ? C.honeyLight : C.surface, color: mode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
+                ))}
+                {[
+                  ['short', '短'],
+                  ['long', '长'],
+                  ['extra_long', '超长'],
+                ].map(([value, label]) => (
+                  <button key={value} type="button" onClick={() => setLengthMode(value)} style={{ border: `1px solid ${lengthMode === value ? C.blush : C.border}`, background: lengthMode === value ? '#FFF0E9' : C.surface, color: lengthMode === value ? C.blushDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
+                ))}
+              </div>
+              <select value={model} onChange={event => setModel(event.target.value)} style={{ width: '100%', marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.muted, borderRadius: 999, padding: '7px 10px', fontFamily: 'inherit', fontSize: 11 }}>
+                {modelOptions.length ? modelOptions.map(item => <option key={item} value={item}>{item}</option>) : <option value="">默认模型</option>}
+              </select>
+            </aside>
+
+            <section style={{ flex: '2 1 360px', minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 14, background: 'linear-gradient(180deg, #fffdfa, #fff8ef)', padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div>
+                  <div style={{ color: C.text, fontWeight: 700 }}>{bookDraft.title || '未命名小剧本'}</div>
+                  <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.12em' }}>{settingsReady ? '设定已准备，可以开始 chat' : '先填一点设定，再开始 chat'}</div>
+                </div>
+              </div>
+              <div style={{ minHeight: 300, maxHeight: '54vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px 12px' }}>
+                {messages.length === 0 && (
+                  <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.8, padding: '30px 10px', textAlign: 'center' }}>
+                    这本书还没有开演。你可以直接用聊天的方式说：从哪里开始、你扮演谁、想让剧情怎么动。
+                  </div>
+                )}
+                {messages.map(message => (
+                  <div key={message.id} style={{ alignSelf: message.role === 'user' ? 'flex-end' : 'stretch', maxWidth: message.role === 'user' ? '82%' : '100%' }}>
+                    <div style={{ color: message.role === 'user' ? C.honeyDeep : C.mutedLight, fontSize: 10, marginBottom: 4, textAlign: message.role === 'user' ? 'right' : 'left' }}>{message.role === 'user' ? '你 / 导演' : '小剧场'} · {formatDate(message.created_at)}</div>
+                    <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.85, fontSize: message.role === 'user' ? 13.5 : 14.5, color: C.text, background: message.role === 'user' ? C.honeyLight : C.white, border: `1px solid ${message.role === 'user' ? C.honeyMid : C.border}`, borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : 13, padding: '10px 12px' }}>{message.content}</div>
+                    {Array.isArray(message.choices) && message.choices.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 8 }}>
+                        {message.choices.map((choice, index) => (
+                          <button key={`${choice}-${index}`} type="button" onClick={() => sendChat(`选择走向 ${index + 1}：${choice}`)} disabled={chatting} style={{ textAlign: 'left', border: `1px solid ${C.border}`, borderRadius: 12, background: C.surface, color: C.text, padding: '9px 10px', fontFamily: 'inherit', cursor: chatting ? 'default' : 'pointer' }}>{index + 1}. {choice}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {chatting && <div style={{ color: C.muted, fontSize: 12, padding: '4px 2px' }}>小剧场正在接戏…</div>}
+                <div ref={chatEndRef} />
+              </div>
+              {error && <div style={{ color: C.blushDeep, fontSize: 12, marginBottom: 8 }}>{error}</div>}
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, border: `1.5px solid ${C.border}`, borderRadius: 20, background: C.surface, padding: '7px 7px 7px 10px' }}>
+                <textarea value={chatInput} onChange={event => setChatInput(event.target.value)} rows={1} placeholder="在小剧场里说话、下导演指令、选择走向……" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: C.text, resize: 'none', fontFamily: 'inherit', fontSize: 14, lineHeight: 1.6, padding: '5px 0' }} />
+                <button type="button" onClick={() => sendChat()} disabled={chatting || !chatInput.trim()} style={{ width: 36, height: 36, border: 'none', borderRadius: '50%', background: chatInput.trim() && !chatting ? `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontFamily: 'inherit', cursor: chatInput.trim() && !chatting ? 'pointer' : 'default' }}>↑</button>
+              </div>
+            </section>
+          </section>
+        </div>
+      </main>
+    );
   };
 
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none', transition: 'opacity .4s ease', background: C.cream }}>
       <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: 'pointer', padding: 4 }}>←</span>
+        <span onClick={selectedBook ? goBackToShelf : leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: 'pointer', padding: 4 }}>←</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: '.05em' }}>小剧场</div>
-          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: '.14em' }}>theater room</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: '.05em' }}>{selectedBook ? selectedBook.title : '小剧场'}</div>
+          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: '.14em' }}>{selectedBook ? 'story chat' : 'theater bookshelf'}</div>
         </div>
-        <button type="button" onClick={loadWorks} disabled={loadingWorks} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.honeyDeep, borderRadius: 999, padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: loadingWorks ? 'default' : 'pointer' }}>{loadingWorks ? '翻找中' : '刷新'}</button>
+        <button type="button" onClick={loadBooks} disabled={loadingBooks} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.honeyDeep, borderRadius: 999, padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: loadingBooks ? 'default' : 'pointer' }}>{loadingBooks ? '整理中' : '刷新'}</button>
       </header>
-
-      <main style={{ flex: 1, overflowY: 'auto', padding: '16px min(18px, 4vw) 24px' }}>
-        <section style={{ maxWidth: 980, margin: '0 auto', display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap', gap: 14 }}>
-          <div style={{ flex: '1 1 520px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 14, boxShadow: `0 10px 26px ${C.borderLight}66` }}>
-              <label style={{ display: 'block', marginBottom: 12 }}>
-                <span style={{ display: 'block', marginBottom: 6, color: C.text, fontSize: 13, fontWeight: 700 }}>剧场名</span>
-                <input
-                  value={draft.theaterName}
-                  onChange={event => updateDraft({ theaterName: event.target.value })}
-                  style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '9px 12px', outline: 'none', fontFamily: 'inherit' }}
-                />
-              </label>
-              <Field theme={C} label="世界观 / 剧情设定" hint="不会混入主线记忆" rows={5} value={draft.premise} onChange={value => updateDraft({ premise: value })} placeholder="比如：架空都市、契约关系、重逢、校园、古风……" />
-              <div style={{ height: 12 }} />
-              <Field theme={C} label="角色卡 / 关系" hint="防 OOC 的核心" rows={5} value={draft.characters} onChange={value => updateDraft({ characters: value })} placeholder="写人物性格、关系张力、称呼、说话方式、不能崩的点……" />
-              <div style={{ height: 12 }} />
-              <Field theme={C} label="禁区 / 写作规则" rows={3} value={draft.rules} onChange={value => updateDraft({ rules: value })} placeholder="比如：不要突然和解；不要现代词；不要分条；不要跳出剧情解释……" />
-            </div>
-
-            <div style={{ border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 14 }}>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                {[
-                  ['main', '正文续写'],
-                  ['extra', '番外'],
-                ].map(([value, label]) => (
-                  <button key={value} type="button" onClick={() => updateDraft({ mode: value })} style={{ border: `1px solid ${draft.mode === value ? C.honeyMid : C.border}`, background: draft.mode === value ? C.honeyLight : C.surface, color: draft.mode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
-                ))}
-                {[
-                  ['interactive', '互动推进'],
-                  ['story', '沉浸长文'],
-                ].map(([value, label]) => (
-                  <button key={value} type="button" onClick={() => updateDraft({ playMode: value })} style={{ border: `1px solid ${draft.playMode === value ? C.honeyMid : C.border}`, background: draft.playMode === value ? C.honeyLight : C.surface, color: draft.playMode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
-                ))}
-                {[
-                  ['short', '短一点'],
-                  ['long', '长文'],
-                  ['extra_long', '超长'],
-                ].map(([value, label]) => (
-                  <button key={value} type="button" onClick={() => updateDraft({ lengthMode: value })} style={{ border: `1px solid ${draft.lengthMode === value ? C.blush : C.border}`, background: draft.lengthMode === value ? '#FFF0E9' : C.surface, color: draft.lengthMode === value ? C.blushDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
-                ))}
-              </div>
-              <Field theme={C} label="此前正文 / 剧情进度" hint="可粘贴上一段，也可从书架载入" rows={6} value={draft.previousText} onChange={value => updateDraft({ previousText: value })} placeholder="如果是开篇可以空着；如果要接文，把上一段或剧情摘要放这里。" />
-              <div style={{ height: 12 }} />
-              <Field theme={C} label="这次想看的内容" rows={4} value={draft.request} onChange={value => updateDraft({ request: value })} placeholder={draft.mode === 'extra' ? '比如：写一个下雨天的番外 / 婚后小片段 / IF线……' : '比如：接着写冲突升级 / 写见面 / 写告白前的拉扯……'} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                <select value={model} onChange={event => setModel(event.target.value)} style={{ flex: '1 1 220px', minWidth: 0, border: `1px solid ${C.border}`, background: C.surface, color: C.muted, borderRadius: 999, padding: '7px 10px', fontFamily: 'inherit', fontSize: 11 }}>
-                  {modelOptions.length ? modelOptions.map(item => <option key={item} value={item}>{item}</option>) : <option value="">默认模型</option>}
-                </select>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.muted, fontSize: 12 }}>
-                  <input type="checkbox" checked={draft.save} onChange={event => updateDraft({ save: event.target.checked })} />
-                  保存到剧场书架
-                </label>
-                <button type="button" onClick={generate} disabled={generating} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '10px 18px', fontFamily: 'inherit', cursor: generating ? 'default' : 'pointer', opacity: generating ? .65 : 1 }}>{generating ? '写作中…' : draft.mode === 'extra' ? '写番外' : '开始续写'}</button>
-              </div>
-              {error && <div style={{ marginTop: 10, color: C.blushDeep, fontSize: 12, lineHeight: 1.6 }}>{error}</div>}
-            </div>
-
-            {result && (
-              <article style={{ border: `1px solid ${C.border}`, borderRadius: 14, background: 'linear-gradient(180deg, #fffdfa, #fff7ec)', padding: '18px 16px', color: C.text, boxShadow: `0 12px 28px ${C.borderLight}88` }}>
-                <h2 style={{ margin: '0 0 12px', fontSize: 18, color: C.text }}>{result.title || '小剧场'}</h2>
-                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.9, fontSize: 15 }}>{result.content}</div>
-                {Array.isArray(result.choices) && result.choices.length > 0 && (
-                  <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
-                    <div style={{ color: C.honeyDeep, fontSize: 12, fontWeight: 700, letterSpacing: '.12em', marginBottom: 8 }}>可选走向</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {result.choices.map((choice, index) => (
-                        <button
-                          key={`${choice}-${index}`}
-                          type="button"
-                          onClick={() => choosePath(choice)}
-                          disabled={generating}
-                          style={{ textAlign: 'left', border: `1px solid ${C.border}`, borderRadius: 12, background: C.surface, color: C.text, padding: '10px 11px', fontFamily: 'inherit', cursor: generating ? 'default' : 'pointer', lineHeight: 1.55 }}
-                        >
-                          {index + 1}. {choice}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </article>
-            )}
-          </div>
-
-          <aside style={{ flex: '1 1 280px', minWidth: 0 }}>
-            <div style={{ position: 'sticky', top: 12, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 14 }}>
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 13, color: C.text, fontWeight: 700, letterSpacing: '.08em' }}>剧场书架</div>
-                <div style={{ color: C.mutedLight, fontSize: 10, marginTop: 2 }}>保存过的正文和番外</div>
-              </div>
-              {loadingWorks && <div style={{ color: C.muted, fontSize: 12, padding: '12px 0' }}>正在翻找小剧场…</div>}
-              {!loadingWorks && works.length === 0 && <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.7, padding: '12px 0' }}>还没有保存的作品。先写第一篇吧。</div>}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {works.map(work => (
-                  <div key={work.id} style={{ border: `1px solid ${C.borderLight}`, borderRadius: 12, background: C.surface, padding: 11 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                      <b style={{ color: C.text, fontSize: 13, lineHeight: 1.4 }}>{work.title || '无标题'}</b>
-                      <span style={{ color: C.mutedLight, fontSize: 9, flexShrink: 0 }}>{formatDate(work.created_at)}</span>
-                    </div>
-                    <p style={{ margin: '7px 0 9px', color: C.muted, fontSize: 11.5, lineHeight: 1.65, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{work.content}</p>
-                    <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                      <button type="button" onClick={() => continueFrom(work)} style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>接着写</button>
-                      <button type="button" onClick={() => deleteWork(work.id)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>删除</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </aside>
-        </section>
-      </main>
+      {selectedBook ? renderBook() : renderShelf()}
     </div>
   );
 }
