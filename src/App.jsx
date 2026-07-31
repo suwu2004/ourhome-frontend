@@ -5,6 +5,7 @@ import { AgentMailRoom } from './AgentMailRoom.jsx';
 import { AgentMailSettings } from './AgentMailSettings.jsx';
 import { ChatSearchPanel } from './ChatSearchPanel.jsx';
 import { MemoryRoom } from './MemoryRoom.jsx';
+import { MusicRoom } from './MusicRoom.jsx';
 import { SettingsGroup } from './SettingsGroup.jsx';
 import { TheaterRoom } from './TheaterRoom.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
@@ -2749,6 +2750,12 @@ export default function App({ initialView = 'chat', onHome }) {
         leaveRoom={leaveRoom}
         selectedModel={selectedModel}
         availableModels={availableModels}
+      />
+
+      <MusicRoom
+        theme={C}
+        visible={stage === "home" && view === "music"}
+        leaveRoom={leaveRoom}
       />
 
       <div
