@@ -6,6 +6,7 @@ import { AgentMailSettings } from './AgentMailSettings.jsx';
 import { ChatSearchPanel } from './ChatSearchPanel.jsx';
 import { MemoryRoom } from './MemoryRoom.jsx';
 import { SettingsGroup } from './SettingsGroup.jsx';
+import { TheaterRoom } from './TheaterRoom.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
 import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
@@ -2740,6 +2741,14 @@ export default function App({ initialView = 'chat', onHome }) {
         cancelEditMemory={cancelEditMemory}
         saveEditMemory={saveEditMemory}
         deleteMemory={deleteMemory}
+      />
+
+      <TheaterRoom
+        theme={C}
+        visible={stage === "home" && view === "theater"}
+        leaveRoom={leaveRoom}
+        selectedModel={selectedModel}
+        availableModels={availableModels}
       />
 
       <div
