@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { getHomeWeatherCity, HOME_PREFERENCES_EVENT } from './homePreferences.js';
 import { upcomingOccasions } from './milestoneDates.js';
@@ -75,6 +75,11 @@ function trimMemoContent(value) {
 function compactMemoPreview(value) {
   const content = trimMemoContent(value).trim();
   return content || '留一句话……';
+}
+
+function musicTrackLabel(track) {
+  if (!track) return '唱片机还空着，等我们放第一首。';
+  return [track.title, track.artist].filter(Boolean).join(' · ') || '未命名歌曲';
 }
 
 function MoodCalendarMark() {
@@ -245,6 +250,7 @@ function MemoDrawer({
 
 export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const { darkMode, settings } = useTheme();
+  const musicAudioRef = useRef(null);
   const [now, setNow] = useState(() => new Date());
   const [city, setCity] = useState(getHomeWeatherCity);
   const [weather, setWeather] = useState(null);
@@ -255,6 +261,10 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const [memoState, setMemoState] = useState('loading');
   const [memoError, setMemoError] = useState('');
   const [memoOpen, setMemoOpen] = useState(false);
+  const [musicTracks, setMusicTracks] = useState([]);
+  const [musicState, setMusicState] = useState({ track_id: null, is_playing: false });
+  const [musicLoading, setMusicLoading] = useState(false);
+  const [musicError, setMusicError] = useState('');
 
   useEffect(() => {
     const update = () => setNow(new Date());
@@ -326,10 +336,33 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
     }
   }, []);
 
+  const loadMusicPreview = useCallback(async () => {
+    setMusicLoading(true);
+    setMusicError('');
+    try {
+      const [tracksResponse, stateResponse] = await Promise.all([
+        apiFetch(`${BACKEND}/music/tracks`),
+        apiFetch(`${BACKEND}/music/state`),
+      ]);
+      const tracksData = await tracksResponse.json().catch(() => []);
+      const stateData = await stateResponse.json().catch(() => ({}));
+      if (!tracksResponse.ok) throw new Error(tracksData?.error || '唱片机暂时没有回来');
+      if (!stateResponse.ok) throw new Error(stateData?.error || '播放状态暂时没有回来');
+      setMusicTracks(Array.isArray(tracksData) ? tracksData : []);
+      setMusicState(stateData || { track_id: null, is_playing: false });
+    } catch (error) {
+      console.error('一起听预览加载失败', error);
+      setMusicError(error.message || '唱片机暂时没有回来');
+    } finally {
+      setMusicLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadMemos();
     loadMilestones();
-  }, [loadMemos, loadMilestones, refreshToken]);
+    loadMusicPreview();
+  }, [loadMemos, loadMilestones, loadMusicPreview, refreshToken]);
 
   useEffect(() => {
     if (!refreshing) return undefined;
@@ -343,6 +376,11 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const upcoming = useMemo(() => upcomingOccasions(milestones, now, 10), [milestones, now]);
   const featuredNoteText = compactMemoPreview(featuredMemo?.content);
   const featuredOccasion = upcoming[0] || null;
+  const activeMusicTrack = useMemo(
+    () => musicTracks.find(track => String(track.id) === String(musicState.track_id)) || musicTracks[0] || null,
+    [musicTracks, musicState.track_id],
+  );
+  const musicCanPlay = Boolean(activeMusicTrack?.audio_url);
   const avatars = {
     mine: settings?.my_avatar_url || '',
     partner: settings?.partner_avatar_url || '',
@@ -388,6 +426,66 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
       setMemoError(error.message || '便签没有删掉');
     }
   };
+
+  const saveMusicState = async patch => {
+    const next = { ...musicState, ...patch, updated_at: new Date().toISOString() };
+    setMusicState(next);
+    try {
+      await apiFetch(`${BACKEND}/music/state`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      });
+    } catch (error) {
+      console.error('一起听状态保存失败', error);
+    }
+  };
+
+  const toggleHomeMusic = async event => {
+    event.stopPropagation();
+    if (!activeMusicTrack) {
+      onOpen('music');
+      return;
+    }
+    if (!musicCanPlay) {
+      setMusicError('这首歌还没有可直接播放的音频，点进房间补一下。');
+      onOpen('music');
+      return;
+    }
+    const nextPlaying = !musicState.is_playing;
+    await saveMusicState({ track_id: activeMusicTrack.id, is_playing: nextPlaying });
+    if (!musicAudioRef.current) return;
+    if (nextPlaying) {
+      musicAudioRef.current.play().catch(() => {
+        setMusicError('浏览器拦了一下，进房间点播放就好。');
+        saveMusicState({ track_id: activeMusicTrack.id, is_playing: false });
+      });
+    } else {
+      musicAudioRef.current.pause();
+    }
+  };
+
+  const playNextHomeTrack = async event => {
+    event.stopPropagation();
+    if (!musicTracks.length) {
+      onOpen('music');
+      return;
+    }
+    const index = Math.max(0, musicTracks.findIndex(track => String(track.id) === String(activeMusicTrack?.id)));
+    const nextTrack = musicTracks[(index + 1) % musicTracks.length];
+    await saveMusicState({ track_id: nextTrack.id, is_playing: Boolean(nextTrack.audio_url) });
+    if (!nextTrack.audio_url) onOpen('music');
+  };
+
+  useEffect(() => {
+    if (!musicAudioRef.current) return;
+    if (activeMusicTrack?.audio_url) musicAudioRef.current.src = activeMusicTrack.audio_url;
+    if (musicState.is_playing && activeMusicTrack?.audio_url) {
+      musicAudioRef.current.play().catch(() => saveMusicState({ is_playing: false }));
+    } else {
+      musicAudioRef.current.pause();
+    }
+  }, [activeMusicTrack?.id, activeMusicTrack?.audio_url, musicState.is_playing]);
 
   const weatherLine = weatherState === 'loading'
     ? '天气在路上…'
@@ -451,6 +549,20 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
               <p className="home-note-message">{memoState === 'loading' ? '正在翻找便签…' : featuredNoteText}</p>
               {featuredOccasion && <span className="home-note-countdown"><OccasionReminder occasion={featuredOccasion} /></span>}
             </div>
+          </button>
+
+          <button className={`home-music-card ${musicState.is_playing ? 'is-playing' : ''}`} type="button" onClick={() => onOpen('music')} aria-label="打开一起听音乐">
+            <span className="home-music-record" aria-hidden="true"><i /></span>
+            <span className="home-music-copy">
+              <small>LISTEN TOGETHER</small>
+              <b>{musicLoading ? '唱片转起来了…' : musicTrackLabel(activeMusicTrack)}</b>
+              <em>{musicError || (musicCanPlay ? '在客厅一起听一会儿。' : '可以上传音频，或收藏原曲链接。')}</em>
+            </span>
+            <span className="home-music-actions">
+              <span role="button" tabIndex="0" onClick={toggleHomeMusic} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleHomeMusic(event); }}>{musicState.is_playing ? 'Ⅱ' : '▶'}</span>
+              <span role="button" tabIndex="0" onClick={playNextHomeTrack} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') playNextHomeTrack(event); }}>↻</span>
+            </span>
+            <audio ref={musicAudioRef} src={activeMusicTrack?.audio_url || ''} onEnded={event => playNextHomeTrack(event)} />
           </button>
         </section>
 
