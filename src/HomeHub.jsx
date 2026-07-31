@@ -459,6 +459,16 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
             <span><EnvelopeIcon /></span>
             <strong>时光信差</strong>
           </button>
+          <button className="home-room-app home-room-app--theater" type="button" onClick={() => onOpen('theater')} aria-label="打开小剧场">
+            <span>
+              <svg className="home-room-glyph" viewBox="0 0 36 36" aria-hidden="true">
+                <path d="M7 9h22v18H7z" />
+                <path d="M11 13h14M11 18h10M11 23h7" />
+                <path d="M27 7l4 4M31 7l-4 4" />
+              </svg>
+            </span>
+            <strong>小剧场</strong>
+          </button>
           <button className="home-room-app home-room-app--vault" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
             <span><CoinIcon /></span>
             <strong>猫的金库</strong>
