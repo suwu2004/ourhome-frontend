@@ -8,6 +8,7 @@ const emptyTrack = {
   audio_url: '',
   source_url: '',
   cover_url: '',
+  lyrics: '',
   note: '',
 };
 
@@ -16,16 +17,26 @@ function formatTrack(track) {
   return [track.title, track.artist].filter(Boolean).join(' · ') || '未命名歌曲';
 }
 
+function lyricPreview(track) {
+  const text = String(track?.lyrics || track?.note || '').trim();
+  if (!text) return '歌词还没有回来，先听一小段。';
+  return text.split('\n').map(line => line.trim()).filter(Boolean).slice(0, 4).join('\n');
+}
+
 export function MusicRoom({ visible, theme, leaveRoom }) {
   const C = theme;
   const audioRef = useRef(null);
   const fileInputRef = useRef(null);
   const [tracks, setTracks] = useState([]);
-  const [state, setState] = useState({ track_id: null, is_playing: false });
+  const [state, setState] = useState({ track_id: null, is_playing: false, shuffle: false });
   const [draft, setDraft] = useState(emptyTrack);
+  const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [lyricsLoadingId, setLyricsLoadingId] = useState(null);
   const [error, setError] = useState('');
 
   const activeTrack = useMemo(
@@ -60,7 +71,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
       if (!tracksResponse.ok) throw new Error(tracksData.error || '歌单没有回来');
       if (!stateResponse.ok) throw new Error(stateData.error || '播放状态没有回来');
       setTracks(Array.isArray(tracksData) ? tracksData : []);
-      setState(stateData || { track_id: null, is_playing: false });
+      setState({ track_id: null, is_playing: false, shuffle: false, ...(stateData || {}) });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -82,47 +93,120 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     }
   }, [activeTrack?.id, activeTrack?.audio_url, state.is_playing]);
 
+  const pickTrack = (direction = 1) => {
+    if (!tracks.length) return null;
+    if (state.shuffle && tracks.length > 1) {
+      const candidates = tracks.filter(track => String(track.id) !== String(activeTrack?.id));
+      return candidates[Math.floor(Math.random() * candidates.length)] || tracks[0];
+    }
+    const index = Math.max(0, tracks.findIndex(track => String(track.id) === String(activeTrack?.id)));
+    return tracks[(index + direction + tracks.length) % tracks.length];
+  };
+
   const selectTrack = track => {
     updateState({ track_id: track.id, is_playing: Boolean(track.audio_url) });
   };
 
   const togglePlay = () => {
     if (!activeTrack?.audio_url) {
-      setError(activeTrack ? '这首歌没有可直接播放的音频链接，可以点“打开原曲”。' : '先往歌单里加一首歌。');
+      setError(activeTrack ? '这首歌没有可直接播放的试听，换一首搜到的歌试试。' : '先搜一首歌放进歌单。');
       return;
     }
     updateState({ track_id: activeTrack.id, is_playing: !state.is_playing });
   };
 
   const playNext = () => {
-    if (!tracks.length) return;
-    const index = Math.max(0, tracks.findIndex(track => String(track.id) === String(activeTrack?.id)));
-    const next = tracks[(index + 1) % tracks.length];
-    updateState({ track_id: next.id, is_playing: Boolean(next.audio_url) });
+    const next = pickTrack(1);
+    if (next) updateState({ track_id: next.id, is_playing: Boolean(next.audio_url) });
   };
 
-  const saveTrack = async () => {
-    if (!draft.title.trim() && !draft.audio_url.trim() && !draft.source_url.trim()) {
-      setError('至少写歌名，或者贴一个链接。');
+  const playPrevious = () => {
+    const previous = pickTrack(-1);
+    if (previous) updateState({ track_id: previous.id, is_playing: Boolean(previous.audio_url) });
+  };
+
+  const searchMusic = async event => {
+    event?.preventDefault();
+    const keyword = query.trim();
+    if (!keyword) {
+      setError('先写歌名、歌手，或者一句想听的歌。');
       return;
     }
+    setSearching(true);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/music/search?q=${encodeURIComponent(keyword)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '没有搜到歌');
+      setSearchResults(Array.isArray(data) ? data : []);
+      if (!data.length) setError('这次没有搜到可试听的歌，换个歌名试试。');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const saveTrackPayload = async payload => {
     setSaving(true);
     setError('');
     try {
       const response = await apiFetch(`${BACKEND}/music/tracks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft),
+        body: JSON.stringify(payload),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '这首歌没有放进歌单');
       setTracks(items => [data, ...items]);
-      setDraft(emptyTrack);
       if (!activeTrack) updateState({ track_id: data.id, is_playing: Boolean(data.audio_url) });
+      return data;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveTrack = async () => {
+    if (!draft.title.trim() && !draft.audio_url.trim() && !draft.source_url.trim()) {
+      setError('至少写歌名，或者上传一段音频。');
+      return;
+    }
+    const saved = await saveTrackPayload(draft);
+    if (saved) setDraft(emptyTrack);
+  };
+
+  const addSearchResult = async track => {
+    const saved = await saveTrackPayload(track);
+    if (saved) setSearchResults(items => items.filter(item => item.audio_url !== track.audio_url));
+  };
+
+  const fillLyrics = async track => {
+    if (!track?.id || !track.artist || !track.title) {
+      setError('需要歌名和歌手才能找歌词。');
+      return;
+    }
+    setLyricsLoadingId(track.id);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/music/lyrics?artist=${encodeURIComponent(track.artist)}&title=${encodeURIComponent(track.title)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '歌词没有回来');
+      const nextTrack = { ...track, lyrics: data.lyrics || '' };
+      const patch = await apiFetch(`${BACKEND}/music/tracks/${track.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextTrack),
+      });
+      const saved = await patch.json();
+      if (!patch.ok) throw new Error(saved.error || '歌词没有保存好');
+      setTracks(items => items.map(item => (item.id === saved.id ? saved : item)));
     } catch (err) {
       setError(err.message);
     } finally {
-      setSaving(false);
+      setLyricsLoadingId(null);
     }
   };
 
@@ -189,9 +273,14 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.16em', marginBottom: 5 }}>NOW LISTENING</div>
                 <div style={{ color: C.text, fontSize: 18, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatTrack(activeTrack)}</div>
-                <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{activeTrack?.album || activeTrack?.note || '客厅唱片机等你放第一首。'}</div>
+                <div style={{ whiteSpace: 'pre-wrap', color: C.muted, fontSize: 12, lineHeight: 1.65, marginTop: 4 }}>{lyricPreview(activeTrack)}</div>
               </div>
-              <button type="button" onClick={playNext} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.honeyDeep, padding: '8px 11px', fontFamily: 'inherit', cursor: 'pointer' }}>下一首</button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              <button type="button" onClick={playPrevious} style={softButtonStyle(C)}>上一首</button>
+              <button type="button" onClick={playNext} style={softButtonStyle(C)}>下一首</button>
+              <button type="button" onClick={() => updateState({ shuffle: !state.shuffle })} style={{ ...softButtonStyle(C), background: state.shuffle ? C.honeyLight : C.surface, color: state.shuffle ? C.honeyDeep : C.muted }}>随机 {state.shuffle ? '开' : '关'}</button>
+              {activeTrack && <button type="button" onClick={() => fillLyrics(activeTrack)} disabled={lyricsLoadingId === activeTrack.id} style={softButtonStyle(C)}>{lyricsLoadingId === activeTrack.id ? '找歌词中' : '找歌词'}</button>}
             </div>
             <audio ref={audioRef} controls style={{ width: '100%', marginTop: 12 }} onEnded={playNext} />
             {activeTrack?.source_url && (
@@ -199,40 +288,62 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
             )}
           </div>
 
-          <div style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
-            <div style={{ color: C.text, fontWeight: 700, marginBottom: 10 }}>往歌单里放一首</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 9 }}>
+          <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
+            <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>直接搜歌</div>
+            <form onSubmit={searchMusic} style={{ display: 'flex', gap: 8 }}>
+              <input value={query} onChange={event => setQuery(event.target.value)} placeholder="输入歌名、歌手，比如周杰伦 晴天" style={{ ...inputStyle(C), flex: 1, minWidth: 0 }} />
+              <button type="submit" disabled={searching} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '0 15px', fontFamily: 'inherit', cursor: searching ? 'default' : 'pointer', opacity: searching ? .65 : 1 }}>{searching ? '搜着' : '搜索'}</button>
+            </form>
+            {searchResults.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                {searchResults.map((track, index) => (
+                  <div key={`${track.audio_url}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${C.borderLight}`, background: C.surface, borderRadius: 13, padding: '9px 10px' }}>
+                    {track.cover_url && <img src={track.cover_url} alt="" style={{ width: 38, height: 38, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: C.text, fontSize: 13.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                      <div style={{ color: C.muted, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[track.artist, track.album].filter(Boolean).join(' · ') || '试听片段'}</div>
+                    </div>
+                    <button type="button" onClick={() => addSearchResult(track)} disabled={saving} style={softButtonStyle(C)}>加入</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <details style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
+            <summary style={{ color: C.text, fontWeight: 700, cursor: 'pointer' }}>手动收藏 / 上传音频</summary>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 9, marginTop: 12 }}>
               <input value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="歌名" style={inputStyle(C)} />
               <input value={draft.artist} onChange={event => setDraft(current => ({ ...current, artist: event.target.value }))} placeholder="歌手" style={inputStyle(C)} />
               <input value={draft.album} onChange={event => setDraft(current => ({ ...current, album: event.target.value }))} placeholder="专辑，可不填" style={inputStyle(C)} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 9, marginTop: 9 }}>
-              <input value={draft.audio_url} onChange={event => setDraft(current => ({ ...current, audio_url: event.target.value }))} placeholder="可直接播放的音频链接，或上传后自动填入" style={inputStyle(C)} />
-              <input value={draft.source_url} onChange={event => setDraft(current => ({ ...current, source_url: event.target.value }))} placeholder="QQ/网易/Spotify 等原曲链接" style={inputStyle(C)} />
-            </div>
-            <textarea value={draft.note} onChange={event => setDraft(current => ({ ...current, note: event.target.value }))} placeholder="为什么想一起听、适合什么时候听……" rows={2} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', marginTop: 9, borderRadius: 12 }} />
+            <input value={draft.audio_url} onChange={event => setDraft(current => ({ ...current, audio_url: event.target.value }))} placeholder="可直接播放的音频链接，上传后自动填入" style={{ ...inputStyle(C), width: '100%', marginTop: 9 }} />
+            <textarea value={draft.note} onChange={event => setDraft(current => ({ ...current, note: event.target.value }))} placeholder="备注或想显示在唱片机上的一句话……" rows={2} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', marginTop: 9, borderRadius: 12 }} />
             <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
               <input ref={fileInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={event => uploadAudio(event.target.files?.[0])} />
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} style={softButtonStyle(C)}>{uploading ? '上传中…' : '上传音频'}</button>
-              <button type="button" onClick={saveTrack} disabled={saving} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '9px 15px', fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer', opacity: saving ? .65 : 1 }}>{saving ? '保存中…' : '加入歌单'}</button>
-              {error && <span style={{ color: C.blushDeep, fontSize: 12 }}>{error}</span>}
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} style={softButtonStyle(C)}>{uploading ? '上传中' : '上传音频'}</button>
+              <button type="button" onClick={saveTrack} disabled={saving} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '9px 15px', fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer', opacity: saving ? .65 : 1 }}>{saving ? '保存中' : '加入歌单'}</button>
             </div>
-          </div>
+          </details>
+
+          {error && <div style={{ color: C.blushDeep, fontSize: 12 }}>{error}</div>}
 
           <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <b style={{ color: C.text }}>我们的歌单</b>
               <span style={{ color: C.mutedLight, fontSize: 11 }}>{tracks.length} 首</span>
             </div>
-            {!tracks.length && <div style={{ color: C.muted, fontSize: 13, padding: '18px 0', textAlign: 'center' }}>还没有歌。先放一首我们的小曲子。</div>}
+            {!tracks.length && <div style={{ color: C.muted, fontSize: 13, padding: '18px 0', textAlign: 'center' }}>还没有歌。直接搜一首，就能放进唱片机。</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {tracks.map(track => (
                 <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${String(activeTrack?.id) === String(track.id) ? C.honeyMid : C.borderLight}`, background: String(activeTrack?.id) === String(track.id) ? C.honeyLight : C.surface, borderRadius: 13, padding: '10px 11px' }}>
                   <button type="button" onClick={() => selectTrack(track)} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid ${C.border}`, background: C.white, color: C.honeyDeep, cursor: 'pointer' }}>{String(activeTrack?.id) === String(track.id) && state.is_playing ? 'Ⅱ' : '▶'}</button>
+                  {track.cover_url && <img src={track.cover_url} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: C.text, fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
                     <div style={{ color: C.muted, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[track.artist, track.album, track.note].filter(Boolean).join(' · ') || '没有备注'}</div>
                   </div>
+                  {!track.lyrics && <button type="button" onClick={() => fillLyrics(track)} disabled={lyricsLoadingId === track.id} style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>{lyricsLoadingId === track.id ? '找中' : '歌词'}</button>}
                   {track.source_url && <a href={track.source_url} target="_blank" rel="noreferrer" style={{ color: C.honeyDeep, fontSize: 11, flexShrink: 0 }}>原曲</a>}
                   <button type="button" onClick={() => deleteTrack(track)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>删除</button>
                 </div>
@@ -265,7 +376,7 @@ function softButtonStyle(C) {
     borderRadius: 999,
     background: C.surface,
     color: C.honeyDeep,
-    padding: '9px 13px',
+    padding: '8px 12px',
     fontFamily: 'inherit',
     cursor: 'pointer',
   };
