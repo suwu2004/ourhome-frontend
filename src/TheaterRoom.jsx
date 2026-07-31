@@ -677,12 +677,17 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
 
     return (
       <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '12px min(16px, 4vw) 14px' }}>
-        <div style={{ flexShrink: 0, maxWidth: 760, width: '100%', margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ flexShrink: 0, maxWidth: 760, width: '100%', margin: '0 auto 10px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ color: C.text, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookDraft.title || '未命名小剧本'}</div>
             <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.12em' }}>{mode === 'interactive' ? '互动推进' : '沉浸纯文'} · {lengthMode === 'extra_long' ? '超长' : lengthMode === 'short' ? '短' : '长'}</div>
           </div>
-          <button type="button" onClick={() => setBookPane('settings')} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.honeyDeep, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer', flexShrink: 0 }}>设定</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, alignItems: 'flex-end', flexShrink: 0, maxWidth: '52%' }}>
+            <button type="button" onClick={() => setBookPane('settings')} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.honeyDeep, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>设定</button>
+            <select value={model} onChange={event => setModel(event.target.value)} style={{ width: 'min(230px, 48vw)', border: `1px solid ${C.border}`, background: C.surface, color: C.muted, borderRadius: 999, padding: '7px 10px', fontFamily: 'inherit', fontSize: 10.5 }}>
+              {modelOptions.length ? modelOptions.map(item => <option key={item} value={item}>{item}</option>) : <option value="">默认模型</option>}
+            </select>
+          </div>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, maxWidth: 760, width: '100%', margin: '0 auto', border: `1px solid ${C.border}`, borderRadius: 18, ...theaterChatBackgroundStyle(), padding: 12, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
