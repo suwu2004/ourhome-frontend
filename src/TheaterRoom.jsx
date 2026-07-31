@@ -130,10 +130,12 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const [importText, setImportText] = useState('');
   const [importPreview, setImportPreview] = useState(makeBookDraft('导入的小世界'));
   const [importingWorld, setImportingWorld] = useState(false);
+  const [importingFile, setImportingFile] = useState(false);
   const [mode, setMode] = useState('interactive');
   const [lengthMode, setLengthMode] = useState('long');
   const [model, setModel] = useState(selectedModel || '');
   const chatEndRef = useRef(null);
+  const worldFileInputRef = useRef(null);
 
   const selectedBook = useMemo(
     () => books.find(book => String(book.id) === String(selectedBookId)) || null,
@@ -240,6 +242,29 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       setError(err.message);
     } finally {
       setImportingWorld(false);
+    }
+  };
+
+  const importWorldFile = async file => {
+    if (!file) return;
+    setImportingFile(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await apiFetch(`${BACKEND}/theater/import-world`, { method: 'POST', body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '世界书没有导入成功');
+      setBooks(items => [data, ...items]);
+      setSelectedBookId(data.id);
+      setImportOpen(false);
+      setImportText('');
+      setImportPreview(makeBookDraft('导入的小世界'));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImportingFile(false);
+      if (worldFileInputRef.current) worldFileInputRef.current.value = '';
     }
   };
 
@@ -352,7 +377,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
               <div>
                 <div style={{ color: C.text, fontWeight: 700 }}>一键导入小世界</div>
-                <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 3 }}>把世界观、人设、关系和禁区整段贴进来，不会额外花 API 额度。</div>
+                <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 3 }}>把世界观、人设、关系和禁区整段贴进来，也可以上传 .docx 世界书，不会额外花 API 额度。</div>
               </div>
               <button type="button" onClick={() => setImportOpen(false)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer' }}>收起</button>
             </div>
@@ -377,6 +402,8 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
               ))}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <input ref={worldFileInputRef} type="file" accept=".docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" style={{ display: 'none' }} onChange={event => importWorldFile(event.target.files?.[0])} />
+              <button type="button" onClick={() => worldFileInputRef.current?.click()} disabled={importingFile} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '8px 12px', fontFamily: 'inherit', cursor: importingFile ? 'default' : 'pointer', opacity: importingFile ? .65 : 1 }}>{importingFile ? '读取中' : '上传 Word'}</button>
               <button type="button" onClick={() => updateImportText(importStarter)} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.muted, padding: '8px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>填模板</button>
               <button type="button" onClick={importWorld} disabled={importingWorld} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '8px 14px', fontFamily: 'inherit', cursor: importingWorld ? 'default' : 'pointer', opacity: importingWorld ? .65 : 1 }}>{importingWorld ? '导入中' : '生成一本书'}</button>
             </div>
