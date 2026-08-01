@@ -163,6 +163,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const [savingBook, setSavingBook] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatting, setChatting] = useState(false);
+  const [regeneratingMessageId, setRegeneratingMessageId] = useState(null);
   const [error, setError] = useState('');
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState('');
@@ -457,6 +458,38 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     }
   };
 
+  const regenerateMessage = async message => {
+    if (!selectedBook || !message?.id || message.role !== 'assistant') return;
+    setRegeneratingMessageId(message.id);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/theater/books/${selectedBook.id}/messages/${message.id}/regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          play_mode: mode,
+          length_mode: lengthMode,
+          model,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '这条回复没有重写成功');
+      setBooks(items => items.map(book => {
+        if (String(book.id) !== String(selectedBook.id)) return book;
+        return {
+          ...book,
+          messages: (book.messages || []).map(item => (
+            String(item.id) === String(message.id) ? data.assistant_message : item
+          )),
+        };
+      }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRegeneratingMessageId(null);
+    }
+  };
+
   const goBackToShelf = () => {
     setSelectedBookId(null);
     setBookPane('settings');
@@ -699,7 +732,19 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             )}
             {messages.map(message => (
               <div key={message.id} style={{ alignSelf: message.role === 'user' ? 'flex-end' : 'stretch', maxWidth: message.role === 'user' ? '82%' : '100%' }}>
-                <div style={{ color: message.role === 'user' ? C.honeyDeep : C.mutedLight, fontSize: 10, marginBottom: 4, textAlign: message.role === 'user' ? 'right' : 'left' }}>{message.role === 'user' ? userDisplayName : assistantDisplayName} · {formatDate(message.created_at)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: message.role === 'user' ? 'flex-end' : 'space-between', gap: 8, color: message.role === 'user' ? C.honeyDeep : C.mutedLight, fontSize: 10, marginBottom: 4, textAlign: message.role === 'user' ? 'right' : 'left' }}>
+                  <span>{message.role === 'user' ? userDisplayName : assistantDisplayName} · {formatDate(message.created_at)}</span>
+                  {message.role === 'assistant' && (
+                    <button
+                      type="button"
+                      onClick={() => regenerateMessage(message)}
+                      disabled={chatting || Boolean(regeneratingMessageId)}
+                      style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 10, cursor: chatting || regeneratingMessageId ? 'default' : 'pointer', opacity: chatting || regeneratingMessageId ? .55 : 1, padding: '2px 0' }}
+                    >
+                      {String(regeneratingMessageId) === String(message.id) ? '重写中' : '重写'}
+                    </button>
+                  )}
+                </div>
                 <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.85, fontSize: message.role === 'user' ? 13.5 : 14.5, color: C.text, background: message.role === 'user' ? C.honeyLight : C.white, border: `1px solid ${message.role === 'user' ? C.honeyMid : C.border}`, borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : 13, padding: '10px 12px' }}>{message.content}</div>
               </div>
             ))}
