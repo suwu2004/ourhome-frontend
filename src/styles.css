@@ -992,12 +992,12 @@ textarea { display: block; margin: 0; }
 }
 
 .home-music-garden {
-  min-height: clamp(204px, 29vh, 252px);
+  min-height: clamp(246px, 34vh, 318px);
   align-content: center;
   isolation: isolate;
 }
 
-.home-petal-field {
+.home-bubble-field {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -1005,38 +1005,43 @@ textarea { display: block; margin: 0; }
   pointer-events: none;
 }
 
-.home-petal-field span {
+.home-bubble-field span {
   position: absolute;
-  width: 16px;
-  height: 27px;
-  border-radius: 82% 18% 72% 28%;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--home-blush) 62%, var(--home-card-solid)), color-mix(in srgb, var(--home-card-solid) 60%, var(--home-blush)));
-  border: 1px solid color-mix(in srgb, var(--home-blush) 45%, transparent);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--home-shadow) 24%, transparent);
-  opacity: 0.58;
-  animation: home-petal-drift 9s ease-in-out infinite;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--home-card-solid) 78%, transparent), color-mix(in srgb, var(--home-lemon) 42%, transparent));
+  border: 1px solid color-mix(in srgb, var(--home-card-solid) 60%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--home-card-solid) 72%, transparent);
+  opacity: 0.46;
+  animation: home-bubble-drift 10s ease-in-out infinite;
 }
 
-.home-petal-field span:nth-child(1) { top: 12%; left: 10%; transform: rotate(-24deg); }
-.home-petal-field span:nth-child(2) { top: 8%; right: 17%; width: 13px; height: 22px; animation-delay: -2.2s; }
-.home-petal-field span:nth-child(3) { top: 54%; left: 31%; width: 12px; height: 20px; animation-delay: -4s; }
-.home-petal-field span:nth-child(4) { top: 38%; right: 8%; width: 18px; height: 29px; animation-delay: -5.5s; }
-.home-petal-field span:nth-child(5) { bottom: 13%; left: 56%; width: 11px; height: 19px; animation-delay: -6.8s; }
+.home-bubble-field span:nth-child(1) { top: 10%; left: 10%; }
+.home-bubble-field span:nth-child(2) { top: 16%; right: 18%; width: 4px; height: 4px; animation-delay: -1.5s; }
+.home-bubble-field span:nth-child(3) { top: 39%; left: 24%; width: 3px; height: 3px; animation-delay: -3s; }
+.home-bubble-field span:nth-child(4) { top: 48%; right: 9%; width: 6px; height: 6px; animation-delay: -4.6s; }
+.home-bubble-field span:nth-child(5) { bottom: 19%; left: 53%; width: 4px; height: 4px; animation-delay: -6.2s; }
+.home-bubble-field span:nth-child(6) { bottom: 11%; right: 28%; width: 3px; height: 3px; animation-delay: -7.5s; }
+.home-bubble-field span:nth-child(7) { top: 62%; left: 13%; width: 4px; height: 4px; animation-delay: -2.4s; }
+.home-bubble-field span:nth-child(8) { top: 30%; right: 37%; width: 3px; height: 3px; animation-delay: -5.1s; }
+.home-bubble-field span:nth-child(9) { bottom: 32%; left: 72%; width: 5px; height: 5px; animation-delay: -8.4s; }
+.home-bubble-field span:nth-child(10) { top: 7%; left: 43%; width: 3px; height: 3px; animation-delay: -6.9s; }
 
-@keyframes home-petal-drift {
-  50% { transform: translate(12px, 9px) rotate(18deg); opacity: 0.82; }
+@keyframes home-bubble-drift {
+  50% { transform: translate(8px, -10px); opacity: 0.7; }
 }
 
 .home-note-ribbon {
   position: absolute;
   z-index: 0;
-  top: 22px;
+  top: 4px;
   right: 0;
   left: 0;
   width: 100%;
-  height: 146px;
+  height: 224px;
   overflow: visible;
-  opacity: 0.38;
+  opacity: 0.34;
   pointer-events: none;
 }
 
@@ -1070,8 +1075,8 @@ textarea { display: block; margin: 0; }
 }
 
 .home-floating-note--one { top: 42px; left: 50%; }
-.home-floating-note--two { top: 90px; left: 78%; animation-delay: -1.4s; }
-.home-floating-note--three { top: 118px; left: 35%; animation-delay: -2.6s; }
+.home-floating-note--two { top: 82px; left: 80%; animation-delay: -1.4s; }
+.home-floating-note--three { top: 158px; left: 26%; animation-delay: -2.6s; }
 
 @keyframes home-note-float {
   50% { transform: translateY(-7px) rotate(5deg); opacity: 0.72; }
@@ -1093,7 +1098,7 @@ textarea { display: block; margin: 0; }
 .home-music-garden .home-room-shelf {
   position: absolute;
   z-index: 3;
-  inset: 8px 10px 18px;
+  inset: 4px 10px 18px;
   display: block;
   pointer-events: none;
 }
@@ -1106,11 +1111,11 @@ textarea { display: block; margin: 0; }
   animation: home-room-float 5.2s ease-in-out infinite;
 }
 
-.home-music-garden .home-room-app--music { top: 54px; left: 50%; width: 78px; margin-left: -39px; animation-delay: -.7s; }
-.home-music-garden .home-room-app--letters { top: 8px; left: 13%; }
-.home-music-garden .home-room-app--theater { top: 42px; right: 12%; animation-delay: -1.2s; }
-.home-music-garden .home-room-app--vault { top: 108px; left: 31%; animation-delay: -2.4s; }
-.home-music-garden .home-room-app--photos { top: 120px; right: 22%; animation-delay: -3.1s; }
+.home-music-garden .home-room-app--music { top: 96px; left: 47%; width: 68px; margin-left: -34px; animation-delay: -.7s; }
+.home-music-garden .home-room-app--letters { top: 28px; left: 8%; }
+.home-music-garden .home-room-app--theater { top: 52px; right: 8%; animation-delay: -1.2s; }
+.home-music-garden .home-room-app--vault { top: 158px; left: 25%; animation-delay: -2.4s; }
+.home-music-garden .home-room-app--photos { top: 182px; right: 18%; animation-delay: -3.1s; }
 
 .home-music-garden .home-room-app > span {
   width: 34px;
@@ -1122,17 +1127,16 @@ textarea { display: block; margin: 0; }
 }
 
 .home-music-garden .home-room-app--music > span {
-  width: 50px;
-  height: 50px;
-  color: var(--home-card-solid);
-  background:
-    radial-gradient(circle, var(--home-card-solid) 0 18%, var(--home-lemon) 19% 29%, var(--home-honey) 30% 48%, var(--home-honey-deep) 49% 100%);
-  border: 1px solid color-mix(in srgb, var(--home-card-solid) 70%, transparent);
+  width: 38px;
+  height: 38px;
+  color: var(--home-honey-deep);
+  background: color-mix(in srgb, var(--home-card-solid) 48%, transparent);
+  border: 1px solid color-mix(in srgb, var(--home-honey) 38%, transparent);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 26px;
+  font-size: 23px;
   line-height: 1;
-  text-shadow: 0 1px 5px color-mix(in srgb, var(--home-ink) 28%, transparent);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--home-shadow) 54%, transparent), 0 0 0 7px color-mix(in srgb, var(--home-lemon) 28%, transparent);
+  text-shadow: 0 1px 6px var(--home-card-solid);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--home-shadow) 34%, transparent);
 }
 
 .home-music-garden.is-playing .home-room-app--music > span {
@@ -1150,8 +1154,8 @@ textarea { display: block; margin: 0; }
 
 .home-music-garden .home-room-app--music strong {
   color: var(--home-honey-deep);
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 580;
+  letter-spacing: 0.06em;
 }
 
 @keyframes home-room-float {
@@ -1159,7 +1163,7 @@ textarea { display: block; margin: 0; }
 }
 
 @keyframes home-music-note-pulse {
-  50% { transform: scale(1.07) rotate(-5deg); box-shadow: 0 12px 26px color-mix(in srgb, var(--home-shadow) 58%, transparent), 0 0 0 10px color-mix(in srgb, var(--home-lemon) 32%, transparent); }
+  50% { transform: scale(1.04) rotate(-4deg); box-shadow: 0 8px 20px color-mix(in srgb, var(--home-shadow) 38%, transparent); }
 }
 
 .home-room-app {
@@ -1685,17 +1689,17 @@ textarea { display: block; margin: 0; }
   .home-note-card { min-height: 104px; }
   .home-note-card { padding-top: 13px; padding-bottom: 10px; }
   .home-living-grid { gap: 6px; padding-bottom: 10px; }
-  .home-music-garden { min-height: 178px; }
-  .home-note-ribbon { top: 18px; height: 128px; }
+  .home-music-garden { min-height: 212px; }
+  .home-note-ribbon { top: 0; height: 188px; }
   .home-music-garden .home-room-shelf { inset: 6px 8px 14px; }
   .home-music-garden .home-room-app { width: 61px; }
-  .home-music-garden .home-room-app--music { top: 45px; left: 50%; width: 70px; margin-left: -35px; }
-  .home-music-garden .home-room-app--letters { top: 2px; left: 12%; }
-  .home-music-garden .home-room-app--theater { top: 36px; right: 11%; }
-  .home-music-garden .home-room-app--vault { top: 90px; left: 30%; }
-  .home-music-garden .home-room-app--photos { top: 96px; right: 20%; }
+  .home-music-garden .home-room-app--music { top: 78px; left: 47%; width: 64px; margin-left: -32px; }
+  .home-music-garden .home-room-app--letters { top: 16px; left: 8%; }
+  .home-music-garden .home-room-app--theater { top: 38px; right: 8%; }
+  .home-music-garden .home-room-app--vault { top: 126px; left: 24%; }
+  .home-music-garden .home-room-app--photos { top: 142px; right: 17%; }
   .home-music-garden .home-room-app > span { width: 30px; height: 30px; }
-  .home-music-garden .home-room-app--music > span { width: 44px; height: 44px; font-size: 23px; }
+  .home-music-garden .home-room-app--music > span { width: 34px; height: 34px; font-size: 21px; }
   .home-music-garden .home-room-app strong { font-size: 9px; }
   .home-note-copy { margin-top: 5px; gap: 2px; }
   .home-room-shelf { padding: 0; gap: 7px; }
@@ -1717,16 +1721,16 @@ textarea { display: block; margin: 0; }
   .home-quick-grid { grid-template-columns: minmax(0, 1fr); }
   .home-note-card { padding-right: 48px; padding-left: 16px; }
   .home-living-grid { grid-template-columns: minmax(0, 1fr); }
-  .home-music-garden { min-height: 172px; }
+  .home-music-garden { min-height: 206px; }
   .home-note-ribbon { left: 0; width: 100%; }
   .home-music-garden .home-room-shelf { inset: 6px 6px 12px; }
   .home-music-garden .home-room-app { width: 56px; }
-  .home-music-garden .home-room-app--music { top: 44px; left: 50%; width: 64px; margin-left: -32px; }
-  .home-music-garden .home-room-app--letters { top: 3px; left: 8%; }
-  .home-music-garden .home-room-app--theater { top: 38px; right: 7%; }
-  .home-music-garden .home-room-app--vault { top: 88px; left: 24%; }
-  .home-music-garden .home-room-app--photos { top: 94px; right: 16%; }
-  .home-music-garden .home-room-app--music > span { width: 42px; height: 42px; font-size: 22px; }
+  .home-music-garden .home-room-app--music { top: 76px; left: 47%; width: 60px; margin-left: -30px; }
+  .home-music-garden .home-room-app--letters { top: 15px; left: 6%; }
+  .home-music-garden .home-room-app--theater { top: 36px; right: 5%; }
+  .home-music-garden .home-room-app--vault { top: 122px; left: 21%; }
+  .home-music-garden .home-room-app--photos { top: 138px; right: 14%; }
+  .home-music-garden .home-room-app--music > span { width: 34px; height: 34px; font-size: 21px; }
   .home-room-shelf { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .home-room-app { min-height: 50px; border-radius: 0; }
   .home-room-app > span { width: 30px; height: 30px; }
