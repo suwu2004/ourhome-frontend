@@ -61,6 +61,7 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
+  const [showComposer, setShowComposer] = useState(false);
 
   const filteredMemories = useMemo(() => (
     filter === 'all' ? memories : memories.filter(item => item.kind === filter)
@@ -127,6 +128,7 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
       if (!response.ok) throw new Error(data?.error || '照片记忆没有保存好');
       setDraft(emptyDraft);
       setEditingId(null);
+      setShowComposer(false);
       await loadMemories();
     } catch (err) {
       setError(err.message || '照片记忆没有保存好');
@@ -138,7 +140,14 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
   const startEdit = memory => {
     setEditingId(memory.id);
     setDraft(draftFromMemory(memory));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowComposer(true);
+  };
+
+  const startCreate = () => {
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setError('');
+    setShowComposer(true);
   };
 
   const deleteMemory = async memory => {
@@ -166,42 +175,36 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
           <div style={{ fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: '.05em' }}>光影相册</div>
           <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: '.16em' }}>photo memories</div>
         </div>
-        <button type="button" onClick={loadMemories} disabled={loading} style={pillButton(C)}>{loading ? '翻找中' : '刷新'}</button>
+        <button type="button" onClick={startCreate} aria-label="上传照片" style={{ ...pillButton(C), width: 46, height: 46, padding: 0, fontSize: 25, lineHeight: 1 }}>＋</button>
       </header>
+
+      {showComposer && (
+        <div role="dialog" aria-modal="true" aria-label="上传照片" style={{ position: 'absolute', inset: 0, zIndex: 30, display: 'grid', placeItems: 'end center', background: 'rgba(44, 31, 18, .18)', padding: '16px min(18px, 4vw) max(18px, env(safe-area-inset-bottom))' }}>
+          <form onSubmit={saveMemory} style={{ width: 'min(100%, 520px)', maxHeight: 'min(82dvh, 660px)', overflowY: 'auto', border: `1px solid ${C.border}`, borderRadius: 22, background: C.white, padding: 16, boxShadow: `0 22px 54px ${C.borderLight}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+              <div>
+                <b style={{ color: C.text, fontSize: 16 }}>{editingId ? '修改照片' : '上传照片'}</b>
+                <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 2 }}>写一个名字，再留一段描述。</div>
+              </div>
+              <button type="button" onClick={() => { setShowComposer(false); setEditingId(null); setDraft(emptyDraft); }} aria-label="关闭" style={{ border: 0, background: 'transparent', color: C.muted, fontSize: 21, cursor: 'pointer' }}>×</button>
+            </div>
+            <input value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="命名，比如：戒指、泽叽、我的样子" style={{ ...inputStyle(C), width: '100%' }} />
+            <textarea value={draft.description} onChange={event => setDraft(current => ({ ...current, description: event.target.value }))} placeholder="描述一下这张照片，想让陆泽记住什么。" rows={4} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', borderRadius: 15, marginTop: 10 }} />
+            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{ width: '100%', minHeight: 210, marginTop: 12, border: `1.5px dashed ${C.honeyMid}`, borderRadius: 18, background: draft.image_url ? `url(${draft.image_url}) center / cover` : `linear-gradient(145deg, ${C.honeyLight}, ${C.surface})`, color: draft.image_url ? C.white : C.honeyDeep, boxShadow: `inset 0 0 0 999px ${draft.image_url ? 'rgba(46,31,18,.12)' : 'transparent'}`, fontFamily: 'inherit', cursor: uploading ? 'default' : 'pointer', display: 'grid', placeItems: 'center', fontSize: 16 }}>
+              <span style={{ borderRadius: 999, background: draft.image_url ? 'rgba(255,255,255,.84)' : 'transparent', color: C.honeyDeep, padding: draft.image_url ? '7px 13px' : 0 }}>{uploading ? '上传中…' : draft.image_url ? '更换照片' : '放照片'}</span>
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={event => uploadPhoto(event.target.files?.[0])} />
+            {error && <div role="alert" style={{ color: C.blushDeep, fontSize: 12, marginTop: 10 }}>{error}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, marginTop: 13 }}>
+              <button type="button" onClick={() => { setShowComposer(false); setEditingId(null); setDraft(emptyDraft); }} style={pillButton(C)}>取消</button>
+              <button type="submit" disabled={saving} style={{ ...pillButton(C), border: 0, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white }}>{saving ? '保存中' : editingId ? '保存修改' : '存进相册'}</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <main className="ourhome-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px min(18px, 4vw) 28px' }}>
         <section style={{ maxWidth: 920, margin: '0 auto', display: 'grid', gap: 14 }}>
-          <form onSubmit={saveMemory} style={{ border: `1px solid ${C.border}`, borderRadius: 20, background: C.white, padding: 15, boxShadow: `0 14px 34px ${C.borderLight}77` }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} style={{ width: 118, minHeight: 138, border: `1.5px dashed ${C.honeyMid}`, borderRadius: 18, background: draft.image_url ? `url(${draft.image_url}) center / cover` : `linear-gradient(145deg, ${C.honeyLight}, ${C.surface})`, color: draft.image_url ? C.white : C.honeyDeep, boxShadow: `inset 0 0 0 999px ${draft.image_url ? 'rgba(46,31,18,.10)' : 'transparent'}`, fontFamily: 'inherit', cursor: uploading ? 'default' : 'pointer' }}>
-                {!draft.image_url && <span>{uploading ? '上传中…' : '上传照片'}</span>}
-              </button>
-              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={event => uploadPhoto(event.target.files?.[0])} />
-              <div style={{ flex: '1 1 220px', minWidth: 0, display: 'grid', gap: 9 }}>
-                <input value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="标题，比如：戒指、泽叽、我的样子" style={inputStyle(C)} />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-                  {kindOptions.map(([value, label]) => (
-                    <button type="button" key={value} onClick={() => setDraft(current => ({ ...current, kind: value }))} style={{ ...pillButton(C), background: draft.kind === value ? C.honeyLight : C.surface, color: draft.kind === value ? C.honeyDeep : C.muted }}>{label}</button>
-                  ))}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <input value={draft.date} onChange={event => setDraft(current => ({ ...current, date: event.target.value }))} placeholder="时间，可不填" style={inputStyle(C)} />
-                  <input value={draft.place} onChange={event => setDraft(current => ({ ...current, place: event.target.value }))} placeholder="地点，可不填" style={inputStyle(C)} />
-                </div>
-                <input value={draft.tags} onChange={event => setDraft(current => ({ ...current, tags: event.target.value }))} placeholder="标签，比如：戒指，家，旅行" style={inputStyle(C)} />
-              </div>
-            </div>
-            <textarea value={draft.description} onChange={event => setDraft(current => ({ ...current, description: event.target.value }))} placeholder="这张照片里有什么？想让陆泽记住什么？" rows={3} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', borderRadius: 15, marginTop: 10 }} />
-            <textarea value={draft.relation_to_luze} onChange={event => setDraft(current => ({ ...current, relation_to_luze: event.target.value }))} placeholder="它和陆泽有什么关系？比如这是戒指、这是泽叽、这是我们的家里一角……" rows={2} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', borderRadius: 15, marginTop: 9 }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 11 }}>
-              <small style={{ color: C.muted, lineHeight: 1.5 }}>保存后，陆泽会读到文字摘要；照片本身留在相册里。</small>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {editingId && <button type="button" onClick={() => { setEditingId(null); setDraft(emptyDraft); }} style={pillButton(C)}>取消</button>}
-                <button type="submit" disabled={saving} style={{ ...pillButton(C), border: 0, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white }}>{saving ? '保存中' : editingId ? '保存修改' : '存进相册'}</button>
-              </div>
-            </div>
-          </form>
-
           <section style={{ border: `1px solid ${C.border}`, borderRadius: 20, background: C.white, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
               <div><b style={{ color: C.text }}>我们的照片记忆</b><div style={{ color: C.mutedLight, fontSize: 10, marginTop: 2 }}>{memories.length} 条小锚点</div></div>
