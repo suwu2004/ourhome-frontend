@@ -35,6 +35,16 @@ export function MusicPlayerProvider({ children }) {
     }
   }, []);
 
+  const playTrackImmediately = useCallback((track, onBlocked) => {
+    const audio = audioRef.current;
+    if (!audio || !track?.audio_url) return;
+    if (audio.getAttribute('src') !== track.audio_url) audio.src = track.audio_url;
+    audio.play().catch(() => {
+      updateState({ is_playing: false });
+      if (onBlocked) onBlocked();
+    });
+  }, [updateState]);
+
   const loadMusic = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -77,25 +87,36 @@ export function MusicPlayerProvider({ children }) {
   const selectTrack = useCallback(track => {
     if (!track) return;
     updateState({ track_id: track.id, is_playing: Boolean(track.audio_url) });
-  }, [updateState]);
+    if (track.audio_url) playTrackImmediately(track);
+  }, [playTrackImmediately, updateState]);
 
   const togglePlay = useCallback(() => {
     if (!activeTrack?.audio_url) {
       setError(activeTrack ? '这首歌没有可直接播放的试听，换一首搜到的歌试试。' : '先搜一首歌放进歌单。');
       return;
     }
-    updateState({ track_id: activeTrack.id, is_playing: !stateRef.current.is_playing });
-  }, [activeTrack, updateState]);
+    const nextPlaying = !stateRef.current.is_playing;
+    updateState({ track_id: activeTrack.id, is_playing: nextPlaying });
+    if (nextPlaying) {
+      playTrackImmediately(activeTrack, () => setError('浏览器拦了一下，进一起听里点播放就好。'));
+    } else {
+      audioRef.current?.pause();
+    }
+  }, [activeTrack, playTrackImmediately, updateState]);
 
   const playNext = useCallback(() => {
     const next = pickTrack(1);
-    if (next) updateState({ track_id: next.id, is_playing: Boolean(next.audio_url) });
-  }, [pickTrack, updateState]);
+    if (!next) return;
+    updateState({ track_id: next.id, is_playing: Boolean(next.audio_url) });
+    if (next.audio_url) playTrackImmediately(next);
+  }, [pickTrack, playTrackImmediately, updateState]);
 
   const playPrevious = useCallback(() => {
     const previous = pickTrack(-1);
-    if (previous) updateState({ track_id: previous.id, is_playing: Boolean(previous.audio_url) });
-  }, [pickTrack, updateState]);
+    if (!previous) return;
+    updateState({ track_id: previous.id, is_playing: Boolean(previous.audio_url) });
+    if (previous.audio_url) playTrackImmediately(previous);
+  }, [pickTrack, playTrackImmediately, updateState]);
 
   const toggleShuffle = useCallback(() => {
     updateState({ shuffle: !stateRef.current.shuffle });
