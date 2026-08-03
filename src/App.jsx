@@ -269,6 +269,16 @@ function BackgroundImageOption({ label, description, image, busy, onUpload, onRe
   );
 }
 
+function SettingStatusCard({ theme, label, value, detail }) {
+  return (
+    <div style={{ minWidth: 0, padding: '10px 9px', borderRadius: 13, border: `1px solid ${theme.borderLight}`, background: theme.cream }}>
+      <div style={{ color: theme.mutedLight, fontSize: 9, letterSpacing: '.12em' }}>{label}</div>
+      <div style={{ marginTop: 5, color: theme.text, fontSize: 12.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+      <div style={{ marginTop: 3, color: theme.muted, fontSize: 9.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail}</div>
+    </div>
+  );
+}
+
 export default function App({ initialView = 'chat', onHome }) {
   const { darkMode, theme: C, toggleDarkMode, refreshTheme } = useTheme();
   const [stage, setStage] = useState("home");
@@ -354,6 +364,8 @@ export default function App({ initialView = 'chat', onHome }) {
   const [view, setView] = useState(initialView);
   const [memoryGroupsResetKey, setMemoryGroupsResetKey] = useState(0);
   const [settingsGroupsResetKey, setSettingsGroupsResetKey] = useState(0);
+  const [settingsGroupsOpenSignal, setSettingsGroupsOpenSignal] = useState({ key: 0, open: false });
+  const [settingsExportState, setSettingsExportState] = useState({ busy: false, error: '', notice: '' });
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
@@ -761,6 +773,44 @@ export default function App({ initialView = 'chat', onHome }) {
     })
       .then(() => setSavingPersona(false))
       .catch(err => { console.error(err); setSavingPersona(false); });
+  };
+
+  const downloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportChatArchive = async () => {
+    setSettingsExportState({ busy: true, error: '', notice: '' });
+    try {
+      const response = await apiFetch(`${BACKEND}/export`);
+      if (!response.ok) throw new Error('聊天记录没有导出成功');
+      downloadBlob(await response.blob(), 'ourhome-export.html');
+      setSettingsExportState({ busy: false, error: '', notice: '聊天记录已经开始下载。' });
+    } catch (error) {
+      setSettingsExportState({ busy: false, error: error.message || '聊天记录没有导出成功', notice: '' });
+    }
+  };
+
+  const exportFullBackup = async () => {
+    setSettingsExportState({ busy: true, error: '', notice: '' });
+    try {
+      const response = await apiFetch(`${BACKEND}/backup`);
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok) {
+        const data = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
+        throw new Error(data?.error || '完整备份没有导出成功');
+      }
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadBlob(await response.blob(), `ourhome-backup-${stamp}.json`);
+      setSettingsExportState({ busy: false, error: '', notice: '完整备份已经开始下载。' });
+    } catch (error) {
+      setSettingsExportState({ busy: false, error: error.message || '完整备份没有导出成功', notice: '' });
+    }
   };
 
   const openLetters = () => {
@@ -2858,7 +2908,25 @@ export default function App({ initialView = 'chat', onHome }) {
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>⚙ 设置</span>
         </header>
         <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingLeft: 18, paddingRight: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
-          <SettingsGroup theme={C} title="主题与外观" subtitle="昼夜、字体、天气和主页背景" resetKey={settingsGroupsResetKey}>
+          <section style={{ marginBottom: 12, padding: 14, borderRadius: 18, background: `linear-gradient(145deg, ${C.white}, ${C.surface})`, border: `1px solid ${C.border}`, boxShadow: `0 8px 22px ${C.borderLight}88` }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+              <div>
+                <div style={{ color: C.text, fontSize: 16, fontWeight: 700, letterSpacing: '.05em' }}>家里的控制台</div>
+                <div style={{ marginTop: 4, color: C.muted, fontSize: 10.5, lineHeight: 1.55 }}>外观、模型、通知、联网和备份都放在这里。</div>
+              </div>
+              <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
+                <button type="button" onClick={() => setSettingsGroupsOpenSignal(current => ({ key: current.key + 1, open: true }))} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '6px 10px', fontSize: 10.5, cursor: 'pointer', fontFamily: 'inherit' }}>展开全部</button>
+                <button type="button" onClick={() => setSettingsGroupsOpenSignal(current => ({ key: current.key + 1, open: false }))} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.cream, color: C.muted, padding: '6px 10px', fontSize: 10.5, cursor: 'pointer', fontFamily: 'inherit' }}>收起</button>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+              <SettingStatusCard theme={C} label="外观" value={darkMode ? '夜间' : '日间'} detail={FONT_STYLES[fontStyle]?.label || '默认字体'} />
+              <SettingStatusCard theme={C} label="模型" value={selectedModel || '未选择'} detail={modelsLoading ? '拉取中' : modelsError || '当前线路'} />
+              <SettingStatusCard theme={C} label="通知" value={notifStatus === 'granted' ? '已开启' : notifStatus === 'denied' ? '已拒绝' : '未开启'} detail={dailyJournalEnabled ? `收尾 ${dailyJournalTime}` : '自动收尾关'} />
+            </div>
+          </section>
+
+          <SettingsGroup theme={C} title="主题与外观" subtitle="昼夜、字体、天气和主页背景" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <span style={{ fontSize: 13, color: C.text }}>{darkMode ? "🌙 夜间模式" : "☀️ 日间模式"}</span>
             <button type="button" role="switch" aria-checked={darkMode} aria-label="切换日间与夜间模式" onClick={toggleDarkMode} style={{ width: 44, height: 24, padding: 0, border: 0, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
@@ -2920,7 +2988,7 @@ export default function App({ initialView = 'chat', onHome }) {
           <div style={{ marginTop: 7, color: homeBgError ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>{homeBgError || '主页背景跟随昼夜切换，便签纸单独保存；三套都会在云端同步。'}</div>
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="每日收尾" subtitle="定时补写幸福日记与心情日历" resetKey={settingsGroupsResetKey}>
+          <SettingsGroup theme={C} title="每日收尾" subtitle="定时补写幸福日记与心情日历" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>每天的幸福收尾</div>
           <div style={{ padding: 12, marginBottom: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -2959,7 +3027,7 @@ export default function App({ initialView = 'chat', onHome }) {
           </div>
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="聊天装扮" subtitle="头像、聊天墙面和气泡颜色" resetKey={settingsGroupsResetKey}>
+          <SettingsGroup theme={C} title="聊天装扮" subtitle="头像、聊天墙面和气泡颜色" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
           <div style={{ display: "flex", gap: 20, marginBottom: 18 }}>
             <div style={{ textAlign: "center" }}>
@@ -3011,7 +3079,7 @@ export default function App({ initialView = 'chat', onHome }) {
 
           {view === 'settings' && (
             <>
-              <SettingsGroup theme={C} title="API 与模型" subtitle="保存、切换站点并拉取全部模型" resetKey={settingsGroupsResetKey}>
+              <SettingsGroup theme={C} title="API 与模型" subtitle="保存、切换站点并拉取全部模型" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
               <ApiProfilesSettings
                 apiFetch={apiFetch}
                 backend={BACKEND}
@@ -3028,31 +3096,24 @@ export default function App({ initialView = 'chat', onHome }) {
               />
               </SettingsGroup>
 
-              <SettingsGroup theme={C} title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录" resetKey={settingsGroupsResetKey}>
+              <SettingsGroup theme={C} title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
                 <AgentMailSettings apiFetch={apiFetch} backend={BACKEND} theme={C} />
               </SettingsGroup>
 
-              <SettingsGroup theme={C} title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具" resetKey={settingsGroupsResetKey}>
+              <SettingsGroup theme={C} title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
                 <IntegrationSettings apiFetch={apiFetch} backend={BACKEND} theme={C} embedded />
               </SettingsGroup>
             </>
           )}
 
-          <SettingsGroup theme={C} title="数据与导出" subtitle="把聊天记录带回本地" resetKey={settingsGroupsResetKey}>
-            <button onClick={() => {
-              apiFetch(`${BACKEND}/export`)
-                .then(r => r.blob())
-                .then(blob => {
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'ourhome-export.html';
-                  a.click();
-                  URL.revokeObjectURL(url);
-                })
-                .catch(console.error);
-            }} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
+          <SettingsGroup theme={C} title="数据与导出" subtitle="聊天存档、全量备份和迁移准备" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <button type="button" onClick={exportChatArchive} disabled={settingsExportState.busy} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: settingsExportState.busy ? "default" : "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit", opacity: settingsExportState.busy ? .62 : 1 }}>导出聊天记录 HTML</button>
+              <button type="button" onClick={exportFullBackup} disabled={settingsExportState.busy} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1px solid ${C.honeyMid}`, color: C.white, borderRadius: 12, fontSize: 13.5, cursor: settingsExportState.busy ? "default" : "pointer", background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, letterSpacing: ".05em", fontFamily: "inherit", opacity: settingsExportState.busy ? .62 : 1 }}>{settingsExportState.busy ? '整理中…' : '下载完整备份 JSON'}</button>
+            </div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>HTML 适合回看聊天；JSON 会包含主要房间数据与设置摘要，不导出密钥原文。</div>
+            {settingsExportState.notice && <div role="status" style={{ color: C.honeyDeep, fontSize: 11, marginTop: 8 }}>{settingsExportState.notice}</div>}
+            {settingsExportState.error && <div role="alert" style={{ color: C.blushDeep, fontSize: 11, marginTop: 8 }}>{settingsExportState.error}</div>}
           </SettingsGroup>
         </div>
       </div>
