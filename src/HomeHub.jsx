@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { getHomeWeatherCity, HOME_PREFERENCES_EVENT } from './homePreferences.js';
 import { upcomingOccasions } from './milestoneDates.js';
+import { useMusicPlayer } from './MusicPlayerContext.jsx';
 import { useTheme } from './ThemeContext.jsx';
 import '@fontsource/parisienne/400.css';
 
@@ -111,6 +112,16 @@ function CoinIcon() {
     <svg className="home-room-glyph home-coin-icon" viewBox="0 0 32 32" aria-hidden="true">
       <circle cx="16" cy="16" r="11.5" />
       <path d="m11.5 10.5 4.5 5 4.5-5M16 15.5v7M11.8 17.5h8.4M11.8 20.5h8.4" />
+    </svg>
+  );
+}
+
+function PhotoIcon() {
+  return (
+    <svg className="home-room-glyph" viewBox="0 0 36 36" aria-hidden="true">
+      <rect x="7" y="8" width="22" height="20" rx="4" />
+      <circle cx="14" cy="15" r="2.3" />
+      <path d="m9 25 6.5-6.5 4.5 4.2 2.6-2.7L29 26" />
     </svg>
   );
 }
@@ -256,7 +267,19 @@ function MemoDrawer({
 
 export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const { darkMode, settings } = useTheme();
-  const musicAudioRef = useRef(null);
+  const {
+    tracks: musicTracks,
+    state: musicState,
+    activeTrack: activeMusicTrack,
+    loading: musicLoading,
+    error: musicError,
+    setError: setMusicError,
+    loadMusic: loadMusicPreview,
+    togglePlay: togglePlayerMusic,
+    playNext: playNextTrack,
+    playPrevious: playPreviousTrack,
+    toggleShuffle,
+  } = useMusicPlayer();
   const [now, setNow] = useState(() => new Date());
   const [city, setCity] = useState(getHomeWeatherCity);
   const [weather, setWeather] = useState(null);
@@ -267,10 +290,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const [memoState, setMemoState] = useState('loading');
   const [memoError, setMemoError] = useState('');
   const [memoOpen, setMemoOpen] = useState(false);
-  const [musicTracks, setMusicTracks] = useState([]);
-  const [musicState, setMusicState] = useState({ track_id: null, is_playing: false, shuffle: false });
-  const [musicLoading, setMusicLoading] = useState(false);
-  const [musicError, setMusicError] = useState('');
 
   useEffect(() => {
     const update = () => setNow(new Date());
@@ -342,28 +361,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
     }
   }, []);
 
-  const loadMusicPreview = useCallback(async () => {
-    setMusicLoading(true);
-    setMusicError('');
-    try {
-      const [tracksResponse, stateResponse] = await Promise.all([
-        apiFetch(`${BACKEND}/music/tracks`),
-        apiFetch(`${BACKEND}/music/state`),
-      ]);
-      const tracksData = await tracksResponse.json().catch(() => []);
-      const stateData = await stateResponse.json().catch(() => ({}));
-      if (!tracksResponse.ok) throw new Error(tracksData?.error || '唱片机暂时没有回来');
-      if (!stateResponse.ok) throw new Error(stateData?.error || '播放状态暂时没有回来');
-      setMusicTracks(Array.isArray(tracksData) ? tracksData : []);
-      setMusicState({ track_id: null, is_playing: false, shuffle: false, ...(stateData || {}) });
-    } catch (error) {
-      console.error('一起听预览加载失败', error);
-      setMusicError(error.message || '唱片机暂时没有回来');
-    } finally {
-      setMusicLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadMemos();
     loadMilestones();
@@ -382,10 +379,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const upcoming = useMemo(() => upcomingOccasions(milestones, now, 10), [milestones, now]);
   const featuredNoteText = compactMemoPreview(featuredMemo?.content);
   const featuredOccasion = upcoming[0] || null;
-  const activeMusicTrack = useMemo(
-    () => musicTracks.find(track => String(track.id) === String(musicState.track_id)) || musicTracks[0] || null,
-    [musicTracks, musicState.track_id],
-  );
   const musicCanPlay = Boolean(activeMusicTrack?.audio_url);
   const avatars = {
     mine: settings?.my_avatar_url || '',
@@ -433,20 +426,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
     }
   };
 
-  const saveMusicState = async patch => {
-    const next = { ...musicState, ...patch, updated_at: new Date().toISOString() };
-    setMusicState(next);
-    try {
-      await apiFetch(`${BACKEND}/music/state`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(next),
-      });
-    } catch (error) {
-      console.error('一起听状态保存失败', error);
-    }
-  };
-
   const toggleHomeMusic = async event => {
     event.stopPropagation();
     if (!activeMusicTrack) {
@@ -458,27 +437,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
       onOpen('music');
       return;
     }
-    const nextPlaying = !musicState.is_playing;
-    await saveMusicState({ track_id: activeMusicTrack.id, is_playing: nextPlaying });
-    if (!musicAudioRef.current) return;
-    if (nextPlaying) {
-      musicAudioRef.current.play().catch(() => {
-        setMusicError('浏览器拦了一下，进房间点播放就好。');
-        saveMusicState({ track_id: activeMusicTrack.id, is_playing: false });
-      });
-    } else {
-      musicAudioRef.current.pause();
-    }
-  };
-
-  const pickHomeMusicTrack = direction => {
-    if (!musicTracks.length) return null;
-    if (musicState.shuffle && musicTracks.length > 1) {
-      const candidates = musicTracks.filter(track => String(track.id) !== String(activeMusicTrack?.id));
-      return candidates[Math.floor(Math.random() * candidates.length)] || musicTracks[0];
-    }
-    const index = Math.max(0, musicTracks.findIndex(track => String(track.id) === String(activeMusicTrack?.id)));
-    return musicTracks[(index + direction + musicTracks.length) % musicTracks.length];
+    togglePlayerMusic();
   };
 
   const playNextHomeTrack = async event => {
@@ -487,9 +446,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
       onOpen('music');
       return;
     }
-    const nextTrack = pickHomeMusicTrack(1);
-    await saveMusicState({ track_id: nextTrack.id, is_playing: Boolean(nextTrack.audio_url) });
-    if (!nextTrack.audio_url) onOpen('music');
+    playNextTrack();
   };
 
   const playPreviousHomeTrack = async event => {
@@ -498,25 +455,13 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
       onOpen('music');
       return;
     }
-    const previousTrack = pickHomeMusicTrack(-1);
-    await saveMusicState({ track_id: previousTrack.id, is_playing: Boolean(previousTrack.audio_url) });
-    if (!previousTrack.audio_url) onOpen('music');
+    playPreviousTrack();
   };
 
   const toggleHomeShuffle = event => {
     event.stopPropagation();
-    saveMusicState({ shuffle: !musicState.shuffle });
+    toggleShuffle();
   };
-
-  useEffect(() => {
-    if (!musicAudioRef.current) return;
-    if (activeMusicTrack?.audio_url) musicAudioRef.current.src = activeMusicTrack.audio_url;
-    if (musicState.is_playing && activeMusicTrack?.audio_url) {
-      musicAudioRef.current.play().catch(() => saveMusicState({ is_playing: false }));
-    } else {
-      musicAudioRef.current.pause();
-    }
-  }, [activeMusicTrack?.id, activeMusicTrack?.audio_url, musicState.is_playing]);
 
   const weatherLine = weatherState === 'loading'
     ? '天气在路上…'
@@ -582,6 +527,9 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
             </div>
           </button>
 
+        </section>
+
+        <section className="home-living-grid" aria-label="客厅功能区">
           <button className={`home-music-card ${musicState.is_playing ? 'is-playing' : ''}`} type="button" onClick={() => onOpen('music')} aria-label="打开一起听音乐">
             <span className="home-music-record" aria-hidden="true"><i /></span>
             <span className="home-music-copy">
@@ -595,29 +543,31 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
               <span role="button" tabIndex="0" onClick={playNextHomeTrack} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') playNextHomeTrack(event); }}>›</span>
               <span className={musicState.shuffle ? 'is-active' : ''} role="button" tabIndex="0" onClick={toggleHomeShuffle} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleHomeShuffle(event); }}>R</span>
             </span>
-            <audio ref={musicAudioRef} src={activeMusicTrack?.audio_url || ''} onEnded={event => playNextHomeTrack(event)} />
           </button>
-        </section>
-
-        <section className="home-room-shelf" aria-label="客厅里的小房间">
-          <button className="home-room-app home-room-app--letters" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
-            <span><EnvelopeIcon /></span>
-            <strong>时光信差</strong>
-          </button>
-          <button className="home-room-app home-room-app--theater" type="button" onClick={() => onOpen('theater')} aria-label="打开小剧场">
-            <span>
-              <svg className="home-room-glyph" viewBox="0 0 36 36" aria-hidden="true">
-                <path d="M7 9h22v18H7z" />
-                <path d="M11 13h14M11 18h10M11 23h7" />
-                <path d="M27 7l4 4M31 7l-4 4" />
-              </svg>
-            </span>
-            <strong>小剧场</strong>
-          </button>
-          <button className="home-room-app home-room-app--vault" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
-            <span><CoinIcon /></span>
-            <strong>猫的金库</strong>
-          </button>
+          <div className="home-room-shelf">
+            <button className="home-room-app home-room-app--letters" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
+              <span><EnvelopeIcon /></span>
+              <strong>时光信差</strong>
+            </button>
+            <button className="home-room-app home-room-app--theater" type="button" onClick={() => onOpen('theater')} aria-label="打开小剧场">
+              <span>
+                <svg className="home-room-glyph" viewBox="0 0 36 36" aria-hidden="true">
+                  <path d="M7 9h22v18H7z" />
+                  <path d="M11 13h14M11 18h10M11 23h7" />
+                  <path d="M27 7l4 4M31 7l-4 4" />
+                </svg>
+              </span>
+              <strong>小剧场</strong>
+            </button>
+            <button className="home-room-app home-room-app--vault" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
+              <span><CoinIcon /></span>
+              <strong>猫的金库</strong>
+            </button>
+            <button className="home-room-app home-room-app--photos" type="button" onClick={() => onOpen('photos')} aria-label="打开光影相册">
+              <span><PhotoIcon /></span>
+              <strong>光影相册</strong>
+            </button>
+          </div>
         </section>
 
         <nav className="home-dock" aria-label="主页房间导航">
