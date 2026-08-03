@@ -49,6 +49,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [lyricsLoadingId, setLyricsLoadingId] = useState(null);
+  const [tab, setTab] = useState('listen');
 
   const playAreaBackground = activeTrack?.cover_url
     ? `linear-gradient(145deg, rgba(255,253,248,.76), rgba(255,235,183,.60)), url(${activeTrack.cover_url}) center / cover`
@@ -189,101 +190,128 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
 
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none', transition: 'opacity .4s ease', background: C.cream }}>
-      <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: 'pointer', padding: 4 }}>←</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: '.05em' }}>一起听</div>
-          <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: '.14em' }}>living room records</div>
+      <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 0, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 10 }}>
+          <button type="button" onClick={leaveRoom} aria-label="回到主页" style={{ border: 0, background: 'transparent', fontSize: 18, color: C.honeyDeep, cursor: 'pointer', padding: 4, fontFamily: 'inherit' }}>←</button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: '.05em' }}>一起听</div>
+            <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: '.14em' }}>living room records</div>
+          </div>
+          <button type="button" onClick={loadMusic} disabled={loading} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.honeyDeep, borderRadius: 999, padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: loading ? 'default' : 'pointer' }}>{loading ? '翻找中' : '刷新'}</button>
         </div>
-        <button type="button" onClick={loadMusic} disabled={loading} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.honeyDeep, borderRadius: 999, padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: loading ? 'default' : 'pointer' }}>{loading ? '翻找中' : '刷新'}</button>
+        <div role="tablist" aria-label="一起听页面" style={{ display: 'flex', gap: 0 }}>
+          {[
+            ['listen', '🎵 听歌'],
+            ['search', '🔎 搜索'],
+            ['library', '💿 歌单'],
+            ['upload', '⬆ 上传'],
+          ].map(([key, label]) => (
+            <button
+              type="button"
+              role="tab"
+              key={key}
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              style={{ flex: 1, border: 0, borderBottom: tab === key ? `2px solid ${C.honeyDeep}` : '2px solid transparent', background: 'transparent', color: tab === key ? C.honeyDeep : C.muted, fontSize: 11.5, fontWeight: tab === key ? 700 : 400, padding: '8px 0 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+            >{label}</button>
+          ))}
+        </div>
       </header>
 
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px min(18px, 4vw) 26px' }}>
         <section style={{ maxWidth: 920, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ position: 'relative', overflow: 'hidden', border: `1px solid ${C.border}`, borderRadius: 22, background: playAreaBackground, padding: 17, boxShadow: `0 18px 42px ${C.borderLight}99` }}>
-            <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 80% 12%, ${C.white}88, transparent 34%), linear-gradient(180deg, transparent, ${C.white}33)`, pointerEvents: 'none' }} />
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 15 }}>
-              <button type="button" onClick={togglePlay} style={{ width: 86, height: 86, borderRadius: '50%', border: `1px solid ${C.honeyMid}`, background: `radial-gradient(circle, ${C.surface} 0 20%, ${C.honey} 21% 29%, ${C.text} 30% 34%, ${C.honeyDeep} 35% 100%)`, color: C.white, fontFamily: 'inherit', cursor: 'pointer', boxShadow: `0 14px 28px ${C.borderLight}` }}>{state.is_playing ? 'Ⅱ' : '▶'}</button>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.16em', marginBottom: 5 }}>NOW LISTENING</div>
-                <div style={{ color: C.text, fontSize: 18, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatTrack(activeTrack)}</div>
-                <div style={{ whiteSpace: 'pre-wrap', color: C.muted, fontSize: 12, lineHeight: 1.65, marginTop: 4 }}>{lyricPreview(activeTrack)}</div>
-              </div>
-            </div>
-            <div style={{ position: 'relative', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 13 }}>
-              <button type="button" onClick={playPrevious} style={softButtonStyle(C)}>上一首</button>
-              <button type="button" onClick={playNext} style={softButtonStyle(C)}>下一首</button>
-              <button type="button" onClick={() => updateState({ shuffle: !state.shuffle })} style={{ ...softButtonStyle(C), background: state.shuffle ? C.honeyLight : C.surface, color: state.shuffle ? C.honeyDeep : C.muted }}>随机 {state.shuffle ? '开' : '关'}</button>
-              {activeTrack && <button type="button" onClick={() => fillLyrics(activeTrack)} disabled={lyricsLoadingId === activeTrack.id} style={softButtonStyle(C)}>{lyricsLoadingId === activeTrack.id ? '找歌词中' : '找歌词'}</button>}
-            </div>
-            {activeTrack?.source_url && (
-              <a href={activeTrack.source_url} target="_blank" rel="noreferrer" style={{ position: 'relative', display: 'inline-block', marginTop: 8, color: C.honeyDeep, fontSize: 12 }}>打开原曲链接</a>
-            )}
-          </div>
+          {error && <div role="alert" style={{ color: C.blushDeep, background: C.white, border: `1px solid ${C.border}`, borderRadius: 13, padding: '9px 11px', fontSize: 12 }}>{error}</div>}
 
-          <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
-            <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>搜索区</div>
-            <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.6, margin: '-3px 0 9px' }}>搜索到的是官方试听片段，通常只有 30 秒；想听完整音频，可以在下面上传自己的音乐文件。</div>
-            <form onSubmit={searchMusic} style={{ display: 'flex', gap: 8 }}>
-              <input value={query} onChange={event => setQuery(event.target.value)} placeholder="输入歌名、歌手，比如周杰伦 晴天" style={{ ...inputStyle(C), flex: 1, minWidth: 0 }} />
-              <button type="submit" disabled={searching} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '0 15px', fontFamily: 'inherit', cursor: searching ? 'default' : 'pointer', opacity: searching ? .65 : 1 }}>{searching ? '搜着' : '搜索'}</button>
-            </form>
-            {searchResults.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                {searchResults.map((track, index) => (
-                  <div key={`${track.audio_url}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${C.borderLight}`, background: C.surface, borderRadius: 13, padding: '9px 10px' }}>
-                    {track.cover_url && <img src={track.cover_url} alt="" style={{ width: 38, height: 38, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: C.text, fontSize: 13.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
-                      <div style={{ color: C.muted, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[track.artist, track.album].filter(Boolean).join(' · ') || '试听片段'}</div>
+          {tab === 'listen' && (
+            <section style={{ position: 'relative', overflow: 'hidden', border: `1px solid ${C.border}`, borderRadius: 22, background: playAreaBackground, padding: 17, boxShadow: `0 18px 42px ${C.borderLight}99` }}>
+              <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 80% 12%, ${C.white}88, transparent 34%), linear-gradient(180deg, transparent, ${C.white}33)`, pointerEvents: 'none' }} />
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 15 }}>
+                <button type="button" onClick={togglePlay} style={{ width: 86, height: 86, borderRadius: '50%', border: `1px solid ${C.honeyMid}`, background: `radial-gradient(circle, ${C.surface} 0 20%, ${C.honey} 21% 29%, ${C.text} 30% 34%, ${C.honeyDeep} 35% 100%)`, color: C.white, fontFamily: 'inherit', cursor: 'pointer', boxShadow: `0 14px 28px ${C.borderLight}` }}>{state.is_playing ? 'Ⅱ' : '▶'}</button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.16em', marginBottom: 5 }}>NOW LISTENING</div>
+                  <div style={{ color: C.text, fontSize: 18, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatTrack(activeTrack)}</div>
+                  <div style={{ whiteSpace: 'pre-wrap', color: C.muted, fontSize: 12, lineHeight: 1.65, marginTop: 4 }}>{lyricPreview(activeTrack)}</div>
+                </div>
+              </div>
+              <div style={{ position: 'relative', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 13 }}>
+                <button type="button" onClick={playPrevious} style={softButtonStyle(C)}>上一首</button>
+                <button type="button" onClick={playNext} style={softButtonStyle(C)}>下一首</button>
+                <button type="button" onClick={() => updateState({ shuffle: !state.shuffle })} style={{ ...softButtonStyle(C), background: state.shuffle ? C.honeyLight : C.surface, color: state.shuffle ? C.honeyDeep : C.muted }}>随机 {state.shuffle ? '开' : '关'}</button>
+                {activeTrack && <button type="button" onClick={() => fillLyrics(activeTrack)} disabled={lyricsLoadingId === activeTrack.id} style={softButtonStyle(C)}>{lyricsLoadingId === activeTrack.id ? '找歌词中' : '找歌词'}</button>}
+              </div>
+              {activeTrack?.source_url && (
+                <a href={activeTrack.source_url} target="_blank" rel="noreferrer" style={{ position: 'relative', display: 'inline-block', marginTop: 8, color: C.honeyDeep, fontSize: 12 }}>打开原曲链接</a>
+              )}
+            </section>
+          )}
+
+          {tab === 'search' && (
+            <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
+              <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>搜索区</div>
+              <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.6, margin: '-3px 0 9px' }}>搜索到的是官方试听片段，通常只有 30 秒；想听完整音频，可以到“上传”里放自己的音乐文件。</div>
+              <form onSubmit={searchMusic} style={{ display: 'flex', gap: 8 }}>
+                <input value={query} onChange={event => setQuery(event.target.value)} placeholder="输入歌名、歌手，比如周杰伦 晴天" style={{ ...inputStyle(C), flex: 1, minWidth: 0 }} />
+                <button type="submit" disabled={searching} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '0 15px', fontFamily: 'inherit', cursor: searching ? 'default' : 'pointer', opacity: searching ? .65 : 1 }}>{searching ? '搜着' : '搜索'}</button>
+              </form>
+              {searchResults.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                  {searchResults.map((track, index) => (
+                    <div key={`${track.audio_url}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${C.borderLight}`, background: C.surface, borderRadius: 13, padding: '9px 10px' }}>
+                      {track.cover_url && <img src={track.cover_url} alt="" style={{ width: 38, height: 38, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ color: C.text, fontSize: 13.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                        <div style={{ color: C.muted, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[track.artist, track.album].filter(Boolean).join(' · ') || '试听片段'}</div>
+                      </div>
+                      <button type="button" onClick={() => addSearchResult(track)} disabled={saving} style={softButtonStyle(C)}>加入</button>
                     </div>
-                    <button type="button" onClick={() => addSearchResult(track)} disabled={saving} style={softButtonStyle(C)}>加入</button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {tab === 'library' && (
+            <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <b style={{ color: C.text }}>我们喜欢的音乐</b>
+                <span style={{ color: C.mutedLight, fontSize: 11 }}>{tracks.length} 首</span>
+              </div>
+              {!tracks.length && <div style={{ color: C.muted, fontSize: 13, padding: '18px 0', textAlign: 'center' }}>还没有歌。去“搜索”找一首，或者去“上传”放进唱片机。</div>}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {tracks.map(track => (
+                  <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${String(activeTrack?.id) === String(track.id) ? C.honeyMid : C.borderLight}`, background: String(activeTrack?.id) === String(track.id) ? C.honeyLight : C.surface, borderRadius: 13, padding: '10px 11px' }}>
+                    <button type="button" onClick={() => selectTrack(track)} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid ${C.border}`, background: C.white, color: C.honeyDeep, cursor: 'pointer' }}>{String(activeTrack?.id) === String(track.id) && state.is_playing ? 'Ⅱ' : '▶'}</button>
+                    {track.cover_url && <img src={track.cover_url} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ color: C.text, fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                      <div style={{ color: C.muted, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[track.artist, track.album, track.note].filter(Boolean).join(' · ') || '没有备注'}</div>
+                    </div>
+                    {!track.lyrics && <button type="button" onClick={() => fillLyrics(track)} disabled={lyricsLoadingId === track.id} style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>{lyricsLoadingId === track.id ? '找中' : '歌词'}</button>}
+                    {track.source_url && <a href={track.source_url} target="_blank" rel="noreferrer" style={{ color: C.honeyDeep, fontSize: 11, flexShrink: 0 }}>原曲</a>}
+                    <button type="button" onClick={() => deleteTrack(track)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>删除</button>
                   </div>
                 ))}
               </div>
-            )}
-          </section>
+            </section>
+          )}
 
-          <details style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
-            <summary style={{ color: C.text, fontWeight: 700, cursor: 'pointer' }}>手动收藏 / 上传音频</summary>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 9, marginTop: 12 }}>
-              <input value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="歌名" style={inputStyle(C)} />
-              <input value={draft.artist} onChange={event => setDraft(current => ({ ...current, artist: event.target.value }))} placeholder="歌手" style={inputStyle(C)} />
-              <input value={draft.album} onChange={event => setDraft(current => ({ ...current, album: event.target.value }))} placeholder="专辑，可不填" style={inputStyle(C)} />
-            </div>
-            <input value={draft.audio_url} onChange={event => setDraft(current => ({ ...current, audio_url: event.target.value }))} placeholder="可直接播放的音频链接，上传后自动填入" style={{ ...inputStyle(C), width: '100%', marginTop: 9 }} />
-            <textarea value={draft.note} onChange={event => setDraft(current => ({ ...current, note: event.target.value }))} placeholder="备注或想显示在唱片机上的一句话……" rows={2} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', marginTop: 9, borderRadius: 12 }} />
-            <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
-              <input ref={fileInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={event => uploadAudio(event.target.files?.[0])} />
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} style={softButtonStyle(C)}>{uploading ? '上传中' : '上传音频'}</button>
-              <button type="button" onClick={saveTrack} disabled={saving} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '9px 15px', fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer', opacity: saving ? .65 : 1 }}>{saving ? '保存中' : '加入歌单'}</button>
-            </div>
-          </details>
-
-          {error && <div style={{ color: C.blushDeep, fontSize: 12 }}>{error}</div>}
-
-          <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <b style={{ color: C.text }}>我们喜欢的音乐</b>
-              <span style={{ color: C.mutedLight, fontSize: 11 }}>{tracks.length} 首</span>
-            </div>
-            {!tracks.length && <div style={{ color: C.muted, fontSize: 13, padding: '18px 0', textAlign: 'center' }}>还没有歌。直接搜一首，就能放进唱片机。</div>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {tracks.map(track => (
-                <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${String(activeTrack?.id) === String(track.id) ? C.honeyMid : C.borderLight}`, background: String(activeTrack?.id) === String(track.id) ? C.honeyLight : C.surface, borderRadius: 13, padding: '10px 11px' }}>
-                  <button type="button" onClick={() => selectTrack(track)} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid ${C.border}`, background: C.white, color: C.honeyDeep, cursor: 'pointer' }}>{String(activeTrack?.id) === String(track.id) && state.is_playing ? 'Ⅱ' : '▶'}</button>
-                  {track.cover_url && <img src={track.cover_url} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: C.text, fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
-                    <div style={{ color: C.muted, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[track.artist, track.album, track.note].filter(Boolean).join(' · ') || '没有备注'}</div>
-                  </div>
-                  {!track.lyrics && <button type="button" onClick={() => fillLyrics(track)} disabled={lyricsLoadingId === track.id} style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>{lyricsLoadingId === track.id ? '找中' : '歌词'}</button>}
-                  {track.source_url && <a href={track.source_url} target="_blank" rel="noreferrer" style={{ color: C.honeyDeep, fontSize: 11, flexShrink: 0 }}>原曲</a>}
-                  <button type="button" onClick={() => deleteTrack(track)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>删除</button>
-                </div>
-              ))}
-            </div>
-          </section>
+          {tab === 'upload' && (
+            <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
+              <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>手动收藏 / 上传音频</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 9 }}>
+                <input value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="歌名" style={inputStyle(C)} />
+                <input value={draft.artist} onChange={event => setDraft(current => ({ ...current, artist: event.target.value }))} placeholder="歌手" style={inputStyle(C)} />
+                <input value={draft.album} onChange={event => setDraft(current => ({ ...current, album: event.target.value }))} placeholder="专辑，可不填" style={inputStyle(C)} />
+              </div>
+              <input value={draft.audio_url} onChange={event => setDraft(current => ({ ...current, audio_url: event.target.value }))} placeholder="可直接播放的音频链接，上传后自动填入" style={{ ...inputStyle(C), width: '100%', marginTop: 9 }} />
+              <textarea value={draft.note} onChange={event => setDraft(current => ({ ...current, note: event.target.value }))} placeholder="备注或想显示在唱片机上的一句话……" rows={2} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', marginTop: 9, borderRadius: 12 }} />
+              <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
+                <input ref={fileInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={event => uploadAudio(event.target.files?.[0])} />
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} style={softButtonStyle(C)}>{uploading ? '上传中' : '上传音频'}</button>
+                <button type="button" onClick={saveTrack} disabled={saving} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '9px 15px', fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer', opacity: saving ? .65 : 1 }}>{saving ? '保存中' : '加入歌单'}</button>
+              </div>
+            </section>
+          )}
         </section>
       </main>
     </div>
