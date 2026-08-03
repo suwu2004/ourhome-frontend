@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import Root from './Root.jsx'
 import './styles.css'
 import { applyAppFont, getSavedFont } from './fonts.js'
+import { MusicPlayerProvider } from './MusicPlayerContext.jsx'
 import { ThemeProvider } from './ThemeContext.jsx'
 
 applyAppFont(getSavedFont(), { persist: false })
@@ -26,6 +27,8 @@ window.visualViewport?.addEventListener('scroll', scheduleViewportUpdate, { pass
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <ThemeProvider>
-    <Root />
+    <MusicPlayerProvider>
+      <Root />
+    </MusicPlayerProvider>
   </ThemeProvider>,
 )
