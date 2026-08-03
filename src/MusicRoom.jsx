@@ -42,19 +42,6 @@ function activeLyricIndex(lines, progress) {
   return index;
 }
 
-function lyricTimingMeta(lines, duration) {
-  const timedLines = lines.filter(line => Number.isFinite(line.time));
-  if (timedLines.length < 3) return { reliable: false };
-  const lastTime = Math.max(...timedLines.map(line => line.time));
-  const timedRatio = timedLines.length / Math.max(lines.length, 1);
-  const fitsDuration = !Number.isFinite(duration) || duration <= 1 || lastTime <= duration + 12;
-  return {
-    reliable: timedRatio >= 0.65 && fitsDuration,
-    timedRatio,
-    lastTime,
-  };
-}
-
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
   const mins = Math.floor(seconds / 60);
@@ -98,7 +85,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
 
   useEffect(() => {
     if (visible) loadMusic();
-  }, [loadMusic, visible]);
+  }, [visible]);
 
   const searchMusic = async event => {
     event?.preventDefault();
@@ -268,8 +255,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     off: { icon: '顺', label: '顺序播放' },
   }[playMode] || { icon: '循', label: '列表循环' };
   const lyricLines = useMemo(() => parseLyricLines(activeTrack), [activeTrack?.id, activeTrack?.lyrics, activeTrack?.note]);
-  const lyricTiming = useMemo(() => lyricTimingMeta(lyricLines, progress.duration), [lyricLines, progress.duration]);
-  const lyricsAreTimed = lyricTiming.reliable;
+  const lyricsAreTimed = lyricLines.some(line => Number.isFinite(line.time));
   const activeLineIndex = activeLyricIndex(lyricLines, progress);
 
   useEffect(() => {
@@ -332,13 +318,13 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                 <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginTop: 26 }}>
                   <div
                     ref={lyricsScrollRef}
-                    style={{ maxHeight: 246, maxWidth: '86%', margin: '0 auto', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', color: C.muted, padding: '7px 2px', fontSize: 17, lineHeight: 1.9, textAlign: 'center', textShadow: `0 1px 8px ${C.white}` }}
+                    style={{ maxHeight: 226, maxWidth: '82%', margin: '0 auto', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', color: C.muted, padding: '7px 2px', fontSize: 15.5, lineHeight: 1.86, textAlign: 'center', textShadow: `0 1px 8px ${C.white}` }}
                   >
                     {lyricLines.map((line, index) => (
                       <div
                         key={`${line.text}-${index}`}
                         ref={node => { lyricLineRefs.current[index] = node; }}
-                        style={{ color: lyricsAreTimed && index === activeLineIndex ? C.honeyDeep : C.muted, fontSize: lyricsAreTimed && index === activeLineIndex ? 19 : 17, fontWeight: lyricsAreTimed && index === activeLineIndex ? 700 : 400, opacity: lyricsAreTimed && index === activeLineIndex ? 1 : .88, transition: 'color .25s ease, opacity .25s ease, font-size .25s ease', margin: '3px 0' }}
+                        style={{ color: lyricsAreTimed && index === activeLineIndex ? C.honeyDeep : C.muted, fontSize: lyricsAreTimed && index === activeLineIndex ? 17 : 15.5, fontWeight: lyricsAreTimed && index === activeLineIndex ? 700 : 400, opacity: lyricsAreTimed && index === activeLineIndex ? 1 : .86, transition: 'color .25s ease, opacity .25s ease, font-size .25s ease', margin: '3px 0' }}
                       >
                         {line.text}
                       </div>
