@@ -5,7 +5,7 @@ const MusicPlayerContext = createContext(null);
 
 export function MusicPlayerProvider({ children }) {
   const audioRef = useRef(null);
-  const stateRef = useRef({ track_id: null, is_playing: false, shuffle: false, repeat_mode: 'list' });
+  const stateRef = useRef({ track_id: null, is_playing: false, shuffle: false, repeat_mode: 'list', background_url: '' });
   const [tracks, setTracks] = useState([]);
   const [state, setState] = useState(stateRef.current);
   const [progress, setProgress] = useState({ currentTime: 0, duration: 0 });
@@ -59,7 +59,7 @@ export function MusicPlayerProvider({ children }) {
       if (!tracksResponse.ok) throw new Error(tracksData?.error || '歌单没有回来');
       if (!stateResponse.ok) throw new Error(stateData?.error || '播放状态没有回来');
       setTracks(Array.isArray(tracksData) ? tracksData : []);
-      const nextState = { track_id: null, is_playing: false, shuffle: false, repeat_mode: 'list', ...(stateData || {}) };
+      const nextState = { track_id: null, is_playing: false, shuffle: false, repeat_mode: 'list', background_url: '', ...(stateData || {}) };
       stateRef.current = nextState;
       setState(nextState);
     } catch (err) {
