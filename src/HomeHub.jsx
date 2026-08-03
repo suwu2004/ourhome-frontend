@@ -472,12 +472,12 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
         </section>
 
         <section className={`home-living-grid home-music-garden ${musicState.is_playing ? 'is-playing' : ''}`} aria-label="客厅功能区">
-          <div className="home-petal-field" aria-hidden="true">
-            <span /><span /><span /><span /><span />
+          <div className="home-bubble-field" aria-hidden="true">
+            <span /><span /><span /><span /><span /><span /><span /><span /><span /><span />
           </div>
-          <svg className="home-note-ribbon" viewBox="0 0 360 118" aria-hidden="true">
-            <path d="M15 75C76 21 139 37 178 71c45 40 111 32 166-22" />
-            <path d="M25 88c62-44 118-35 161-2 49 37 100 31 153-12" />
+          <svg className="home-note-ribbon" viewBox="0 0 360 210" aria-hidden="true">
+            <path d="M-10 168C44 124 83 155 126 111c45-46 80-24 119-70 42-49 78-28 126-58" />
+            <path d="M-12 195C48 146 92 177 141 132c48-44 82-27 124-68 43-42 71-31 109-5" />
           </svg>
           <span className="home-floating-note home-floating-note--one" aria-hidden="true">♪</span>
           <span className="home-floating-note home-floating-note--two" aria-hidden="true">♫</span>
