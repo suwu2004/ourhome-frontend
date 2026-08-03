@@ -5,7 +5,7 @@ const MusicPlayerContext = createContext(null);
 
 export function MusicPlayerProvider({ children }) {
   const audioRef = useRef(null);
-  const stateRef = useRef({ track_id: null, is_playing: false, shuffle: false });
+  const stateRef = useRef({ track_id: null, is_playing: false, shuffle: false, repeat_mode: 'list' });
   const [tracks, setTracks] = useState([]);
   const [state, setState] = useState(stateRef.current);
   const [progress, setProgress] = useState({ currentTime: 0, duration: 0 });
@@ -59,7 +59,7 @@ export function MusicPlayerProvider({ children }) {
       if (!tracksResponse.ok) throw new Error(tracksData?.error || '歌单没有回来');
       if (!stateResponse.ok) throw new Error(stateData?.error || '播放状态没有回来');
       setTracks(Array.isArray(tracksData) ? tracksData : []);
-      const nextState = { track_id: null, is_playing: false, shuffle: false, ...(stateData || {}) };
+      const nextState = { track_id: null, is_playing: false, shuffle: false, repeat_mode: 'list', ...(stateData || {}) };
       stateRef.current = nextState;
       setState(nextState);
     } catch (err) {
@@ -77,13 +77,15 @@ export function MusicPlayerProvider({ children }) {
 
   const pickTrack = useCallback((direction = 1) => {
     if (!tracks.length) return null;
-    if (state.shuffle && tracks.length > 1) {
+    if ((state.repeat_mode === 'shuffle' || state.shuffle) && tracks.length > 1) {
       const candidates = tracks.filter(track => String(track.id) !== String(activeTrack?.id));
       return candidates[Math.floor(Math.random() * candidates.length)] || tracks[0];
     }
     const index = Math.max(0, tracks.findIndex(track => String(track.id) === String(activeTrack?.id)));
-    return tracks[(index + direction + tracks.length) % tracks.length];
-  }, [activeTrack?.id, state.shuffle, tracks]);
+    const nextIndex = index + direction;
+    if (state.repeat_mode === 'off' && (nextIndex < 0 || nextIndex >= tracks.length)) return null;
+    return tracks[(nextIndex + tracks.length) % tracks.length];
+  }, [activeTrack?.id, state.repeat_mode, state.shuffle, tracks]);
 
   const selectTrack = useCallback(track => {
     if (!track) return;
@@ -106,11 +108,19 @@ export function MusicPlayerProvider({ children }) {
   }, [activeTrack, playTrackImmediately, updateState]);
 
   const playNext = useCallback(() => {
+    if (stateRef.current.repeat_mode === 'one' && activeTrack) {
+      updateState({ track_id: activeTrack.id, is_playing: Boolean(activeTrack.audio_url) });
+      if (activeTrack.audio_url) playTrackImmediately(activeTrack);
+      return;
+    }
     const next = pickTrack(1);
-    if (!next) return;
+    if (!next) {
+      updateState({ is_playing: false });
+      return;
+    }
     updateState({ track_id: next.id, is_playing: Boolean(next.audio_url) });
     if (next.audio_url) playTrackImmediately(next);
-  }, [pickTrack, playTrackImmediately, updateState]);
+  }, [activeTrack, pickTrack, playTrackImmediately, updateState]);
 
   const playPrevious = useCallback(() => {
     const previous = pickTrack(-1);
@@ -120,7 +130,10 @@ export function MusicPlayerProvider({ children }) {
   }, [pickTrack, playTrackImmediately, updateState]);
 
   const toggleShuffle = useCallback(() => {
-    updateState({ shuffle: !stateRef.current.shuffle });
+    const order = ['list', 'one', 'shuffle', 'off'];
+    const current = stateRef.current.repeat_mode || (stateRef.current.shuffle ? 'shuffle' : 'list');
+    const next = order[(order.indexOf(current) + 1) % order.length] || 'list';
+    updateState({ repeat_mode: next, shuffle: next === 'shuffle' });
   }, [updateState]);
 
   const seekTo = useCallback(seconds => {
