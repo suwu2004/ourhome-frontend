@@ -588,8 +588,8 @@ textarea { display: block; margin: 0; }
   margin: 0 auto;
   padding: max(17px, env(safe-area-inset-top)) 17px max(11px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr);
-  gap: clamp(10px, 1.45vh, 14px);
+  grid-template-rows: auto auto auto minmax(132px, 1fr) auto;
+  gap: clamp(11px, 1.6vh, 16px);
 }
 
 .home-hero {
@@ -1094,7 +1094,8 @@ textarea { display: block; margin: 0; }
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: start;
-  padding-bottom: clamp(6px, 1.5vh, 12px);
+  align-content: space-between;
+  padding-bottom: clamp(14px, 2.4vh, 24px);
 }
 
 .home-living-grid > .home-music-card {
@@ -1656,7 +1657,7 @@ textarea { display: block; margin: 0; }
   .home-layout {
     padding-top: max(10px, env(safe-area-inset-top));
     gap: 7px;
-    grid-template-rows: auto auto auto auto minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(116px, 1fr) auto;
   }
   .home-hero h1 { font-size: clamp(33px, 9.5vw, 41px); }
   .home-anniversary { margin-top: 4px; }
@@ -1669,7 +1670,7 @@ textarea { display: block; margin: 0; }
   .home-quick-grid { min-height: 104px; gap: 7px; }
   .home-note-card { min-height: 104px; }
   .home-note-card { padding-top: 13px; padding-bottom: 10px; }
-  .home-living-grid { gap: 6px; padding-bottom: 6px; }
+  .home-living-grid { gap: 6px; padding-bottom: 10px; }
   .home-music-card { min-height: 48px; padding-top: 6px; padding-bottom: 6px; }
   .home-living-grid .home-music-record { width: 34px; height: 34px; }
   .home-living-grid .home-music-actions span { width: 22px; height: 22px; }
@@ -1684,8 +1685,8 @@ textarea { display: block; margin: 0; }
 }
 
 @media (min-height: 800px) {
-  .home-layout { gap: clamp(11px, 1.5vh, 15px); }
-  .home-living-grid { padding-bottom: clamp(8px, 1.8vh, 16px); }
+  .home-layout { gap: clamp(12px, 1.65vh, 18px); }
+  .home-living-grid { padding-bottom: clamp(18px, 2.8vh, 30px); }
 }
 
 @media (max-width: 350px) {
