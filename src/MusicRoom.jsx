@@ -13,11 +13,6 @@ const emptyTrack = {
   note: '',
 };
 
-function formatTrack(track) {
-  if (!track) return '还没有选歌';
-  return [track.title, track.artist].filter(Boolean).join(' · ') || '未命名歌曲';
-}
-
 function lyricPreview(track) {
   const text = String(track?.lyrics || track?.note || '').trim();
   if (!text) return '歌词还没有回来，先听一小段。';
@@ -196,39 +191,10 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     }
   };
 
-  const patchTrack = async nextTrack => {
-    if (!nextTrack?.id) {
-      setError('先选一首歌，再换背景。');
-      return null;
-    }
-    setSaving(true);
-    setError('');
-    try {
-      const response = await apiFetch(`${BACKEND}/music/tracks/${nextTrack.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nextTrack),
-      });
-      const saved = await response.json();
-      if (!response.ok) throw new Error(saved.error || '歌曲没有保存好');
-      setTracks(items => items.map(item => (item.id === saved.id ? saved : item)));
-      return saved;
-    } catch (err) {
-      setError(err.message);
-      return null;
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const uploadBackground = async file => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       setError('背景要用图片文件。');
-      return;
-    }
-    if (!activeTrack) {
-      setError('先选一首歌，再换背景。');
       return;
     }
     setBackgroundUploading(true);
@@ -239,7 +205,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
       const response = await apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '背景没有上传成功');
-      await patchTrack({ ...activeTrack, cover_url: data.url });
+      await updateState({ background_url: data.url });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -249,12 +215,9 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
   };
 
   const progressMax = Math.max(progress.duration || 0, progress.currentTime || 0, 1);
-  const coverArt = activeTrack?.cover_url
-    ? { backgroundImage: `url(${activeTrack.cover_url})` }
-    : { background: `linear-gradient(145deg, ${C.honeyLight}, ${C.white})` };
-  const playCardBackground = activeTrack?.cover_url
+  const playCardBackground = state.background_url
     ? {
-        backgroundImage: `linear-gradient(145deg, rgba(255, 245, 177, .46), rgba(255, 253, 239, .70)), url(${activeTrack.cover_url})`,
+        backgroundImage: `linear-gradient(145deg, rgba(255, 245, 177, .50), rgba(255, 253, 239, .74)), url(${state.background_url})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }
@@ -305,25 +268,22 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
             <section style={{ minHeight: 'calc(100dvh - 250px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ position: 'relative', minHeight: 438, overflow: 'hidden', borderRadius: 24, border: `1px solid ${C.border}`, padding: '18px min(20px, 5vw) 22px', boxShadow: `0 18px 44px ${C.borderLight}aa`, display: 'flex', flexDirection: 'column', ...playCardBackground }}>
                 <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, rgba(255, 247, 194, .26), rgba(255, 252, 238, .72)), radial-gradient(circle at 18% 10%, ${C.honeyLight}66, transparent 34%)`, pointerEvents: 'none' }} />
-                <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '96px minmax(0, 1fr)', gap: 14, alignItems: 'center' }}>
-                  <div style={{ position: 'relative' }}>
-                    <button type="button" onClick={togglePlay} aria-label={state.is_playing ? '暂停' : '播放'} style={{ width: 96, height: 96, borderRadius: 18, border: `1px solid ${C.border}`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: `0 14px 28px ${C.borderLight}`, ...coverArt }}>
-                      <span style={{ width: 42, height: 42, borderRadius: '50%', display: 'grid', placeItems: 'center', background: `${C.white}cc`, color: C.honeyDeep, fontSize: 20, boxShadow: `0 6px 16px ${C.borderLight}` }}>{state.is_playing ? 'Ⅱ' : '▶'}</span>
-                    </button>
-                    <input ref={backgroundInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={event => uploadBackground(event.target.files?.[0])} />
-                    <button type="button" onClick={() => backgroundInputRef.current?.click()} disabled={backgroundUploading || !activeTrack} style={{ position: 'absolute', left: 6, right: 6, bottom: 6, border: `1px solid ${C.border}`, borderRadius: 999, background: `${C.white}e6`, color: C.honeyDeep, fontSize: 10, padding: '4px 0', fontFamily: 'inherit', cursor: backgroundUploading || !activeTrack ? 'default' : 'pointer', opacity: backgroundUploading || !activeTrack ? .58 : 1 }}>{backgroundUploading ? '上传中' : '换背景'}</button>
-                  </div>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ color: C.mutedLight, fontSize: 10.5, letterSpacing: '.18em', marginBottom: 4 }}>NOW LISTENING</div>
                     <div style={{ color: C.text, fontSize: 24, fontWeight: 800, lineHeight: 1.22, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeTrack?.title || '还没有选歌'}</div>
                     <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeTrack?.artist || '先去搜索或上传一首歌'}</div>
                     <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 8 }}>{playModeMeta.label}</div>
                   </div>
+                  <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+                    <input ref={backgroundInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={event => uploadBackground(event.target.files?.[0])} />
+                    <button type="button" onClick={() => backgroundInputRef.current?.click()} disabled={backgroundUploading} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontSize: 11.5, padding: 0, fontFamily: 'inherit', cursor: backgroundUploading ? 'default' : 'pointer', textDecoration: 'underline', textUnderlineOffset: 3, opacity: backgroundUploading ? .58 : 1 }}>{backgroundUploading ? '上传中' : '换背景'}</button>
+                  </div>
                 </div>
                 <div style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '82%', marginLeft: 'auto' }}>
                     <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center', background: C.honeyLight, color: C.honeyDeep, flexShrink: 0 }}>✦</span>
-                    <div style={{ maxHeight: 176, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', borderRadius: 14, background: `${C.white}df`, color: C.muted, padding: '10px 15px', fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', textAlign: 'left', boxShadow: `0 10px 24px ${C.borderLight}66` }}>{lyricPreview(activeTrack)}</div>
+                    <div style={{ maxHeight: 208, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', color: C.muted, padding: '4px 2px', fontSize: 13.5, lineHeight: 1.78, whiteSpace: 'pre-wrap', textAlign: 'left', textShadow: `0 1px 8px ${C.white}` }}>{lyricPreview(activeTrack)}</div>
                   </div>
                 </div>
                 <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 14 }}>
