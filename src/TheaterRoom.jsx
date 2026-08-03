@@ -170,6 +170,10 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const [importPreview, setImportPreview] = useState(makeBookDraft('导入的小世界'));
   const [importingWorld, setImportingWorld] = useState(false);
   const [importingFile, setImportingFile] = useState(false);
+  const [globalRulesOpen, setGlobalRulesOpen] = useState(false);
+  const [globalRules, setGlobalRules] = useState('');
+  const [savingGlobalRules, setSavingGlobalRules] = useState(false);
+  const [importingGlobalRules, setImportingGlobalRules] = useState(false);
   const [uploadingChatBg, setUploadingChatBg] = useState(false);
   const [mode, setMode] = useState('interactive');
   const [lengthMode, setLengthMode] = useState('long');
@@ -177,6 +181,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const chatEndRef = useRef(null);
   const chatScrollerRef = useRef(null);
   const worldFileInputRef = useRef(null);
+  const globalRulesFileInputRef = useRef(null);
   const chatBgInputRef = useRef(null);
 
   const selectedBook = useMemo(
@@ -194,7 +199,10 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   }, [selectedModel]);
 
   useEffect(() => {
-    if (visible) loadBooks();
+    if (visible) {
+      loadBooks();
+      loadGlobalRules();
+    }
   }, [visible]);
 
   useEffect(() => {
@@ -235,6 +243,56 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       setError(err.message);
     } finally {
       setLoadingBooks(false);
+    }
+  };
+
+  const loadGlobalRules = async () => {
+    try {
+      const response = await apiFetch(`${BACKEND}/theater/global-rules`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '通用规则没有读出来');
+      setGlobalRules(data.rules || '');
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const saveGlobalRules = async () => {
+    setSavingGlobalRules(true);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/theater/global-rules`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rules: globalRules }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '通用规则没有保存成功');
+      setGlobalRules(data.rules || '');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingGlobalRules(false);
+    }
+  };
+
+  const importGlobalRulesFile = async file => {
+    if (!file) return;
+    setImportingGlobalRules(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await apiFetch(`${BACKEND}/theater/global-rules/import`, { method: 'POST', body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '通用规则没有导入成功');
+      setGlobalRules(data.rules || '');
+      setGlobalRulesOpen(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImportingGlobalRules(false);
+      if (globalRulesFileInputRef.current) globalRulesFileInputRef.current.value = '';
     }
   };
 
@@ -511,11 +569,38 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             <div style={{ color: C.mutedLight, fontSize: 11, letterSpacing: '.12em', marginTop: 3 }}>每一本书，都是一个小世界。</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setGlobalRulesOpen(value => !value)} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.honeyDeep, padding: '10px 13px', fontFamily: 'inherit', cursor: 'pointer' }}>通用规则</button>
             <button type="button" onClick={openImportPanel} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '10px 13px', fontFamily: 'inherit', cursor: 'pointer' }}>导入世界</button>
             <button type="button" onClick={createBook} disabled={savingBook} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '10px 15px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer', opacity: savingBook ? .65 : 1 }}>＋ 新书</button>
           </div>
         </div>
         {error && <div style={{ marginBottom: 12, color: C.blushDeep, fontSize: 12 }}>{error}</div>}
+        {globalRulesOpen && (
+          <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14, marginBottom: 16, boxShadow: `0 10px 26px ${C.borderLight}66` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+              <div>
+                <div style={{ color: C.text, fontWeight: 700 }}>小剧场通用规则</div>
+                <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 3 }}>所有小世界都会遵循这里。可以放正则预设、禁词、总禁区、统一文风和防 OOC 规则。</div>
+              </div>
+              <button type="button" onClick={() => setGlobalRulesOpen(false)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer' }}>收起</button>
+            </div>
+            <textarea
+              value={globalRules}
+              onChange={event => setGlobalRules(event.target.value)}
+              rows={7}
+              placeholder={'比如：\n- 禁止使用现代网络词。\n- 不要用项目符号写剧情。\n- 正则预设：把需要全局遵循的规则写在这里。'}
+              style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${C.border}`, borderRadius: 13, background: C.surface, color: C.text, padding: '10px 11px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 13, lineHeight: 1.65 }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+              <span style={{ color: C.mutedLight, fontSize: 10.5 }}>{globalRules.trim() ? `${globalRules.trim().length} 字，会进入所有小剧场提示词` : '还没有通用规则。'}</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <input ref={globalRulesFileInputRef} type="file" accept=".docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" style={{ display: 'none' }} onChange={event => importGlobalRulesFile(event.target.files?.[0])} />
+                <button type="button" onClick={() => globalRulesFileInputRef.current?.click()} disabled={importingGlobalRules} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '8px 12px', fontFamily: 'inherit', cursor: importingGlobalRules ? 'default' : 'pointer', opacity: importingGlobalRules ? .65 : 1 }}>{importingGlobalRules ? '导入中' : '上传规则'}</button>
+                <button type="button" onClick={saveGlobalRules} disabled={savingGlobalRules} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '8px 14px', fontFamily: 'inherit', cursor: savingGlobalRules ? 'default' : 'pointer', opacity: savingGlobalRules ? .65 : 1 }}>{savingGlobalRules ? '保存中' : '保存规则'}</button>
+              </div>
+            </div>
+          </section>
+        )}
         {importOpen && (
           <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14, marginBottom: 16, boxShadow: `0 10px 26px ${C.borderLight}66` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
