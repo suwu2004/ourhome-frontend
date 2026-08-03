@@ -1100,21 +1100,51 @@ textarea { display: block; margin: 0; }
 }
 
 .home-music-garden {
-  min-height: clamp(190px, 28vh, 245px);
+  min-height: clamp(188px, 28vh, 238px);
   align-content: center;
   isolation: isolate;
+}
+
+.home-petal-field {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.home-petal-field span {
+  position: absolute;
+  width: 16px;
+  height: 27px;
+  border-radius: 82% 18% 72% 28%;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--home-blush) 62%, var(--home-card-solid)), color-mix(in srgb, var(--home-card-solid) 60%, var(--home-blush)));
+  border: 1px solid color-mix(in srgb, var(--home-blush) 45%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--home-shadow) 24%, transparent);
+  opacity: 0.58;
+  animation: home-petal-drift 9s ease-in-out infinite;
+}
+
+.home-petal-field span:nth-child(1) { top: 12%; left: 10%; transform: rotate(-24deg); }
+.home-petal-field span:nth-child(2) { top: 8%; right: 17%; width: 13px; height: 22px; animation-delay: -2.2s; }
+.home-petal-field span:nth-child(3) { top: 54%; left: 31%; width: 12px; height: 20px; animation-delay: -4s; }
+.home-petal-field span:nth-child(4) { top: 38%; right: 8%; width: 18px; height: 29px; animation-delay: -5.5s; }
+.home-petal-field span:nth-child(5) { bottom: 13%; left: 56%; width: 11px; height: 19px; animation-delay: -6.8s; }
+
+@keyframes home-petal-drift {
+  50% { transform: translate(12px, 9px) rotate(18deg); opacity: 0.82; }
 }
 
 .home-note-ribbon {
   position: absolute;
   z-index: 0;
-  top: 44px;
-  right: 2px;
-  left: 74px;
-  width: calc(100% - 80px);
+  top: 30px;
+  right: 8px;
+  left: 8px;
+  width: calc(100% - 16px);
   height: 118px;
   overflow: visible;
-  opacity: 0.58;
+  opacity: 0.34;
   pointer-events: none;
 }
 
@@ -1147,12 +1177,109 @@ textarea { display: block; margin: 0; }
   animation: home-note-float 4.8s ease-in-out infinite;
 }
 
-.home-floating-note--one { top: 44px; left: 53%; }
-.home-floating-note--two { top: 88px; left: 73%; animation-delay: -1.4s; }
-.home-floating-note--three { top: 116px; left: 31%; animation-delay: -2.6s; }
+.home-floating-note--one { top: 42px; left: 50%; }
+.home-floating-note--two { top: 90px; left: 78%; animation-delay: -1.4s; }
+.home-floating-note--three { top: 118px; left: 35%; animation-delay: -2.6s; }
 
 @keyframes home-note-float {
   50% { transform: translateY(-7px) rotate(5deg); opacity: 0.72; }
+}
+
+.home-mini-player {
+  position: absolute;
+  z-index: 4;
+  left: 5px;
+  bottom: clamp(12px, 2vh, 20px);
+  width: min(178px, 45vw);
+}
+
+.home-mini-player-main {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: left;
+  background: color-mix(in srgb, var(--home-card-solid) 62%, transparent);
+  border: 1px solid var(--home-edge) !important;
+  border-radius: 16px;
+  box-shadow: 0 9px 22px color-mix(in srgb, var(--home-shadow) 45%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.home-mini-record {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--home-card-solid) 0 18%, var(--home-lemon) 19% 27%, var(--home-blush) 28% 42%, color-mix(in srgb, var(--home-ink) 82%, var(--home-honey-deep)) 43% 100%);
+  box-shadow: 0 5px 13px color-mix(in srgb, var(--home-shadow) 62%, transparent);
+}
+
+.home-mini-record i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--home-card-solid);
+  border: 1px solid color-mix(in srgb, var(--home-honey) 64%, transparent);
+}
+
+.home-music-garden.is-playing .home-mini-record {
+  animation: home-record-spin 3.8s linear infinite;
+}
+
+.home-mini-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.home-mini-copy small {
+  color: var(--home-honey-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.home-mini-copy b {
+  overflow: hidden;
+  color: var(--home-ink);
+  font-size: clamp(10px, 2.8vw, 12px);
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-mini-controls {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 0 8px;
+}
+
+.home-mini-controls button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--home-honey-deep);
+  background: color-mix(in srgb, var(--home-lemon) 52%, var(--home-card-solid));
+  border: 1px solid color-mix(in srgb, var(--home-honey) 58%, transparent) !important;
+  border-radius: 50%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10.5px;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--home-shadow) 45%, transparent);
+}
+
+.home-mini-controls button.is-active {
+  color: var(--home-card-solid);
+  background: var(--home-honey-deep);
 }
 
 .home-bloom-player {
@@ -1413,7 +1540,7 @@ textarea { display: block; margin: 0; }
 .home-music-garden .home-room-shelf {
   position: absolute;
   z-index: 3;
-  inset: 18px 4px 12px 128px;
+  inset: 12px 8px 56px 118px;
   display: block;
   pointer-events: none;
 }
@@ -1426,10 +1553,10 @@ textarea { display: block; margin: 0; }
   animation: home-room-float 5.2s ease-in-out infinite;
 }
 
-.home-music-garden .home-room-app--letters { top: 10px; left: 4%; }
-.home-music-garden .home-room-app--theater { top: 48px; left: 38%; animation-delay: -1.2s; }
-.home-music-garden .home-room-app--vault { top: 86px; left: 10%; animation-delay: -2.4s; }
-.home-music-garden .home-room-app--photos { top: 106px; right: 3%; animation-delay: -3.1s; }
+.home-music-garden .home-room-app--letters { top: 4px; left: 18%; }
+.home-music-garden .home-room-app--theater { top: 46px; right: 3%; animation-delay: -1.2s; }
+.home-music-garden .home-room-app--vault { top: 92px; left: 27%; animation-delay: -2.4s; }
+.home-music-garden .home-room-app--photos { top: 118px; right: 23%; animation-delay: -3.1s; }
 
 .home-music-garden .home-room-app > span {
   width: 34px;
@@ -1977,10 +2104,14 @@ textarea { display: block; margin: 0; }
   .home-note-card { padding-top: 13px; padding-bottom: 10px; }
   .home-living-grid { gap: 6px; padding-bottom: 10px; }
   .home-music-garden { min-height: 168px; }
+  .home-mini-player { width: min(156px, 43vw); bottom: 10px; }
+  .home-mini-player-main { grid-template-columns: 30px minmax(0, 1fr); min-height: 43px; padding: 6px 8px; }
+  .home-mini-record { width: 30px; height: 30px; }
+  .home-mini-controls button { width: 22px; height: 22px; }
   .home-bloom-player { width: min(188px, 43vw); margin-top: 3px; }
   .home-bloom-stage { height: 132px; }
   .home-bloom-flower { bottom: 93px; transform: scale(.88); }
-  .home-music-garden .home-room-shelf { inset: 12px 2px 8px 112px; }
+  .home-music-garden .home-room-shelf { inset: 9px 2px 48px 102px; }
   .home-music-garden .home-room-app > span { width: 30px; height: 30px; }
   .home-music-garden .home-room-app strong { font-size: 9px; }
   .home-music-card { min-height: 48px; padding-top: 6px; padding-bottom: 6px; }
@@ -2007,14 +2138,18 @@ textarea { display: block; margin: 0; }
   .home-note-card { padding-right: 48px; padding-left: 16px; }
   .home-living-grid { grid-template-columns: minmax(0, 1fr); }
   .home-music-garden { min-height: 166px; }
+  .home-mini-player { width: 142px; }
+  .home-mini-copy small { font-size: 6px; }
+  .home-mini-copy b { font-size: 9px; }
+  .home-mini-controls { gap: 5px; margin-left: 5px; }
   .home-bloom-player { width: 166px; }
   .home-bloom-copy { left: 94px; right: 10px; }
   .home-note-ribbon { left: 58px; width: calc(100% - 62px); }
-  .home-music-garden .home-room-shelf { inset: 10px 0 8px 94px; }
-  .home-music-garden .home-room-app--letters { top: 8px; left: 0; }
-  .home-music-garden .home-room-app--theater { top: 45px; left: 39%; }
-  .home-music-garden .home-room-app--vault { top: 82px; left: 5%; }
-  .home-music-garden .home-room-app--photos { top: 103px; right: 0; }
+  .home-music-garden .home-room-shelf { inset: 8px 0 48px 88px; }
+  .home-music-garden .home-room-app--letters { top: 5px; left: 10%; }
+  .home-music-garden .home-room-app--theater { top: 44px; right: 0; }
+  .home-music-garden .home-room-app--vault { top: 85px; left: 20%; }
+  .home-music-garden .home-room-app--photos { top: 107px; right: 17%; }
   .home-room-shelf { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .home-room-app { min-height: 50px; border-radius: 0; }
   .home-room-app > span { width: 30px; height: 30px; }
