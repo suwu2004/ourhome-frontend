@@ -78,17 +78,6 @@ function compactMemoPreview(value) {
   return content || '留一句话……';
 }
 
-function musicTrackLabel(track) {
-  if (!track) return '唱片机还空着，等我们放第一首。';
-  return [track.title, track.artist].filter(Boolean).join(' · ') || '未命名歌曲';
-}
-
-function musicLyricLine(track) {
-  const text = String(track?.lyrics || track?.note || '').trim();
-  if (!text) return '搜一首歌，客厅就会响起来。';
-  return text.split('\n').map(line => line.trim()).filter(Boolean).slice(0, 2).join(' / ');
-}
-
 function MoodCalendarMark() {
   return (
     <svg className="home-mood-star" viewBox="0 0 56 56" aria-hidden="true">
@@ -268,17 +257,8 @@ function MemoDrawer({
 export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const { darkMode, settings } = useTheme();
   const {
-    tracks: musicTracks,
     state: musicState,
-    activeTrack: activeMusicTrack,
-    loading: musicLoading,
-    error: musicError,
-    setError: setMusicError,
     loadMusic: loadMusicPreview,
-    togglePlay: togglePlayerMusic,
-    playNext: playNextTrack,
-    playPrevious: playPreviousTrack,
-    toggleShuffle,
   } = useMusicPlayer();
   const [now, setNow] = useState(() => new Date());
   const [city, setCity] = useState(getHomeWeatherCity);
@@ -379,7 +359,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const upcoming = useMemo(() => upcomingOccasions(milestones, now, 10), [milestones, now]);
   const featuredNoteText = compactMemoPreview(featuredMemo?.content);
   const featuredOccasion = upcoming[0] || null;
-  const musicCanPlay = Boolean(activeMusicTrack?.audio_url);
   const avatars = {
     mine: settings?.my_avatar_url || '',
     partner: settings?.partner_avatar_url || '',
@@ -424,43 +403,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
     } catch (error) {
       setMemoError(error.message || '便签没有删掉');
     }
-  };
-
-  const toggleHomeMusic = async event => {
-    event.stopPropagation();
-    if (!activeMusicTrack) {
-      onOpen('music');
-      return;
-    }
-    if (!musicCanPlay) {
-      setMusicError('这首歌还没有可直接播放的音频，点进房间补一下。');
-      onOpen('music');
-      return;
-    }
-    togglePlayerMusic();
-  };
-
-  const playNextHomeTrack = async event => {
-    event.stopPropagation();
-    if (!musicTracks.length) {
-      onOpen('music');
-      return;
-    }
-    playNextTrack();
-  };
-
-  const playPreviousHomeTrack = async event => {
-    event.stopPropagation();
-    if (!musicTracks.length) {
-      onOpen('music');
-      return;
-    }
-    playPreviousTrack();
-  };
-
-  const toggleHomeShuffle = event => {
-    event.stopPropagation();
-    toggleShuffle();
   };
 
   const weatherLine = weatherState === 'loading'
@@ -541,23 +483,11 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
           <span className="home-floating-note home-floating-note--two" aria-hidden="true">♫</span>
           <span className="home-floating-note home-floating-note--three" aria-hidden="true">♩</span>
 
-          <article className="home-mini-player" aria-label="一起听音乐">
-            <button className="home-mini-player-main" type="button" onClick={() => onOpen('music')} aria-label="打开一起听音乐">
-              <span className="home-mini-record" aria-hidden="true"><i /></span>
-              <span className="home-mini-copy">
-                <small>LISTEN TOGETHER</small>
-                <b>{musicLoading ? '唱片转起来了…' : musicTrackLabel(activeMusicTrack)}</b>
-              </span>
-            </button>
-            <div className="home-mini-controls" aria-label="一起听控制">
-              <button type="button" onClick={playPreviousHomeTrack} aria-label="上一首">‹</button>
-              <button type="button" onClick={toggleHomeMusic} aria-label={musicState.is_playing ? '暂停' : '播放'}>{musicState.is_playing ? 'Ⅱ' : '▶'}</button>
-              <button type="button" onClick={playNextHomeTrack} aria-label="下一首">›</button>
-              <button type="button" className={musicState.shuffle ? 'is-active' : ''} onClick={toggleHomeShuffle} aria-label="切换随机播放">R</button>
-            </div>
-          </article>
-
           <div className="home-room-shelf">
+            <button className="home-room-app home-room-app--music" type="button" onClick={() => onOpen('music')} aria-label="打开一起听">
+              <span aria-hidden="true">♪</span>
+              <strong>一起听</strong>
+            </button>
             <button className="home-room-app home-room-app--letters" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
               <span><EnvelopeIcon /></span>
               <strong>时光信差</strong>
