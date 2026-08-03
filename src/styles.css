@@ -992,7 +992,7 @@ textarea { display: block; margin: 0; }
 }
 
 .home-music-garden {
-  min-height: clamp(264px, 36vh, 340px);
+  min-height: clamp(246px, 34vh, 318px);
   align-content: center;
   isolation: isolate;
 }
@@ -1007,29 +1007,29 @@ textarea { display: block; margin: 0; }
 
 .home-bubble-field span {
   position: absolute;
-  width: 3px;
-  height: 3px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, var(--home-card-solid) 78%, transparent), color-mix(in srgb, var(--home-lemon) 42%, transparent));
-  border: 1px solid color-mix(in srgb, var(--home-card-solid) 44%, transparent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--home-card-solid) 58%, transparent);
-  opacity: 0.34;
-  animation: home-bubble-drift 12s ease-in-out infinite;
+  border: 1px solid color-mix(in srgb, var(--home-card-solid) 60%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--home-card-solid) 72%, transparent);
+  opacity: 0.46;
+  animation: home-bubble-drift 10s ease-in-out infinite;
 }
 
-.home-bubble-field span:nth-child(1) { top: 12%; left: 10%; }
-.home-bubble-field span:nth-child(2) { top: 18%; right: 15%; width: 2px; height: 2px; animation-delay: -1.5s; }
-.home-bubble-field span:nth-child(3) { top: 39%; left: 29%; width: 2px; height: 2px; animation-delay: -3s; }
-.home-bubble-field span:nth-child(4) { top: 54%; right: 8%; width: 4px; height: 4px; animation-delay: -4.6s; }
-.home-bubble-field span:nth-child(5) { bottom: 19%; left: 50%; width: 2px; height: 2px; animation-delay: -6.2s; }
-.home-bubble-field span:nth-child(6) { bottom: 10%; right: 30%; width: 2px; height: 2px; animation-delay: -7.5s; }
-.home-bubble-field span:nth-child(7) { top: 67%; left: 14%; width: 3px; height: 3px; animation-delay: -2.4s; }
-.home-bubble-field span:nth-child(8) { top: 30%; right: 42%; width: 2px; height: 2px; animation-delay: -5.1s; }
-.home-bubble-field span:nth-child(9) { bottom: 33%; left: 74%; width: 3px; height: 3px; animation-delay: -8.4s; }
-.home-bubble-field span:nth-child(10) { top: 6%; left: 44%; width: 2px; height: 2px; animation-delay: -6.9s; }
+.home-bubble-field span:nth-child(1) { top: 10%; left: 10%; }
+.home-bubble-field span:nth-child(2) { top: 16%; right: 18%; width: 4px; height: 4px; animation-delay: -1.5s; }
+.home-bubble-field span:nth-child(3) { top: 39%; left: 24%; width: 3px; height: 3px; animation-delay: -3s; }
+.home-bubble-field span:nth-child(4) { top: 48%; right: 9%; width: 6px; height: 6px; animation-delay: -4.6s; }
+.home-bubble-field span:nth-child(5) { bottom: 19%; left: 53%; width: 4px; height: 4px; animation-delay: -6.2s; }
+.home-bubble-field span:nth-child(6) { bottom: 11%; right: 28%; width: 3px; height: 3px; animation-delay: -7.5s; }
+.home-bubble-field span:nth-child(7) { top: 62%; left: 13%; width: 4px; height: 4px; animation-delay: -2.4s; }
+.home-bubble-field span:nth-child(8) { top: 30%; right: 37%; width: 3px; height: 3px; animation-delay: -5.1s; }
+.home-bubble-field span:nth-child(9) { bottom: 32%; left: 72%; width: 5px; height: 5px; animation-delay: -8.4s; }
+.home-bubble-field span:nth-child(10) { top: 7%; left: 43%; width: 3px; height: 3px; animation-delay: -6.9s; }
 
 @keyframes home-bubble-drift {
-  50% { transform: translate(10px, -13px); opacity: 0.58; }
+  50% { transform: translate(8px, -10px); opacity: 0.7; }
 }
 
 /* 小房间改成可继续扩展的图标架，给主页留出呼吸。 */
@@ -1061,11 +1061,11 @@ textarea { display: block; margin: 0; }
   animation: home-room-float 6.8s ease-in-out infinite;
 }
 
-.home-music-garden .home-room-app--music { top: 112px; left: 50%; width: 68px; margin-left: -34px; animation-delay: -.7s; }
-.home-music-garden .home-room-app--letters { top: 28px; left: 8%; animation-delay: -2.1s; }
-.home-music-garden .home-room-app--theater { top: 54px; right: 8%; animation-delay: -3.4s; }
-.home-music-garden .home-room-app--vault { top: 184px; left: 21%; animation-delay: -1.6s; }
-.home-music-garden .home-room-app--photos { top: 196px; right: 15%; animation-delay: -4.2s; }
+.home-music-garden .home-room-app--music { top: 104px; left: 47%; width: 68px; margin-left: -34px; animation-delay: -.7s; }
+.home-music-garden .home-room-app--letters { top: 20px; left: 12%; animation-delay: -2.1s; }
+.home-music-garden .home-room-app--theater { top: 44px; right: 9%; animation-delay: -3.4s; }
+.home-music-garden .home-room-app--vault { top: 158px; left: 22%; animation-delay: -1.6s; }
+.home-music-garden .home-room-app--photos { top: 176px; right: 16%; animation-delay: -4.2s; }
 
 .home-music-garden .home-room-app > span {
   width: 34px;
@@ -1639,14 +1639,14 @@ textarea { display: block; margin: 0; }
   .home-note-card { min-height: 104px; }
   .home-note-card { padding-top: 13px; padding-bottom: 10px; }
   .home-living-grid { gap: 6px; padding-bottom: 10px; }
-  .home-music-garden { min-height: 226px; }
+  .home-music-garden { min-height: 212px; }
   .home-music-garden .home-room-shelf { inset: 6px 8px 14px; }
   .home-music-garden .home-room-app { width: 61px; }
-  .home-music-garden .home-room-app--music { top: 91px; left: 50%; width: 64px; margin-left: -32px; }
-  .home-music-garden .home-room-app--letters { top: 16px; left: 7%; }
-  .home-music-garden .home-room-app--theater { top: 42px; right: 6%; }
-  .home-music-garden .home-room-app--vault { top: 143px; left: 19%; }
-  .home-music-garden .home-room-app--photos { top: 154px; right: 14%; }
+  .home-music-garden .home-room-app--music { top: 82px; left: 47%; width: 64px; margin-left: -32px; }
+  .home-music-garden .home-room-app--letters { top: 12px; left: 9%; }
+  .home-music-garden .home-room-app--theater { top: 34px; right: 7%; }
+  .home-music-garden .home-room-app--vault { top: 126px; left: 22%; }
+  .home-music-garden .home-room-app--photos { top: 140px; right: 16%; }
   .home-music-garden .home-room-app > span { width: 30px; height: 30px; }
   .home-music-garden .home-room-app--music > span { width: 34px; height: 34px; font-size: 21px; }
   .home-music-garden .home-room-app strong { font-size: 9px; }
@@ -1670,14 +1670,14 @@ textarea { display: block; margin: 0; }
   .home-quick-grid { grid-template-columns: minmax(0, 1fr); }
   .home-note-card { padding-right: 48px; padding-left: 16px; }
   .home-living-grid { grid-template-columns: minmax(0, 1fr); }
-  .home-music-garden { min-height: 220px; }
+  .home-music-garden { min-height: 206px; }
   .home-music-garden .home-room-shelf { inset: 6px 6px 12px; }
   .home-music-garden .home-room-app { width: 56px; }
-  .home-music-garden .home-room-app--music { top: 88px; left: 50%; width: 60px; margin-left: -30px; }
-  .home-music-garden .home-room-app--letters { top: 16px; left: 5%; }
-  .home-music-garden .home-room-app--theater { top: 40px; right: 4%; }
-  .home-music-garden .home-room-app--vault { top: 136px; left: 17%; }
-  .home-music-garden .home-room-app--photos { top: 150px; right: 10%; }
+  .home-music-garden .home-room-app--music { top: 80px; left: 47%; width: 60px; margin-left: -30px; }
+  .home-music-garden .home-room-app--letters { top: 12px; left: 6%; }
+  .home-music-garden .home-room-app--theater { top: 34px; right: 5%; }
+  .home-music-garden .home-room-app--vault { top: 120px; left: 19%; }
+  .home-music-garden .home-room-app--photos { top: 136px; right: 12%; }
   .home-music-garden .home-room-app--music > span { width: 34px; height: 34px; font-size: 21px; }
   .home-room-shelf { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .home-room-app { min-height: 50px; border-radius: 0; }
