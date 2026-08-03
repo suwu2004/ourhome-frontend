@@ -1,52 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 
 const emptyDraft = {
   title: '',
   image_url: '',
-  kind: 'memory',
-  date: '',
-  place: '',
   description: '',
-  relation_to_luze: '',
-  tags: '',
 };
-
-const kindOptions = [
-  ['person', '我的样子'],
-  ['place', '去过哪里'],
-  ['object', '物品'],
-  ['home', '家里相关'],
-  ['memory', '一段回忆'],
-];
-
-function toTagText(tags) {
-  return Array.isArray(tags) ? tags.join('，') : String(tags || '');
-}
 
 function draftFromMemory(memory) {
   return {
     title: memory?.title || '',
     image_url: memory?.image_url || '',
-    kind: memory?.kind || 'memory',
-    date: memory?.date || '',
-    place: memory?.place || '',
     description: memory?.description || '',
-    relation_to_luze: memory?.relation_to_luze || '',
-    tags: toTagText(memory?.tags),
   };
 }
 
 function payloadFromDraft(draft) {
   return {
-    ...draft,
     title: draft.title.trim(),
     image_url: draft.image_url.trim(),
-    date: draft.date.trim(),
-    place: draft.place.trim(),
     description: draft.description.trim(),
-    relation_to_luze: draft.relation_to_luze.trim(),
-    tags: draft.tags,
+    kind: 'memory',
   };
 }
 
@@ -60,12 +34,7 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all');
   const [showComposer, setShowComposer] = useState(false);
-
-  const filteredMemories = useMemo(() => (
-    filter === 'all' ? memories : memories.filter(item => item.kind === filter)
-  ), [filter, memories]);
 
   const loadMemories = async () => {
     setLoading(true);
@@ -208,15 +177,11 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
           <section style={{ border: `1px solid ${C.border}`, borderRadius: 20, background: C.white, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
               <div><b style={{ color: C.text }}>我们的照片记忆</b><div style={{ color: C.mutedLight, fontSize: 10, marginTop: 2 }}>{memories.length} 条小锚点</div></div>
-              <select value={filter} onChange={event => setFilter(event.target.value)} style={{ ...inputStyle(C), width: 124, paddingTop: 7, paddingBottom: 7 }}>
-                <option value="all">全部</option>
-                {kindOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
-              </select>
             </div>
             {error && <div style={{ color: C.blushDeep, fontSize: 12, marginBottom: 9 }}>{error}</div>}
-            {!loading && filteredMemories.length === 0 && <div style={{ color: C.muted, fontSize: 13, textAlign: 'center', padding: '26px 0' }}>这里还空着。先把第一张照片和它背后的故事放进来。</div>}
+            {!loading && memories.length === 0 && <div style={{ color: C.muted, fontSize: 13, textAlign: 'center', padding: '26px 0' }}>这里还空着。先把第一张照片和它背后的故事放进来。</div>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-              {filteredMemories.map(memory => (
+              {memories.map(memory => (
                 <article key={memory.id} style={{ overflow: 'hidden', border: `1px solid ${C.borderLight}`, borderRadius: 16, background: C.surface }}>
                   {memory.image_url ? (
                     <img src={memory.image_url} alt="" style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', display: 'block' }} />
@@ -224,14 +189,8 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
                     <div style={{ aspectRatio: '4 / 3', display: 'grid', placeItems: 'center', background: C.honeyLight, color: C.honeyDeep, fontSize: 12 }}>没有照片预览</div>
                   )}
                   <div style={{ padding: 11 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <b style={{ color: C.text, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memory.title}</b>
-                      <span style={{ color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: '2px 7px', fontSize: 10, flexShrink: 0 }}>{kindOptions.find(([value]) => value === memory.kind)?.[1] || '回忆'}</span>
-                    </div>
-                    {(memory.place || memory.date) && <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 5 }}>{[memory.place, memory.date].filter(Boolean).join(' · ')}</div>}
+                    <b style={{ display: 'block', color: C.text, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memory.title}</b>
                     {memory.description && <p style={{ margin: '8px 0 0', color: C.muted, fontSize: 12, lineHeight: 1.6, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{memory.description}</p>}
-                    {memory.relation_to_luze && <p style={{ margin: '6px 0 0', color: C.honeyDeep, fontSize: 11.5, lineHeight: 1.55 }}>{memory.relation_to_luze}</p>}
-                    {memory.tags?.length > 0 && <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 9 }}>{memory.tags.slice(0, 4).map(tag => <span key={tag} style={{ color: C.muted, background: C.white, border: `1px solid ${C.borderLight}`, borderRadius: 999, padding: '2px 7px', fontSize: 10 }}>{tag}</span>)}</div>}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
                       <button type="button" onClick={() => startEdit(memory)} style={linkButton(C)}>编辑</button>
                       <button type="button" onClick={() => deleteMemory(memory)} style={linkButton(C)}>删除</button>
