@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 
 const emptyDraft = {
@@ -36,7 +36,7 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
   const [error, setError] = useState('');
   const [showComposer, setShowComposer] = useState(false);
 
-  const loadMemories = async () => {
+  const loadMemories = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -49,11 +49,18 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (visible) loadMemories();
-  }, [visible]);
+  }, [loadMemories, visible]);
+
+  const closeComposer = () => {
+    setShowComposer(false);
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setError('');
+  };
 
   const uploadPhoto = async file => {
     if (!file) return;
@@ -95,9 +102,7 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || '照片记忆没有保存好');
-      setDraft(emptyDraft);
-      setEditingId(null);
-      setShowComposer(false);
+      closeComposer();
       await loadMemories();
     } catch (err) {
       setError(err.message || '照片记忆没有保存好');
@@ -155,7 +160,7 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
                 <b style={{ color: C.text, fontSize: 16 }}>{editingId ? '修改照片' : '上传照片'}</b>
                 <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 2 }}>写一个名字，再留一段描述。</div>
               </div>
-              <button type="button" onClick={() => { setShowComposer(false); setEditingId(null); setDraft(emptyDraft); }} aria-label="关闭" style={{ border: 0, background: 'transparent', color: C.muted, fontSize: 21, cursor: 'pointer' }}>×</button>
+              <button type="button" onClick={closeComposer} aria-label="关闭" style={{ border: 0, background: 'transparent', color: C.muted, fontSize: 21, cursor: 'pointer' }}>×</button>
             </div>
             <input value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="命名，比如：戒指、泽叽、我的样子" style={{ ...inputStyle(C), width: '100%' }} />
             <textarea value={draft.description} onChange={event => setDraft(current => ({ ...current, description: event.target.value }))} placeholder="描述一下这张照片，想让陆泽记住什么。" rows={4} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', borderRadius: 15, marginTop: 10 }} />
@@ -165,7 +170,7 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={event => uploadPhoto(event.target.files?.[0])} />
             {error && <div role="alert" style={{ color: C.blushDeep, fontSize: 12, marginTop: 10 }}>{error}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9, marginTop: 13 }}>
-              <button type="button" onClick={() => { setShowComposer(false); setEditingId(null); setDraft(emptyDraft); }} style={pillButton(C)}>取消</button>
+              <button type="button" onClick={closeComposer} style={pillButton(C)}>取消</button>
               <button type="submit" disabled={saving} style={{ ...pillButton(C), border: 0, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white }}>{saving ? '保存中' : editingId ? '保存修改' : '存进相册'}</button>
             </div>
           </form>
@@ -179,6 +184,7 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
               <div><b style={{ color: C.text }}>我们的照片记忆</b><div style={{ color: C.mutedLight, fontSize: 10, marginTop: 2 }}>{memories.length} 条小锚点</div></div>
             </div>
             {error && <div style={{ color: C.blushDeep, fontSize: 12, marginBottom: 9 }}>{error}</div>}
+            {loading && memories.length === 0 && <div style={{ color: C.muted, fontSize: 13, textAlign: 'center', padding: '26px 0' }}>正在翻照片…</div>}
             {!loading && memories.length === 0 && <div style={{ color: C.muted, fontSize: 13, textAlign: 'center', padding: '26px 0' }}>这里还空着。先把第一张照片和它背后的故事放进来。</div>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
               {memories.map(memory => (
