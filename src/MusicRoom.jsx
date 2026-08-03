@@ -34,6 +34,7 @@ function formatTime(seconds) {
 export function MusicRoom({ visible, theme, leaveRoom }) {
   const C = theme;
   const fileInputRef = useRef(null);
+  const backgroundInputRef = useRef(null);
   const {
     tracks,
     setTracks,
@@ -58,6 +59,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [backgroundUploading, setBackgroundUploading] = useState(false);
   const [lyricsLoadingId, setLyricsLoadingId] = useState(null);
   const [tab, setTab] = useState('listen');
 
@@ -194,10 +196,69 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     }
   };
 
+  const patchTrack = async nextTrack => {
+    if (!nextTrack?.id) {
+      setError('先选一首歌，再换背景。');
+      return null;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/music/tracks/${nextTrack.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextTrack),
+      });
+      const saved = await response.json();
+      if (!response.ok) throw new Error(saved.error || '歌曲没有保存好');
+      setTracks(items => items.map(item => (item.id === saved.id ? saved : item)));
+      return saved;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadBackground = async file => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('背景要用图片文件。');
+      return;
+    }
+    if (!activeTrack) {
+      setError('先选一首歌，再换背景。');
+      return;
+    }
+    setBackgroundUploading(true);
+    setError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '背景没有上传成功');
+      await patchTrack({ ...activeTrack, cover_url: data.url });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBackgroundUploading(false);
+      if (backgroundInputRef.current) backgroundInputRef.current.value = '';
+    }
+  };
+
   const progressMax = Math.max(progress.duration || 0, progress.currentTime || 0, 1);
-  const albumArt = activeTrack?.cover_url
+  const coverArt = activeTrack?.cover_url
     ? { backgroundImage: `url(${activeTrack.cover_url})` }
     : { background: `linear-gradient(145deg, ${C.honeyLight}, ${C.white})` };
+  const playMode = state.repeat_mode || (state.shuffle ? 'shuffle' : 'list');
+  const playModeMeta = {
+    list: { icon: '循', label: '列表循环' },
+    one: { icon: '单', label: '单曲循环' },
+    shuffle: { icon: '乱', label: '随机播放' },
+    off: { icon: '顺', label: '顺序播放' },
+  }[playMode] || { icon: '循', label: '列表循环' };
 
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none', transition: 'opacity .4s ease', background: C.cream }}>
@@ -235,28 +296,33 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
 
           {tab === 'listen' && (
             <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 26, background: `linear-gradient(180deg, ${C.white}, ${C.surface})`, border: `1px solid ${C.border}`, minHeight: 390, padding: '24px min(26px, 6vw) 28px', boxShadow: `0 18px 44px ${C.borderLight}aa` }}>
+              <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 24, background: `linear-gradient(180deg, ${C.white}, ${C.surface})`, border: `1px solid ${C.border}`, padding: '18px min(20px, 5vw) 22px', boxShadow: `0 18px 44px ${C.borderLight}aa` }}>
                 <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 22% 16%, ${C.honeyLight}66, transparent 34%), radial-gradient(circle at 78% 86%, ${C.blush}44, transparent 30%)`, pointerEvents: 'none' }} />
-                <div style={{ position: 'relative', width: 'min(100%, 360px)', aspectRatio: '1 / 1', margin: '0 auto 18px', borderRadius: 28, border: `2px solid ${C.white}`, background: `linear-gradient(145deg, ${C.white}, ${C.cream})`, boxShadow: `inset 0 0 0 1px ${C.borderLight}, 0 18px 40px ${C.borderLight}` }}>
-                  <button type="button" onClick={togglePlay} aria-label={state.is_playing ? '暂停' : '播放'} style={{ position: 'absolute', left: '12%', top: '16%', width: '62%', aspectRatio: '1 / 1', borderRadius: '50%', border: 0, cursor: 'pointer', background: `repeating-radial-gradient(circle, #d8d5cf 0 2px, #ece9e2 2px 5px, #c9c6c0 5px 7px), radial-gradient(circle, ${C.white} 0 19%, transparent 20%)`, boxShadow: `0 16px 36px ${C.borderLight}` }}>
-                    <span style={{ position: 'absolute', inset: '26%', borderRadius: '50%', background: `${C.text}22`, display: 'grid', placeItems: 'center' }}>
-                      <span style={{ width: '76%', height: '76%', borderRadius: '50%', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: `inset 0 0 0 5px ${C.white}, 0 0 0 1px ${C.border}` , ...albumArt }} />
-                    </span>
-                    <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: C.white, fontSize: 30, textShadow: '0 1px 8px rgba(0,0,0,.32)', opacity: state.is_playing ? 0 : 1 }}>{state.is_playing ? '' : '▶'}</span>
-                  </button>
-                  <div aria-hidden="true" style={{ position: 'absolute', right: '13%', top: '6%', width: 18, height: '66%', borderRadius: 999, background: `linear-gradient(90deg, ${C.white}, #b8b4ac, ${C.white})`, transform: 'rotate(23deg)', transformOrigin: 'top center', boxShadow: `0 3px 9px ${C.borderLight}` }} />
-                  <div aria-hidden="true" style={{ position: 'absolute', right: '9%', top: '2%', width: 48, height: 34, borderRadius: 16, background: `linear-gradient(145deg, ${C.white}, ${C.surface})`, border: `1px solid ${C.borderLight}`, transform: 'rotate(17deg)', boxShadow: `0 8px 20px ${C.borderLight}` }} />
-                  <div aria-hidden="true" style={{ position: 'absolute', right: '23%', bottom: '23%', width: 44, height: 25, borderRadius: 999, background: C.surface, border: `1px solid ${C.borderLight}`, transform: 'rotate(23deg)' }} />
-                </div>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '96px minmax(0, 1fr)', gap: 14, alignItems: 'center' }}>
+                  <div style={{ position: 'relative' }}>
+                    <button type="button" onClick={togglePlay} aria-label={state.is_playing ? '暂停' : '播放'} style={{ width: 96, height: 96, borderRadius: 18, border: `1px solid ${C.border}`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: `0 14px 28px ${C.borderLight}`, ...coverArt }}>
+                      <span style={{ width: 42, height: 42, borderRadius: '50%', display: 'grid', placeItems: 'center', background: `${C.white}cc`, color: C.honeyDeep, fontSize: 20, boxShadow: `0 6px 16px ${C.borderLight}` }}>{state.is_playing ? 'Ⅱ' : '▶'}</span>
+                    </button>
+                    <input ref={backgroundInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={event => uploadBackground(event.target.files?.[0])} />
+                    <button type="button" onClick={() => backgroundInputRef.current?.click()} disabled={backgroundUploading || !activeTrack} style={{ position: 'absolute', left: 6, right: 6, bottom: 6, border: `1px solid ${C.border}`, borderRadius: 999, background: `${C.white}e6`, color: C.honeyDeep, fontSize: 10, padding: '4px 0', fontFamily: 'inherit', cursor: backgroundUploading || !activeTrack ? 'default' : 'pointer', opacity: backgroundUploading || !activeTrack ? .58 : 1 }}>{backgroundUploading ? '上传中' : '换背景'}</button>
+                  </div>
+                  <div style={{ minWidth: 0 }}>
                     <div style={{ color: C.mutedLight, fontSize: 10.5, letterSpacing: '.18em', marginBottom: 4 }}>NOW LISTENING</div>
                     <div style={{ color: C.text, fontSize: 24, fontWeight: 800, lineHeight: 1.22, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeTrack?.title || '还没有选歌'}</div>
-                    <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[activeTrack?.artist, activeTrack?.album].filter(Boolean).join(' · ') || '先去搜索或上传一首歌'}</div>
+                    <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeTrack?.artist || '先去搜索或上传一首歌'}</div>
+                    <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 8 }}>{playModeMeta.label}</div>
                   </div>
-                  {activeTrack && <button type="button" onClick={() => fillLyrics(activeTrack)} disabled={lyricsLoadingId === activeTrack.id} style={{ ...softButtonStyle(C), padding: '7px 10px', flexShrink: 0 }}>{lyricsLoadingId === activeTrack.id ? '找中' : '歌词'}</button>}
                 </div>
-                <div style={{ position: 'relative', display: 'inline-block', alignSelf: 'center', maxWidth: '100%', margin: '21px auto 2px', borderRadius: 13, background: `${C.white}dd`, color: C.muted, padding: '10px 18px', fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', boxShadow: `0 10px 24px ${C.borderLight}66` }}>{lyricPreview(activeTrack)}</div>
+                <div style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '82%', marginLeft: 'auto' }}>
+                    <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center', background: C.honeyLight, color: C.honeyDeep, flexShrink: 0 }}>✦</span>
+                    <div style={{ borderRadius: 14, background: `${C.white}dd`, color: C.muted, padding: '10px 15px', fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', textAlign: 'left', boxShadow: `0 10px 24px ${C.borderLight}66` }}>{lyricPreview(activeTrack)}</div>
+                  </div>
+                </div>
+                <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                  {activeTrack && <button type="button" onClick={() => fillLyrics(activeTrack)} disabled={lyricsLoadingId === activeTrack.id} style={{ ...softButtonStyle(C), padding: '7px 10px' }}>{lyricsLoadingId === activeTrack.id ? '找中' : '找歌词'}</button>}
+                  {activeTrack?.source_url && <a href={activeTrack.source_url} target="_blank" rel="noreferrer" style={{ color: C.honeyDeep, fontSize: 12 }}>打开原曲链接</a>}
+                </div>
               </div>
               <div style={{ padding: '0 4px' }}>
                 <input
@@ -275,14 +341,13 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 72px 1fr 1fr', alignItems: 'center', gap: 10, padding: '0 4px' }}>
-                <button type="button" onClick={toggleShuffle} aria-label="随机播放" style={{ ...playerIconButtonStyle(C), color: state.shuffle ? C.honeyDeep : C.text }}>↝</button>
+                <button type="button" onClick={toggleShuffle} aria-label={playModeMeta.label} title={playModeMeta.label} style={{ ...playerIconButtonStyle(C), color: playMode === 'list' ? C.honeyDeep : C.text, fontSize: 20 }}>{playModeMeta.icon}</button>
                 <button type="button" onClick={playPrevious} aria-label="上一首" style={playerIconButtonStyle(C)}>◀</button>
                 <button type="button" onClick={togglePlay} aria-label={state.is_playing ? '暂停' : '播放'} style={{ width: 72, height: 72, borderRadius: '50%', border: `2px solid ${C.text}`, background: C.surface, color: C.text, fontSize: 28, fontWeight: 800, display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: `0 10px 22px ${C.borderLight}` }}>{state.is_playing ? 'Ⅱ' : '▶'}</button>
                 <button type="button" onClick={playNext} aria-label="下一首" style={playerIconButtonStyle(C)}>▶</button>
                 <button type="button" onClick={() => setTab('library')} aria-label="打开歌单" style={playerIconButtonStyle(C)}>☰</button>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {activeTrack?.source_url && <a href={activeTrack.source_url} target="_blank" rel="noreferrer" style={{ color: C.honeyDeep, fontSize: 12 }}>打开原曲链接</a>}
                 <button type="button" onClick={() => setTab('search')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>去搜索</button>
                 <button type="button" onClick={() => setTab('upload')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>上传音频</button>
               </div>
@@ -348,6 +413,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                 <input value={draft.album} onChange={event => setDraft(current => ({ ...current, album: event.target.value }))} placeholder="专辑，可不填" style={inputStyle(C)} />
               </div>
               <input value={draft.audio_url} onChange={event => setDraft(current => ({ ...current, audio_url: event.target.value }))} placeholder="可直接播放的音频链接，上传后自动填入" style={{ ...inputStyle(C), width: '100%', marginTop: 9 }} />
+              <input value={draft.cover_url} onChange={event => setDraft(current => ({ ...current, cover_url: event.target.value }))} placeholder="封面 / 背景图链接，可不填" style={{ ...inputStyle(C), width: '100%', marginTop: 9 }} />
               <textarea value={draft.note} onChange={event => setDraft(current => ({ ...current, note: event.target.value }))} placeholder="备注或想显示在唱片机上的一句话……" rows={2} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', marginTop: 9, borderRadius: 12 }} />
               <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
                 <input ref={fileInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={event => uploadAudio(event.target.files?.[0])} />
