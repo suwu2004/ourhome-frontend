@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { useMusicPlayer } from './MusicPlayerContext.jsx';
 
@@ -13,10 +13,39 @@ const emptyTrack = {
   note: '',
 };
 
-function lyricPreview(track) {
+function lyricText(track) {
   const text = String(track?.lyrics || track?.note || '').trim();
   if (!text) return '歌词还没有回来，先听一小段。';
   return text.split('\n').map(line => line.trim()).filter(Boolean).join('\n');
+}
+
+function parseLyricLines(track) {
+  const raw = lyricText(track);
+  const lines = raw.split('\n').map(line => line.trim()).filter(Boolean);
+  return lines.map(line => {
+    const matches = [...line.matchAll(/\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g)];
+    const text = line.replace(/\[[^\]]+\]/g, '').trim();
+    if (!matches.length) return { time: null, text: text || line };
+    const match = matches[0];
+    const fraction = match[3] ? Number(`0.${match[3].padEnd(3, '0').slice(0, 3)}`) : 0;
+    return { time: Number(match[1]) * 60 + Number(match[2]) + fraction, text: text || line };
+  });
+}
+
+function activeLyricIndex(lines, progress) {
+  if (!lines.length) return 0;
+  const currentTime = progress.currentTime || 0;
+  const timed = lines.some(line => Number.isFinite(line.time));
+  if (timed) {
+    let index = 0;
+    lines.forEach((line, lineIndex) => {
+      if (Number.isFinite(line.time) && line.time <= currentTime + 0.15) index = lineIndex;
+    });
+    return index;
+  }
+  const duration = progress.duration || 0;
+  if (!duration) return 0;
+  return Math.min(lines.length - 1, Math.floor((currentTime / duration) * lines.length));
 }
 
 function formatTime(seconds) {
@@ -30,6 +59,8 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
   const C = theme;
   const fileInputRef = useRef(null);
   const backgroundInputRef = useRef(null);
+  const lyricsScrollRef = useRef(null);
+  const lyricLineRefs = useRef([]);
   const {
     tracks,
     setTracks,
@@ -229,6 +260,14 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     shuffle: { icon: '乱', label: '随机播放' },
     off: { icon: '顺', label: '顺序播放' },
   }[playMode] || { icon: '循', label: '列表循环' };
+  const lyricLines = useMemo(() => parseLyricLines(activeTrack), [activeTrack?.id, activeTrack?.lyrics, activeTrack?.note]);
+  const activeLineIndex = activeLyricIndex(lyricLines, progress);
+
+  useEffect(() => {
+    const node = lyricLineRefs.current[activeLineIndex];
+    if (!node) return;
+    node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [activeLineIndex]);
 
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none', transition: 'opacity .4s ease', background: C.cream }}>
@@ -281,14 +320,23 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                   </div>
                 </div>
                 <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginTop: 26 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '78%', margin: '0 auto' }}>
-                    <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center', background: C.honeyLight, color: C.honeyDeep, flexShrink: 0 }}>✦</span>
-                    <div style={{ maxHeight: 208, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', color: C.muted, padding: '4px 2px', fontSize: 13.5, lineHeight: 1.78, whiteSpace: 'pre-wrap', textAlign: 'center', textShadow: `0 1px 8px ${C.white}` }}>{lyricPreview(activeTrack)}</div>
+                  <div
+                    ref={lyricsScrollRef}
+                    style={{ maxHeight: 226, maxWidth: '82%', margin: '0 auto', overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', color: C.muted, padding: '7px 2px', fontSize: 15.5, lineHeight: 1.86, textAlign: 'center', textShadow: `0 1px 8px ${C.white}` }}
+                  >
+                    {lyricLines.map((line, index) => (
+                      <div
+                        key={`${line.text}-${index}`}
+                        ref={node => { lyricLineRefs.current[index] = node; }}
+                        style={{ color: index === activeLineIndex ? C.honeyDeep : C.muted, fontSize: index === activeLineIndex ? 17 : 15.5, fontWeight: index === activeLineIndex ? 700 : 400, opacity: index === activeLineIndex ? 1 : .76, transition: 'color .25s ease, opacity .25s ease, font-size .25s ease', margin: '3px 0' }}
+                      >
+                        {line.text}
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 14 }}>
+                <div style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 'auto', paddingTop: 14 }}>
                   {activeTrack && <button type="button" onClick={() => fillLyrics(activeTrack)} disabled={lyricsLoadingId === activeTrack.id} style={{ ...softButtonStyle(C), padding: '7px 10px' }}>{lyricsLoadingId === activeTrack.id ? '找中' : '找歌词'}</button>}
-                  {activeTrack?.source_url && <a href={activeTrack.source_url} target="_blank" rel="noreferrer" style={{ color: C.honeyDeep, fontSize: 12 }}>打开原曲链接</a>}
                 </div>
               </div>
               <div style={{ marginTop: 'auto', paddingTop: 12, paddingBottom: 18, display: 'flex', flexDirection: 'column', gap: 18 }}>
