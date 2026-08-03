@@ -35,17 +35,11 @@ function parseLyricLines(track) {
 function activeLyricIndex(lines, progress) {
   if (!lines.length) return 0;
   const currentTime = progress.currentTime || 0;
-  const timed = lines.some(line => Number.isFinite(line.time));
-  if (timed) {
-    let index = 0;
-    lines.forEach((line, lineIndex) => {
-      if (Number.isFinite(line.time) && line.time <= currentTime + 0.15) index = lineIndex;
-    });
-    return index;
-  }
-  const duration = progress.duration || 0;
-  if (!duration) return 0;
-  return Math.min(lines.length - 1, Math.floor((currentTime / duration) * lines.length));
+  let index = 0;
+  lines.forEach((line, lineIndex) => {
+    if (Number.isFinite(line.time) && line.time <= currentTime + 0.15) index = lineIndex;
+  });
+  return index;
 }
 
 function formatTime(seconds) {
@@ -261,13 +255,15 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     off: { icon: '顺', label: '顺序播放' },
   }[playMode] || { icon: '循', label: '列表循环' };
   const lyricLines = useMemo(() => parseLyricLines(activeTrack), [activeTrack?.id, activeTrack?.lyrics, activeTrack?.note]);
+  const lyricsAreTimed = lyricLines.some(line => Number.isFinite(line.time));
   const activeLineIndex = activeLyricIndex(lyricLines, progress);
 
   useEffect(() => {
+    if (!lyricsAreTimed) return;
     const node = lyricLineRefs.current[activeLineIndex];
     if (!node) return;
     node.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }, [activeLineIndex]);
+  }, [activeLineIndex, lyricsAreTimed]);
 
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none', transition: 'opacity .4s ease', background: C.cream }}>
@@ -328,7 +324,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                       <div
                         key={`${line.text}-${index}`}
                         ref={node => { lyricLineRefs.current[index] = node; }}
-                        style={{ color: index === activeLineIndex ? C.honeyDeep : C.muted, fontSize: index === activeLineIndex ? 17 : 15.5, fontWeight: index === activeLineIndex ? 700 : 400, opacity: index === activeLineIndex ? 1 : .76, transition: 'color .25s ease, opacity .25s ease, font-size .25s ease', margin: '3px 0' }}
+                        style={{ color: lyricsAreTimed && index === activeLineIndex ? C.honeyDeep : C.muted, fontSize: lyricsAreTimed && index === activeLineIndex ? 17 : 15.5, fontWeight: lyricsAreTimed && index === activeLineIndex ? 700 : 400, opacity: lyricsAreTimed && index === activeLineIndex ? 1 : .86, transition: 'color .25s ease, opacity .25s ease, font-size .25s ease', margin: '3px 0' }}
                       >
                         {line.text}
                       </div>
