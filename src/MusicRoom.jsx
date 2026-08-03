@@ -265,7 +265,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
           {error && <div role="alert" style={{ color: C.blushDeep, background: C.white, border: `1px solid ${C.border}`, borderRadius: 13, padding: '9px 11px', fontSize: 12 }}>{error}</div>}
 
           {tab === 'listen' && (
-            <section style={{ minHeight: 'calc(100dvh - 250px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <section style={{ minHeight: 'calc(100dvh - 212px)', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ position: 'relative', minHeight: 438, overflow: 'hidden', borderRadius: 24, border: `1px solid ${C.border}`, padding: '18px min(20px, 5vw) 22px', boxShadow: `0 18px 44px ${C.borderLight}aa`, display: 'flex', flexDirection: 'column', ...playCardBackground }}>
                 <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(180deg, rgba(255, 247, 194, .26), rgba(255, 252, 238, .72)), radial-gradient(circle at 18% 10%, ${C.honeyLight}66, transparent 34%)`, pointerEvents: 'none' }} />
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
@@ -280,10 +280,10 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                     <button type="button" onClick={() => backgroundInputRef.current?.click()} disabled={backgroundUploading} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontSize: 11.5, padding: 0, fontFamily: 'inherit', cursor: backgroundUploading ? 'default' : 'pointer', textDecoration: 'underline', textUnderlineOffset: 3, opacity: backgroundUploading ? .58 : 1 }}>{backgroundUploading ? '上传中' : '换背景'}</button>
                   </div>
                 </div>
-                <div style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', marginTop: 22 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '82%', marginLeft: 'auto' }}>
+                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginTop: 26 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '78%', margin: '0 auto' }}>
                     <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center', background: C.honeyLight, color: C.honeyDeep, flexShrink: 0 }}>✦</span>
-                    <div style={{ maxHeight: 208, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', color: C.muted, padding: '4px 2px', fontSize: 13.5, lineHeight: 1.78, whiteSpace: 'pre-wrap', textAlign: 'left', textShadow: `0 1px 8px ${C.white}` }}>{lyricPreview(activeTrack)}</div>
+                    <div style={{ maxHeight: 208, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', color: C.muted, padding: '4px 2px', fontSize: 13.5, lineHeight: 1.78, whiteSpace: 'pre-wrap', textAlign: 'center', textShadow: `0 1px 8px ${C.white}` }}>{lyricPreview(activeTrack)}</div>
                   </div>
                 </div>
                 <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: 14 }}>
