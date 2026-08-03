@@ -529,21 +529,36 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
 
         </section>
 
-        <section className="home-living-grid" aria-label="客厅功能区">
-          <button className={`home-music-card ${musicState.is_playing ? 'is-playing' : ''}`} type="button" onClick={() => onOpen('music')} aria-label="打开一起听音乐">
-            <span className="home-music-record" aria-hidden="true"><i /></span>
-            <span className="home-music-copy">
-              <small>LISTEN TOGETHER</small>
-              <b>{musicLoading ? '唱片转起来了…' : musicTrackLabel(activeMusicTrack)}</b>
-              <em>{musicError || musicLyricLine(activeMusicTrack)}</em>
-            </span>
-            <span className="home-music-actions">
-              <span role="button" tabIndex="0" onClick={playPreviousHomeTrack} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') playPreviousHomeTrack(event); }}>‹</span>
-              <span role="button" tabIndex="0" onClick={toggleHomeMusic} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleHomeMusic(event); }}>{musicState.is_playing ? 'Ⅱ' : '▶'}</span>
-              <span role="button" tabIndex="0" onClick={playNextHomeTrack} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') playNextHomeTrack(event); }}>›</span>
-              <span className={musicState.shuffle ? 'is-active' : ''} role="button" tabIndex="0" onClick={toggleHomeShuffle} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleHomeShuffle(event); }}>R</span>
-            </span>
-          </button>
+        <section className={`home-living-grid home-music-garden ${musicState.is_playing ? 'is-playing' : ''}`} aria-label="客厅功能区">
+          <svg className="home-note-ribbon" viewBox="0 0 360 118" aria-hidden="true">
+            <path d="M15 75C76 21 139 37 178 71c45 40 111 32 166-22" />
+            <path d="M25 88c62-44 118-35 161-2 49 37 100 31 153-12" />
+          </svg>
+          <span className="home-floating-note home-floating-note--one" aria-hidden="true">♪</span>
+          <span className="home-floating-note home-floating-note--two" aria-hidden="true">♫</span>
+          <span className="home-floating-note home-floating-note--three" aria-hidden="true">♩</span>
+
+          <article className="home-bloom-player" aria-label="一起听音乐">
+            <button className="home-bloom-stage" type="button" onClick={() => onOpen('music')} aria-label="打开一起听音乐">
+              <span className="home-bloom-flower" aria-hidden="true">
+                <i /><i /><i /><i /><i />
+              </span>
+              <span className="home-bloom-record" aria-hidden="true"><i /></span>
+              <span className="home-bloom-arm" aria-hidden="true" />
+              <span className="home-bloom-copy">
+                <small>LISTEN TOGETHER</small>
+                <b>{musicLoading ? '唱片转起来了…' : musicTrackLabel(activeMusicTrack)}</b>
+                <em>{musicError || musicLyricLine(activeMusicTrack)}</em>
+              </span>
+            </button>
+            <div className="home-bloom-controls" aria-label="一起听控制">
+              <button type="button" onClick={playPreviousHomeTrack} aria-label="上一首">‹</button>
+              <button type="button" onClick={toggleHomeMusic} aria-label={musicState.is_playing ? '暂停' : '播放'}>{musicState.is_playing ? 'Ⅱ' : '▶'}</button>
+              <button type="button" onClick={playNextHomeTrack} aria-label="下一首">›</button>
+              <button type="button" className={musicState.shuffle ? 'is-active' : ''} onClick={toggleHomeShuffle} aria-label="切换随机播放">R</button>
+            </div>
+          </article>
+
           <div className="home-room-shelf">
             <button className="home-room-app home-room-app--letters" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
               <span><EnvelopeIcon /></span>
