@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
+import { useMusicPlayer } from './MusicPlayerContext.jsx';
 
 const emptyTrack = {
   title: '',
@@ -25,105 +26,37 @@ function lyricPreview(track) {
 
 export function MusicRoom({ visible, theme, leaveRoom }) {
   const C = theme;
-  const audioRef = useRef(null);
   const fileInputRef = useRef(null);
-  const [tracks, setTracks] = useState([]);
-  const [state, setState] = useState({ track_id: null, is_playing: false, shuffle: false });
+  const {
+    tracks,
+    setTracks,
+    state,
+    activeTrack,
+    loading,
+    error,
+    setError,
+    loadMusic,
+    updateState,
+    selectTrack,
+    togglePlay,
+    playNext,
+    playPrevious,
+  } = useMusicPlayer();
   const [draft, setDraft] = useState(emptyTrack);
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [lyricsLoadingId, setLyricsLoadingId] = useState(null);
-  const [error, setError] = useState('');
 
-  const activeTrack = useMemo(
-    () => tracks.find(track => String(track.id) === String(state.track_id)) || tracks[0] || null,
-    [tracks, state.track_id],
-  );
-
-  const updateState = async patch => {
-    const next = { ...state, ...patch, updated_at: new Date().toISOString() };
-    setState(next);
-    try {
-      await apiFetch(`${BACKEND}/music/state`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(next),
-      });
-    } catch (err) {
-      console.error('保存一起听状态失败', err);
-    }
-  };
-
-  const loadMusic = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [tracksResponse, stateResponse] = await Promise.all([
-        apiFetch(`${BACKEND}/music/tracks`),
-        apiFetch(`${BACKEND}/music/state`),
-      ]);
-      const tracksData = await tracksResponse.json();
-      const stateData = await stateResponse.json();
-      if (!tracksResponse.ok) throw new Error(tracksData.error || '歌单没有回来');
-      if (!stateResponse.ok) throw new Error(stateData.error || '播放状态没有回来');
-      setTracks(Array.isArray(tracksData) ? tracksData : []);
-      setState({ track_id: null, is_playing: false, shuffle: false, ...(stateData || {}) });
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const playAreaBackground = activeTrack?.cover_url
+    ? `linear-gradient(145deg, rgba(255,253,248,.76), rgba(255,235,183,.60)), url(${activeTrack.cover_url}) center / cover`
+    : `radial-gradient(circle at 18% 18%, ${C.honeyLight}, transparent 34%), linear-gradient(145deg, ${C.white}, ${C.honeyLight})`;
 
   useEffect(() => {
     if (visible) loadMusic();
   }, [visible]);
-
-  useEffect(() => {
-    if (!audioRef.current) return;
-    if (activeTrack?.audio_url) audioRef.current.src = activeTrack.audio_url;
-    if (state.is_playing && activeTrack?.audio_url) {
-      audioRef.current.play().catch(() => updateState({ is_playing: false }));
-    } else {
-      audioRef.current.pause();
-    }
-  }, [activeTrack?.id, activeTrack?.audio_url, state.is_playing]);
-
-  const pickTrack = (direction = 1) => {
-    if (!tracks.length) return null;
-    if (state.shuffle && tracks.length > 1) {
-      const candidates = tracks.filter(track => String(track.id) !== String(activeTrack?.id));
-      return candidates[Math.floor(Math.random() * candidates.length)] || tracks[0];
-    }
-    const index = Math.max(0, tracks.findIndex(track => String(track.id) === String(activeTrack?.id)));
-    return tracks[(index + direction + tracks.length) % tracks.length];
-  };
-
-  const selectTrack = track => {
-    updateState({ track_id: track.id, is_playing: Boolean(track.audio_url) });
-  };
-
-  const togglePlay = () => {
-    if (!activeTrack?.audio_url) {
-      setError(activeTrack ? '这首歌没有可直接播放的试听，换一首搜到的歌试试。' : '先搜一首歌放进歌单。');
-      return;
-    }
-    updateState({ track_id: activeTrack.id, is_playing: !state.is_playing });
-  };
-
-  const playNext = () => {
-    const next = pickTrack(1);
-    if (next) updateState({ track_id: next.id, is_playing: Boolean(next.audio_url) });
-  };
-
-  const playPrevious = () => {
-    const previous = pickTrack(-1);
-    if (previous) updateState({ track_id: previous.id, is_playing: Boolean(previous.audio_url) });
-  };
 
   const searchMusic = async event => {
     event?.preventDefault();
@@ -267,29 +200,29 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
 
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px min(18px, 4vw) 26px' }}>
         <section style={{ maxWidth: 920, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ border: `1px solid ${C.border}`, borderRadius: 18, background: `linear-gradient(145deg, ${C.white}, ${C.honeyLight})`, padding: 16, boxShadow: `0 12px 30px ${C.borderLight}88` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <button type="button" onClick={togglePlay} style={{ width: 76, height: 76, borderRadius: '50%', border: `1px solid ${C.honeyMid}`, background: `radial-gradient(circle, ${C.surface} 0 26%, ${C.honey} 27% 34%, ${C.text} 35% 38%, ${C.honeyDeep} 39% 100%)`, color: C.white, fontFamily: 'inherit', cursor: 'pointer', boxShadow: `0 10px 22px ${C.borderLight}` }}>{state.is_playing ? 'Ⅱ' : '▶'}</button>
+          <div style={{ position: 'relative', overflow: 'hidden', border: `1px solid ${C.border}`, borderRadius: 22, background: playAreaBackground, padding: 17, boxShadow: `0 18px 42px ${C.borderLight}99` }}>
+            <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 80% 12%, ${C.white}88, transparent 34%), linear-gradient(180deg, transparent, ${C.white}33)`, pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 15 }}>
+              <button type="button" onClick={togglePlay} style={{ width: 86, height: 86, borderRadius: '50%', border: `1px solid ${C.honeyMid}`, background: `radial-gradient(circle, ${C.surface} 0 20%, ${C.honey} 21% 29%, ${C.text} 30% 34%, ${C.honeyDeep} 35% 100%)`, color: C.white, fontFamily: 'inherit', cursor: 'pointer', boxShadow: `0 14px 28px ${C.borderLight}` }}>{state.is_playing ? 'Ⅱ' : '▶'}</button>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.16em', marginBottom: 5 }}>NOW LISTENING</div>
                 <div style={{ color: C.text, fontSize: 18, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatTrack(activeTrack)}</div>
                 <div style={{ whiteSpace: 'pre-wrap', color: C.muted, fontSize: 12, lineHeight: 1.65, marginTop: 4 }}>{lyricPreview(activeTrack)}</div>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <div style={{ position: 'relative', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 13 }}>
               <button type="button" onClick={playPrevious} style={softButtonStyle(C)}>上一首</button>
               <button type="button" onClick={playNext} style={softButtonStyle(C)}>下一首</button>
               <button type="button" onClick={() => updateState({ shuffle: !state.shuffle })} style={{ ...softButtonStyle(C), background: state.shuffle ? C.honeyLight : C.surface, color: state.shuffle ? C.honeyDeep : C.muted }}>随机 {state.shuffle ? '开' : '关'}</button>
               {activeTrack && <button type="button" onClick={() => fillLyrics(activeTrack)} disabled={lyricsLoadingId === activeTrack.id} style={softButtonStyle(C)}>{lyricsLoadingId === activeTrack.id ? '找歌词中' : '找歌词'}</button>}
             </div>
-            <audio ref={audioRef} controls style={{ width: '100%', marginTop: 12 }} onEnded={playNext} />
             {activeTrack?.source_url && (
-              <a href={activeTrack.source_url} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 8, color: C.honeyDeep, fontSize: 12 }}>打开原曲链接</a>
+              <a href={activeTrack.source_url} target="_blank" rel="noreferrer" style={{ position: 'relative', display: 'inline-block', marginTop: 8, color: C.honeyDeep, fontSize: 12 }}>打开原曲链接</a>
             )}
           </div>
 
           <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
-            <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>直接搜歌</div>
+            <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>搜索区</div>
             <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.6, margin: '-3px 0 9px' }}>搜索到的是官方试听片段，通常只有 30 秒；想听完整音频，可以在下面上传自己的音乐文件。</div>
             <form onSubmit={searchMusic} style={{ display: 'flex', gap: 8 }}>
               <input value={query} onChange={event => setQuery(event.target.value)} placeholder="输入歌名、歌手，比如周杰伦 晴天" style={{ ...inputStyle(C), flex: 1, minWidth: 0 }} />
@@ -331,7 +264,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
 
           <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <b style={{ color: C.text }}>我们的歌单</b>
+              <b style={{ color: C.text }}>我们喜欢的音乐</b>
               <span style={{ color: C.mutedLight, fontSize: 11 }}>{tracks.length} 首</span>
             </div>
             {!tracks.length && <div style={{ color: C.muted, fontSize: 13, padding: '18px 0', textAlign: 'center' }}>还没有歌。直接搜一首，就能放进唱片机。</div>}
