@@ -8,6 +8,7 @@ export function MusicPlayerProvider({ children }) {
   const stateRef = useRef({ track_id: null, is_playing: false, shuffle: false });
   const [tracks, setTracks] = useState([]);
   const [state, setState] = useState(stateRef.current);
+  const [progress, setProgress] = useState({ currentTime: 0, duration: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -122,6 +123,13 @@ export function MusicPlayerProvider({ children }) {
     updateState({ shuffle: !stateRef.current.shuffle });
   }, [updateState]);
 
+  const seekTo = useCallback(seconds => {
+    const audio = audioRef.current;
+    if (!audio || Number.isNaN(seconds)) return;
+    audio.currentTime = Math.max(0, Math.min(seconds, audio.duration || seconds));
+    setProgress(current => ({ ...current, currentTime: audio.currentTime }));
+  }, []);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -149,13 +157,27 @@ export function MusicPlayerProvider({ children }) {
     togglePlay,
     playNext,
     playPrevious,
+    progress,
+    seekTo,
     toggleShuffle,
-  }), [activeTrack, error, loadMusic, loading, playNext, playPrevious, selectTrack, state, togglePlay, toggleShuffle, tracks, updateState]);
+  }), [activeTrack, error, loadMusic, loading, playNext, playPrevious, progress, seekTo, selectTrack, state, togglePlay, toggleShuffle, tracks, updateState]);
 
   return (
     <MusicPlayerContext.Provider value={value}>
       {children}
-      <audio ref={audioRef} onEnded={playNext} style={{ display: 'none' }} />
+      <audio
+        ref={audioRef}
+        onEnded={playNext}
+        onLoadedMetadata={event => setProgress({
+          currentTime: event.currentTarget.currentTime || 0,
+          duration: event.currentTarget.duration || 0,
+        })}
+        onTimeUpdate={event => setProgress({
+          currentTime: event.currentTarget.currentTime || 0,
+          duration: event.currentTarget.duration || 0,
+        })}
+        style={{ display: 'none' }}
+      />
     </MusicPlayerContext.Provider>
   );
 }
