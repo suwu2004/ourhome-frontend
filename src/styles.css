@@ -588,8 +588,7 @@ textarea { display: block; margin: 0; }
   margin: 0 auto;
   padding: max(17px, env(safe-area-inset-top)) 17px max(11px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-rows: auto auto auto auto auto;
-  align-content: start;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   gap: clamp(10px, 1.45vh, 14px);
 }
 
@@ -1150,29 +1149,29 @@ textarea { display: block; margin: 0; }
 
 .home-room-app {
   width: 100%;
-  min-height: clamp(66px, 17vw, 78px);
+  min-height: clamp(55px, 14vw, 66px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 5px;
   cursor: pointer;
-  background: color-mix(in srgb, var(--home-card-solid) 88%, var(--home-butter));
-  border: 1px solid var(--home-edge) !important;
-  border-radius: 17px;
-  box-shadow: 0 5px 13px color-mix(in srgb, var(--home-shadow) 45%, transparent), inset 0 1px rgba(255, 255, 255, 0.34);
+  background: transparent;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .home-room-app > span {
-  width: clamp(38px, 10.8vw, 46px);
-  height: clamp(38px, 10.8vw, 46px);
+  width: clamp(32px, 9.2vw, 40px);
+  height: clamp(32px, 9.2vw, 40px);
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: color-mix(in srgb, var(--home-card-solid) 89%, var(--home-butter));
-  border: 1px solid var(--home-edge);
-  border-radius: 15px;
-  box-shadow: 0 5px 13px color-mix(in srgb, var(--home-shadow) 54%, transparent), inset 0 1px rgba(255, 255, 255, 0.35);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .home-room-app strong {
@@ -1184,8 +1183,8 @@ textarea { display: block; margin: 0; }
 }
 
 .home-room-glyph {
-  width: 25px;
-  height: 25px;
+  width: 27px;
+  height: 27px;
   fill: none;
   stroke: var(--home-honey-deep);
   stroke-width: 1.6;
@@ -1203,6 +1202,7 @@ textarea { display: block; margin: 0; }
 .home-dock {
   position: relative;
   z-index: 10;
+  align-self: end;
   height: clamp(58px, 15vw, 68px);
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -1656,7 +1656,7 @@ textarea { display: block; margin: 0; }
   .home-layout {
     padding-top: max(10px, env(safe-area-inset-top));
     gap: 7px;
-    grid-template-rows: auto auto auto auto auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr);
   }
   .home-hero h1 { font-size: clamp(33px, 9.5vw, 41px); }
   .home-anniversary { margin-top: 4px; }
@@ -1675,9 +1675,9 @@ textarea { display: block; margin: 0; }
   .home-living-grid .home-music-actions span { width: 22px; height: 22px; }
   .home-note-copy { margin-top: 5px; gap: 2px; }
   .home-room-shelf { padding: 0; gap: 7px; }
-  .home-room-app { gap: 4px; }
-  .home-room-app > span { width: 37px; height: 37px; border-radius: 14px; }
-  .home-room-glyph { width: 23px; height: 23px; }
+  .home-room-app { min-height: 52px; gap: 3px; }
+  .home-room-app > span { width: 30px; height: 30px; border-radius: 0; }
+  .home-room-glyph { width: 24px; height: 24px; }
   .home-dock { height: 56px; }
   .home-couple-avatar { width: 45px; height: 45px; border-width: 3px; }
   .home-chat-button > span:last-child { top: calc(50% + 17px); }
@@ -1694,8 +1694,8 @@ textarea { display: block; margin: 0; }
   .home-note-card { padding-right: 48px; padding-left: 16px; }
   .home-living-grid { grid-template-columns: minmax(0, 1fr); }
   .home-room-shelf { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .home-room-app { min-height: 66px; border-radius: 16px; }
-  .home-room-app > span { width: 38px; height: 38px; }
+  .home-room-app { min-height: 50px; border-radius: 0; }
+  .home-room-app > span { width: 30px; height: 30px; }
   .home-room-app strong { font-size: 9px; }
   .home-living-grid > .home-music-card { grid-template-columns: 34px minmax(0, 1fr); }
   .home-living-grid .home-music-actions { grid-column: 1 / -1; justify-content: center; }
