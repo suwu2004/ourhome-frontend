@@ -475,13 +475,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
           <div className="home-bubble-field" aria-hidden="true">
             <span /><span /><span /><span /><span /><span /><span /><span /><span /><span />
           </div>
-          <svg className="home-note-ribbon" viewBox="0 0 360 210" aria-hidden="true">
-            <path d="M-10 168C44 124 83 155 126 111c45-46 80-24 119-70 42-49 78-28 126-58" />
-            <path d="M-12 195C48 146 92 177 141 132c48-44 82-27 124-68 43-42 71-31 109-5" />
-          </svg>
-          <span className="home-floating-note home-floating-note--one" aria-hidden="true">♪</span>
-          <span className="home-floating-note home-floating-note--two" aria-hidden="true">♫</span>
-          <span className="home-floating-note home-floating-note--three" aria-hidden="true">♩</span>
 
           <div className="home-room-shelf">
             <button className="home-room-app home-room-app--music" type="button" onClick={() => onOpen('music')} aria-label="打开一起听">
