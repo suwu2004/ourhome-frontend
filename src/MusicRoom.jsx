@@ -24,6 +24,13 @@ function lyricPreview(track) {
   return text.split('\n').map(line => line.trim()).filter(Boolean).slice(0, 4).join('\n');
 }
 
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '00:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
 export function MusicRoom({ visible, theme, leaveRoom }) {
   const C = theme;
   const fileInputRef = useRef(null);
@@ -41,6 +48,9 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     togglePlay,
     playNext,
     playPrevious,
+    progress,
+    seekTo,
+    toggleShuffle,
   } = useMusicPlayer();
   const [draft, setDraft] = useState(emptyTrack);
   const [query, setQuery] = useState('');
@@ -50,10 +60,6 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
   const [uploading, setUploading] = useState(false);
   const [lyricsLoadingId, setLyricsLoadingId] = useState(null);
   const [tab, setTab] = useState('listen');
-
-  const playAreaBackground = activeTrack?.cover_url
-    ? `linear-gradient(145deg, rgba(255,253,248,.76), rgba(255,235,183,.60)), url(${activeTrack.cover_url}) center / cover`
-    : `radial-gradient(circle at 18% 18%, ${C.honeyLight}, transparent 34%), linear-gradient(145deg, ${C.white}, ${C.honeyLight})`;
 
   useEffect(() => {
     if (visible) loadMusic();
@@ -188,6 +194,11 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     }
   };
 
+  const progressMax = Math.max(progress.duration || 0, progress.currentTime || 0, 1);
+  const albumArt = activeTrack?.cover_url
+    ? { backgroundImage: `url(${activeTrack.cover_url})` }
+    : { background: `linear-gradient(145deg, ${C.honeyLight}, ${C.white})` };
+
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none', transition: 'opacity .4s ease', background: C.cream }}>
       <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 0, flexShrink: 0 }}>
@@ -223,25 +234,58 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
           {error && <div role="alert" style={{ color: C.blushDeep, background: C.white, border: `1px solid ${C.border}`, borderRadius: 13, padding: '9px 11px', fontSize: 12 }}>{error}</div>}
 
           {tab === 'listen' && (
-            <section style={{ position: 'relative', overflow: 'hidden', border: `1px solid ${C.border}`, borderRadius: 22, background: playAreaBackground, padding: 17, boxShadow: `0 18px 42px ${C.borderLight}99` }}>
-              <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 80% 12%, ${C.white}88, transparent 34%), linear-gradient(180deg, transparent, ${C.white}33)`, pointerEvents: 'none' }} />
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 15 }}>
-                <button type="button" onClick={togglePlay} style={{ width: 86, height: 86, borderRadius: '50%', border: `1px solid ${C.honeyMid}`, background: `radial-gradient(circle, ${C.surface} 0 20%, ${C.honey} 21% 29%, ${C.text} 30% 34%, ${C.honeyDeep} 35% 100%)`, color: C.white, fontFamily: 'inherit', cursor: 'pointer', boxShadow: `0 14px 28px ${C.borderLight}` }}>{state.is_playing ? 'Ⅱ' : '▶'}</button>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.16em', marginBottom: 5 }}>NOW LISTENING</div>
-                  <div style={{ color: C.text, fontSize: 18, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{formatTrack(activeTrack)}</div>
-                  <div style={{ whiteSpace: 'pre-wrap', color: C.muted, fontSize: 12, lineHeight: 1.65, marginTop: 4 }}>{lyricPreview(activeTrack)}</div>
+            <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 26, background: `linear-gradient(180deg, ${C.white}, ${C.surface})`, border: `1px solid ${C.border}`, minHeight: 390, padding: '24px min(26px, 6vw) 28px', boxShadow: `0 18px 44px ${C.borderLight}aa` }}>
+                <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 22% 16%, ${C.honeyLight}66, transparent 34%), radial-gradient(circle at 78% 86%, ${C.blush}44, transparent 30%)`, pointerEvents: 'none' }} />
+                <div style={{ position: 'relative', width: 'min(100%, 360px)', aspectRatio: '1 / 1', margin: '0 auto 18px', borderRadius: 28, border: `2px solid ${C.white}`, background: `linear-gradient(145deg, ${C.white}, ${C.cream})`, boxShadow: `inset 0 0 0 1px ${C.borderLight}, 0 18px 40px ${C.borderLight}` }}>
+                  <button type="button" onClick={togglePlay} aria-label={state.is_playing ? '暂停' : '播放'} style={{ position: 'absolute', left: '12%', top: '16%', width: '62%', aspectRatio: '1 / 1', borderRadius: '50%', border: 0, cursor: 'pointer', background: `repeating-radial-gradient(circle, #d8d5cf 0 2px, #ece9e2 2px 5px, #c9c6c0 5px 7px), radial-gradient(circle, ${C.white} 0 19%, transparent 20%)`, boxShadow: `0 16px 36px ${C.borderLight}` }}>
+                    <span style={{ position: 'absolute', inset: '26%', borderRadius: '50%', background: `${C.text}22`, display: 'grid', placeItems: 'center' }}>
+                      <span style={{ width: '76%', height: '76%', borderRadius: '50%', backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: `inset 0 0 0 5px ${C.white}, 0 0 0 1px ${C.border}` , ...albumArt }} />
+                    </span>
+                    <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: C.white, fontSize: 30, textShadow: '0 1px 8px rgba(0,0,0,.32)', opacity: state.is_playing ? 0 : 1 }}>{state.is_playing ? '' : '▶'}</span>
+                  </button>
+                  <div aria-hidden="true" style={{ position: 'absolute', right: '13%', top: '6%', width: 18, height: '66%', borderRadius: 999, background: `linear-gradient(90deg, ${C.white}, #b8b4ac, ${C.white})`, transform: 'rotate(23deg)', transformOrigin: 'top center', boxShadow: `0 3px 9px ${C.borderLight}` }} />
+                  <div aria-hidden="true" style={{ position: 'absolute', right: '9%', top: '2%', width: 48, height: 34, borderRadius: 16, background: `linear-gradient(145deg, ${C.white}, ${C.surface})`, border: `1px solid ${C.borderLight}`, transform: 'rotate(17deg)', boxShadow: `0 8px 20px ${C.borderLight}` }} />
+                  <div aria-hidden="true" style={{ position: 'absolute', right: '23%', bottom: '23%', width: 44, height: 25, borderRadius: 999, background: C.surface, border: `1px solid ${C.borderLight}`, transform: 'rotate(23deg)' }} />
+                </div>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: C.mutedLight, fontSize: 10.5, letterSpacing: '.18em', marginBottom: 4 }}>NOW LISTENING</div>
+                    <div style={{ color: C.text, fontSize: 24, fontWeight: 800, lineHeight: 1.22, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeTrack?.title || '还没有选歌'}</div>
+                    <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[activeTrack?.artist, activeTrack?.album].filter(Boolean).join(' · ') || '先去搜索或上传一首歌'}</div>
+                  </div>
+                  {activeTrack && <button type="button" onClick={() => fillLyrics(activeTrack)} disabled={lyricsLoadingId === activeTrack.id} style={{ ...softButtonStyle(C), padding: '7px 10px', flexShrink: 0 }}>{lyricsLoadingId === activeTrack.id ? '找中' : '歌词'}</button>}
+                </div>
+                <div style={{ position: 'relative', display: 'inline-block', alignSelf: 'center', maxWidth: '100%', margin: '21px auto 2px', borderRadius: 13, background: `${C.white}dd`, color: C.muted, padding: '10px 18px', fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', boxShadow: `0 10px 24px ${C.borderLight}66` }}>{lyricPreview(activeTrack)}</div>
+              </div>
+              <div style={{ padding: '0 4px' }}>
+                <input
+                  type="range"
+                  min="0"
+                  max={progressMax}
+                  step="0.1"
+                  value={Math.min(progress.currentTime || 0, progressMax)}
+                  onChange={event => seekTo(Number(event.target.value))}
+                  aria-label="播放进度"
+                  style={{ width: '100%', accentColor: C.honeyDeep }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: C.mutedLight, fontSize: 11, marginTop: 2 }}>
+                  <span>{formatTime(progress.currentTime)}</span>
+                  <span>{formatTime(progress.duration)}</span>
                 </div>
               </div>
-              <div style={{ position: 'relative', display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 13 }}>
-                <button type="button" onClick={playPrevious} style={softButtonStyle(C)}>上一首</button>
-                <button type="button" onClick={playNext} style={softButtonStyle(C)}>下一首</button>
-                <button type="button" onClick={() => updateState({ shuffle: !state.shuffle })} style={{ ...softButtonStyle(C), background: state.shuffle ? C.honeyLight : C.surface, color: state.shuffle ? C.honeyDeep : C.muted }}>随机 {state.shuffle ? '开' : '关'}</button>
-                {activeTrack && <button type="button" onClick={() => fillLyrics(activeTrack)} disabled={lyricsLoadingId === activeTrack.id} style={softButtonStyle(C)}>{lyricsLoadingId === activeTrack.id ? '找歌词中' : '找歌词'}</button>}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 72px 1fr 1fr', alignItems: 'center', gap: 10, padding: '0 4px' }}>
+                <button type="button" onClick={toggleShuffle} aria-label="随机播放" style={{ ...playerIconButtonStyle(C), color: state.shuffle ? C.honeyDeep : C.text }}>↝</button>
+                <button type="button" onClick={playPrevious} aria-label="上一首" style={playerIconButtonStyle(C)}>◀</button>
+                <button type="button" onClick={togglePlay} aria-label={state.is_playing ? '暂停' : '播放'} style={{ width: 72, height: 72, borderRadius: '50%', border: `2px solid ${C.text}`, background: C.surface, color: C.text, fontSize: 28, fontWeight: 800, display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: `0 10px 22px ${C.borderLight}` }}>{state.is_playing ? 'Ⅱ' : '▶'}</button>
+                <button type="button" onClick={playNext} aria-label="下一首" style={playerIconButtonStyle(C)}>▶</button>
+                <button type="button" onClick={() => setTab('library')} aria-label="打开歌单" style={playerIconButtonStyle(C)}>☰</button>
               </div>
-              {activeTrack?.source_url && (
-                <a href={activeTrack.source_url} target="_blank" rel="noreferrer" style={{ position: 'relative', display: 'inline-block', marginTop: 8, color: C.honeyDeep, fontSize: 12 }}>打开原曲链接</a>
-              )}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {activeTrack?.source_url && <a href={activeTrack.source_url} target="_blank" rel="noreferrer" style={{ color: C.honeyDeep, fontSize: 12 }}>打开原曲链接</a>}
+                <button type="button" onClick={() => setTab('search')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>去搜索</button>
+                <button type="button" onClick={() => setTab('upload')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>上传音频</button>
+              </div>
             </section>
           )}
 
@@ -339,6 +383,20 @@ function softButtonStyle(C) {
     background: C.surface,
     color: C.honeyDeep,
     padding: '8px 12px',
+    fontFamily: 'inherit',
+    cursor: 'pointer',
+  };
+}
+
+function playerIconButtonStyle(C) {
+  return {
+    width: '100%',
+    minWidth: 0,
+    height: 44,
+    border: 0,
+    background: 'transparent',
+    color: C.text,
+    fontSize: 24,
     fontFamily: 'inherit',
     cursor: 'pointer',
   };
