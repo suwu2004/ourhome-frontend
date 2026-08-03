@@ -58,8 +58,22 @@ export function MusicPlayerProvider({ children }) {
       const stateData = await stateResponse.json().catch(() => ({}));
       if (!tracksResponse.ok) throw new Error(tracksData?.error || '歌单没有回来');
       if (!stateResponse.ok) throw new Error(stateData?.error || '播放状态没有回来');
-      setTracks(Array.isArray(tracksData) ? tracksData : []);
-      const nextState = { track_id: null, is_playing: false, shuffle: false, repeat_mode: 'list', background_url: '', ...(stateData || {}) };
+      const nextTracks = Array.isArray(tracksData) ? tracksData : [];
+      const remoteState = { track_id: null, is_playing: false, shuffle: false, repeat_mode: 'list', background_url: '', ...(stateData || {}) };
+      const localState = stateRef.current;
+      const audio = audioRef.current;
+      const keepLocalPlayback = Boolean(localState.is_playing && audio && !audio.paused && !audio.ended);
+      const nextState = keepLocalPlayback
+        ? {
+            ...remoteState,
+            track_id: localState.track_id || remoteState.track_id,
+            is_playing: true,
+            shuffle: localState.shuffle,
+            repeat_mode: localState.repeat_mode || remoteState.repeat_mode,
+            background_url: localState.background_url || remoteState.background_url,
+          }
+        : remoteState;
+      setTracks(nextTracks);
       stateRef.current = nextState;
       setState(nextState);
     } catch (err) {
