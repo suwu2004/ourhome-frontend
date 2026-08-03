@@ -1089,6 +1089,7 @@ textarea { display: block; margin: 0; }
 }
 
 .home-living-grid {
+  position: relative;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1096,6 +1097,267 @@ textarea { display: block; margin: 0; }
   align-items: start;
   align-content: space-between;
   padding-bottom: clamp(14px, 2.4vh, 24px);
+}
+
+.home-music-garden {
+  min-height: clamp(190px, 28vh, 245px);
+  align-content: center;
+  isolation: isolate;
+}
+
+.home-note-ribbon {
+  position: absolute;
+  z-index: 0;
+  top: 44px;
+  right: 2px;
+  left: 74px;
+  width: calc(100% - 80px);
+  height: 118px;
+  overflow: visible;
+  opacity: 0.58;
+  pointer-events: none;
+}
+
+.home-note-ribbon path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--home-honey-deep) 54%, transparent);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-dasharray: 5 8;
+  animation: home-ribbon-flow 8s linear infinite;
+}
+
+.home-note-ribbon path:last-child {
+  opacity: 0.55;
+  animation-duration: 10s;
+}
+
+@keyframes home-ribbon-flow {
+  to { stroke-dashoffset: -104; }
+}
+
+.home-floating-note {
+  position: absolute;
+  z-index: 1;
+  color: color-mix(in srgb, var(--home-honey-deep) 76%, var(--home-blush));
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  pointer-events: none;
+  text-shadow: 0 2px 10px var(--home-card-solid);
+  animation: home-note-float 4.8s ease-in-out infinite;
+}
+
+.home-floating-note--one { top: 44px; left: 53%; }
+.home-floating-note--two { top: 88px; left: 73%; animation-delay: -1.4s; }
+.home-floating-note--three { top: 116px; left: 31%; animation-delay: -2.6s; }
+
+@keyframes home-note-float {
+  50% { transform: translateY(-7px) rotate(5deg); opacity: 0.72; }
+}
+
+.home-bloom-player {
+  position: relative;
+  z-index: 2;
+  width: min(210px, 44vw);
+  align-self: end;
+  justify-self: start;
+  margin: clamp(10px, 2vh, 18px) 0 0 2px;
+}
+
+.home-bloom-stage {
+  position: relative;
+  width: 100%;
+  height: clamp(132px, 22vh, 168px);
+  display: block;
+  cursor: pointer;
+  color: var(--home-honey-deep);
+  background: transparent;
+  border: 0 !important;
+}
+
+.home-bloom-stage::before {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 8px;
+  left: 2px;
+  height: 48px;
+  border: 1px solid color-mix(in srgb, var(--home-blush) 48%, var(--home-edge));
+  border-radius: 50% / 42%;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--home-card-solid) 70%, transparent), color-mix(in srgb, var(--home-blush-soft) 45%, transparent)),
+    color-mix(in srgb, var(--home-card-solid) 74%, transparent);
+  box-shadow: 0 13px 30px color-mix(in srgb, var(--home-shadow) 62%, transparent), inset 0 1px rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(12px);
+}
+
+.home-bloom-record {
+  position: absolute;
+  left: 17px;
+  bottom: 33px;
+  width: clamp(82px, 21vw, 106px);
+  height: clamp(82px, 21vw, 106px);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--home-card-solid) 0 13%, var(--home-lemon) 14% 21%, var(--home-blush) 22% 39%, color-mix(in srgb, var(--home-ink) 86%, var(--home-honey-deep)) 40% 100%);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--home-shadow) 76%, transparent);
+}
+
+.home-bloom-record::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, transparent 0 6px, rgba(255, 255, 255, 0.13) 7px 8px);
+}
+
+.home-bloom-record i {
+  position: relative;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--home-card-solid);
+  border: 1px solid color-mix(in srgb, var(--home-honey) 64%, transparent);
+}
+
+.home-music-garden.is-playing .home-bloom-record {
+  animation: home-record-spin 4.2s linear infinite;
+}
+
+.home-bloom-flower {
+  position: absolute;
+  left: 52px;
+  bottom: 108px;
+  width: 70px;
+  height: 70px;
+  transform-origin: 50% 98%;
+  animation: home-flower-sway 6s ease-in-out infinite;
+}
+
+.home-bloom-flower i {
+  position: absolute;
+  left: 28px;
+  bottom: 11px;
+  width: 28px;
+  height: 48px;
+  border-radius: 70% 30% 72% 28%;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--home-blush) 58%, var(--home-card-solid)), color-mix(in srgb, var(--home-card-solid) 64%, var(--home-blush)));
+  border: 1px solid color-mix(in srgb, var(--home-blush) 52%, transparent);
+  transform-origin: 50% 100%;
+  opacity: 0.82;
+}
+
+.home-bloom-flower i:nth-child(1) { transform: rotate(-48deg) translateY(2px); }
+.home-bloom-flower i:nth-child(2) { transform: rotate(-20deg) translateY(-8px); }
+.home-bloom-flower i:nth-child(3) { transform: rotate(12deg) translateY(-11px); }
+.home-bloom-flower i:nth-child(4) { transform: rotate(42deg) translateY(-3px); }
+.home-bloom-flower i:nth-child(5) {
+  left: 35px;
+  bottom: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--home-honey-deep) 58%, var(--home-blush));
+  opacity: 0.9;
+}
+
+@keyframes home-flower-sway {
+  50% { transform: rotate(2deg) translateY(-2px); }
+}
+
+.home-bloom-arm {
+  position: absolute;
+  right: 14px;
+  bottom: 76px;
+  width: 72px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--home-card-solid) 76%, transparent), color-mix(in srgb, var(--home-honey-deep) 54%, var(--home-card-solid)));
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--home-shadow) 52%, transparent);
+  transform: rotate(-18deg);
+  transform-origin: right center;
+}
+
+.home-bloom-arm::after {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: -4px;
+  width: 17px;
+  height: 17px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--home-card-solid) 82%, var(--home-butter));
+  border: 1px solid var(--home-edge);
+}
+
+.home-bloom-copy {
+  position: absolute;
+  right: 16px;
+  bottom: 22px;
+  left: 108px;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.home-bloom-copy small {
+  color: var(--home-honey-deep);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.home-bloom-copy b,
+.home-bloom-copy em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-bloom-copy b {
+  color: var(--home-ink);
+  font-size: clamp(10px, 2.8vw, 12px);
+  font-weight: 650;
+}
+
+.home-bloom-copy em {
+  color: var(--home-muted);
+  font-size: clamp(7px, 2.1vw, 9px);
+  font-style: normal;
+}
+
+.home-bloom-controls {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: -17px;
+  padding-left: 16px;
+}
+
+.home-bloom-controls button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--home-honey-deep);
+  background: color-mix(in srgb, var(--home-lemon) 46%, var(--home-card-solid));
+  border: 1px solid color-mix(in srgb, var(--home-honey) 58%, transparent) !important;
+  border-radius: 50%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10.5px;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--home-shadow) 56%, transparent);
+}
+
+.home-bloom-controls button.is-active {
+  color: var(--home-card-solid);
+  background: var(--home-honey-deep);
 }
 
 .home-living-grid > .home-music-card {
@@ -1146,6 +1408,49 @@ textarea { display: block; margin: 0; }
   justify-content: center;
   gap: 7px;
   padding: 0;
+}
+
+.home-music-garden .home-room-shelf {
+  position: absolute;
+  z-index: 3;
+  inset: 18px 4px 12px 128px;
+  display: block;
+  pointer-events: none;
+}
+
+.home-music-garden .home-room-app {
+  position: absolute;
+  width: auto;
+  min-height: 0;
+  pointer-events: auto;
+  animation: home-room-float 5.2s ease-in-out infinite;
+}
+
+.home-music-garden .home-room-app--letters { top: 10px; left: 4%; }
+.home-music-garden .home-room-app--theater { top: 48px; left: 38%; animation-delay: -1.2s; }
+.home-music-garden .home-room-app--vault { top: 86px; left: 10%; animation-delay: -2.4s; }
+.home-music-garden .home-room-app--photos { top: 106px; right: 3%; animation-delay: -3.1s; }
+
+.home-music-garden .home-room-app > span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--home-card-solid) 54%, transparent);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--home-shadow) 45%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.home-music-garden .home-room-app strong {
+  margin-top: 2px;
+  padding: 1px 5px 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--home-card-solid) 42%, transparent);
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--home-shadow) 24%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+@keyframes home-room-float {
+  50% { transform: translateY(-5px); }
 }
 
 .home-room-app {
@@ -1671,6 +1976,13 @@ textarea { display: block; margin: 0; }
   .home-note-card { min-height: 104px; }
   .home-note-card { padding-top: 13px; padding-bottom: 10px; }
   .home-living-grid { gap: 6px; padding-bottom: 10px; }
+  .home-music-garden { min-height: 168px; }
+  .home-bloom-player { width: min(188px, 43vw); margin-top: 3px; }
+  .home-bloom-stage { height: 132px; }
+  .home-bloom-flower { bottom: 93px; transform: scale(.88); }
+  .home-music-garden .home-room-shelf { inset: 12px 2px 8px 112px; }
+  .home-music-garden .home-room-app > span { width: 30px; height: 30px; }
+  .home-music-garden .home-room-app strong { font-size: 9px; }
   .home-music-card { min-height: 48px; padding-top: 6px; padding-bottom: 6px; }
   .home-living-grid .home-music-record { width: 34px; height: 34px; }
   .home-living-grid .home-music-actions span { width: 22px; height: 22px; }
@@ -1694,6 +2006,15 @@ textarea { display: block; margin: 0; }
   .home-quick-grid { grid-template-columns: minmax(0, 1fr); }
   .home-note-card { padding-right: 48px; padding-left: 16px; }
   .home-living-grid { grid-template-columns: minmax(0, 1fr); }
+  .home-music-garden { min-height: 166px; }
+  .home-bloom-player { width: 166px; }
+  .home-bloom-copy { left: 94px; right: 10px; }
+  .home-note-ribbon { left: 58px; width: calc(100% - 62px); }
+  .home-music-garden .home-room-shelf { inset: 10px 0 8px 94px; }
+  .home-music-garden .home-room-app--letters { top: 8px; left: 0; }
+  .home-music-garden .home-room-app--theater { top: 45px; left: 39%; }
+  .home-music-garden .home-room-app--vault { top: 82px; left: 5%; }
+  .home-music-garden .home-room-app--photos { top: 103px; right: 0; }
   .home-room-shelf { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .home-room-app { min-height: 50px; border-radius: 0; }
   .home-room-app > span { width: 30px; height: 30px; }
