@@ -1,4 +1,6 @@
-export const BACKEND = import.meta.env.VITE_BACKEND_URL || 'https://ourhome-backend.onrender.com';
+const configuredBackend = import.meta.env.VITE_BACKEND_URL?.trim();
+
+export const BACKEND = (configuredBackend || '/api').replace(/\/$/, '');
 export const TOKEN_KEY = 'ourhome_token';
 
 export function apiFetch(url, options = {}) {
