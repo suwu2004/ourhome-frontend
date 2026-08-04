@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { LIGHT_THEME } from './theme.js';
 import { HighlightedText, Stars } from './ChatDecorations.jsx';
 
@@ -55,6 +55,12 @@ export function ChatRoom(props) {
   } = props;
 
   const visibleMessages = msgs.slice(0, Math.max(0, visible));
+  const [chatModel, setChatModel] = useState(selectedModel || '');
+  const modelOptions = [...new Set([
+    chatModel,
+    selectedModel,
+    ...availableModels,
+  ].map(item => String(item || '').trim()).filter(Boolean))];
   const modelRouteText = modelSaveState === 'saving'
     ? `正在保存：${selectedModel}`
     : modelSaveState === 'error'
@@ -66,6 +72,15 @@ export function ChatRoom(props) {
           : modelSaveState === 'saved'
             ? `已切换：${selectedModel}`
             : '';
+
+  useEffect(() => {
+    if (!availableModels.length) {
+      if (!chatModel && selectedModel) setChatModel(selectedModel);
+      return;
+    }
+    if (availableModels.includes(chatModel)) return;
+    setChatModel(availableModels.includes(selectedModel) ? selectedModel : availableModels[0]);
+  }, [availableModels, chatModel, selectedModel]);
 
   useLayoutEffect(() => {
     const textarea = chatInputRef.current;
@@ -143,7 +158,7 @@ export function ChatRoom(props) {
                       <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>
                     )}
                     {!isMe && isLast && !thinking && (
-                      <button type="button" onClick={regenerateLast} disabled={regenerating} style={{ border: 0, padding: "3px 0", background: "transparent", fontSize: 10.5, color: C.muted, cursor: regenerating ? "default" : "pointer", alignSelf: "flex-start", fontFamily: "inherit" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</button>
+                      <button type="button" onClick={() => regenerateLast(chatModel)} disabled={regenerating} style={{ border: 0, padding: "3px 0", background: "transparent", fontSize: 10.5, color: C.muted, cursor: regenerating ? "default" : "pointer", alignSelf: "flex-start", fontFamily: "inherit" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</button>
                     )}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
@@ -257,19 +272,19 @@ export function ChatRoom(props) {
             <button type="button" onClick={() => chatImageInputRef.current?.click()} disabled={Boolean(editingMessage) || messageActionLoading} aria-label="添加图片或文件" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: editingMessage || messageActionLoading ? "default" : "pointer", opacity: editingMessage ? .3 : 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
             <input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} />
             <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫步"} value={input} onChange={e => { setInput(e.target.value); if (messageActionError) setMessageActionError(""); }} style={{ flex: 1, maxHeight: 120, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
-            <button type="button" onClick={send} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "background .2s, box-shadow .2s, opacity .2s, transform .15s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
+            <button type="button" onClick={() => send(chatModel)} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "background .2s, box-shadow .2s, opacity .2s, transform .15s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
-            <select aria-label="选择聊天模型" value={selectedModel} onChange={e => { setMessageActionError(""); chooseModel(e.target.value); }} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
-              {availableModels.length > 0 ? (
-                availableModels.map(m => <option key={m} value={m}>{m}</option>)
+            <select aria-label="选择聊天模型" value={chatModel} onChange={e => { const nextModel = e.target.value; setMessageActionError(""); setChatModel(nextModel); chooseModel(nextModel); }} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
+              {modelOptions.length > 0 ? (
+                modelOptions.map(m => <option key={m} value={m}>{m}</option>)
               ) : (
-                <option value={selectedModel}>{selectedModel}</option>
+                <option value="">暂无可用模型</option>
               )}
             </select>
             <button
               type="button"
-              onClick={() => loadActiveModels(selectedModel)}
+              onClick={() => loadActiveModels(chatModel)}
               disabled={modelsLoading}
               aria-label="重新拉取当前 API 站点的模型"
               title={modelsError || '重新拉取当前 API 站点的模型'}
