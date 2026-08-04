@@ -151,6 +151,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const modelSaveQueueRef = useRef(Promise.resolve());
   const [modelSaveState, setModelSaveState] = useState('idle');
   const [lastUsedModel, setLastUsedModel] = useState('');
+  const [lastRequestedModel, setLastRequestedModel] = useState('');
   const [hasHistory, setHasHistory] = useState(false);
   const [ready, setReady] = useState(false);
   const [memories, setMemories] = useState([]);
@@ -290,6 +291,21 @@ export default function App({ initialView = 'chat', onHome }) {
   const listRef = useRef(null);
   const chatStickToBottomRef = useRef(true);
   const chatScrollFrameRef = useRef(0);
+  const chatEnterScrollFrameRef = useRef(0);
+
+  const scrollChatToBottomNow = useCallback(() => {
+    chatStickToBottomRef.current = true;
+    cancelAnimationFrame(chatEnterScrollFrameRef.current);
+    chatEnterScrollFrameRef.current = requestAnimationFrame(() => {
+      const list = listRef.current;
+      if (!list) return;
+      list.scrollTop = list.scrollHeight;
+      chatEnterScrollFrameRef.current = requestAnimationFrame(() => {
+        const settledList = listRef.current;
+        if (settledList) settledList.scrollTop = settledList.scrollHeight;
+      });
+    });
+  }, []);
 
   const handleLogin = () => {
     if (!pwInput.trim()) return;
@@ -333,6 +349,7 @@ export default function App({ initialView = 'chat', onHome }) {
         setVisible(mapped.length);
         setHasHistory(mapped.length > 0);
         setSessionSummary(summary && summary.id ? summary : null);
+        scrollChatToBottomNow();
       });
   };
 
@@ -442,6 +459,11 @@ export default function App({ initialView = 'chat', onHome }) {
   }, [stage, ready, hasHistory]);
 
   useEffect(() => {
+    if (stage !== "home" || view !== "chat" || !ready || scrollToMsgId) return;
+    scrollChatToBottomNow();
+  }, [ready, scrollChatToBottomNow, scrollToMsgId, sessionId, stage, view]);
+
+  useEffect(() => {
     if (scrollToMsgId) {
       const el = document.getElementById(`msg-${scrollToMsgId}`);
       if (el) {
@@ -488,12 +510,21 @@ export default function App({ initialView = 'chat', onHome }) {
     };
   }, [msgs, pendingSearchJump]);
 
-  const chooseModel = useCallback((model) => {
+  const applySelectedModel = useCallback((model) => {
     const nextModel = String(model || '').trim();
-    if (!nextModel) return Promise.resolve(null);
+    if (!nextModel) return 0;
     const selectionVersion = ++modelSelectionVersionRef.current;
     selectedModelRef.current = nextModel;
     setSelectedModel(nextModel);
+    setLastRequestedModel('');
+    setLastUsedModel('');
+    return selectionVersion;
+  }, []);
+
+  const chooseModel = useCallback((model) => {
+    const nextModel = String(model || '').trim();
+    if (!nextModel) return Promise.resolve(null);
+    const selectionVersion = applySelectedModel(nextModel);
     setModelSaveState('saving');
     setModelsError('');
 
@@ -523,7 +554,7 @@ export default function App({ initialView = 'chat', onHome }) {
     });
     modelSaveQueueRef.current = handled;
     return handled;
-  }, []);
+  }, [applySelectedModel]);
 
   const loadActiveModels = useCallback(async (preferredModel = '') => {
     setModelsLoading(true);
@@ -896,7 +927,10 @@ export default function App({ initialView = 'chat', onHome }) {
       .catch(err => { console.error(err); setAiMoodWriting(false); });
   };
 
-  const backToChat = () => setView('chat');
+  const backToChat = () => {
+    scrollChatToBottomNow();
+    setView('chat');
+  };
   const leaveRoom = () => onHome ? onHome() : backToChat();
   const backToCabin = () => { setLettersCategory(null); setLetters([]); setOpenLetterId(null); };
 
@@ -1232,6 +1266,7 @@ export default function App({ initialView = 'chat', onHome }) {
         setMsgs(mapped);
         setVisible(mapped.length);
         setHasHistory(mapped.length > 0);
+        scrollChatToBottomNow();
       })
       .catch(console.error);
     setDrawerOpen(false);
@@ -1383,6 +1418,7 @@ export default function App({ initialView = 'chat', onHome }) {
       const data = await response.json();
       if (!response.ok) throw createRequestError(data, "重新发送失败");
       if (sessionIdRef.current !== editingSessionId) return;
+      setLastRequestedModel(data.requestedModel || requestModel);
       setLastUsedModel(data.model || requestModel);
 
       const replyCreatedAt = data.createdAt || new Date().toISOString();
@@ -1818,6 +1854,7 @@ export default function App({ initialView = 'chat', onHome }) {
       const data = await response.json();
       if (!response.ok) throw createRequestError(data, "重新生成失败");
       if (sessionIdRef.current !== regeneratingSessionId) return;
+      setLastRequestedModel(data.requestedModel || requestModel);
       setLastUsedModel(data.model || requestModel);
 
       const replyCreatedAt = data.createdAt || new Date().toISOString();
@@ -1888,6 +1925,7 @@ export default function App({ initialView = 'chat', onHome }) {
         }
         throw createRequestError(data, "发送失败");
       }
+      setLastRequestedModel(data.requestedModel || requestModel);
       setLastUsedModel(data.model || requestModel);
       const replyCreatedAt = data.assistantMessage?.createdAt || data.createdAt || new Date().toISOString();
       const persistedUserCreatedAt = data.userMessage?.createdAt || userCreatedAt;
@@ -2037,6 +2075,7 @@ export default function App({ initialView = 'chat', onHome }) {
         modelsError={modelsError}
         modelSaveState={modelSaveState}
         lastUsedModel={lastUsedModel}
+        lastRequestedModel={lastRequestedModel}
       />
 
       <LettersRoom
@@ -2295,7 +2334,7 @@ export default function App({ initialView = 'chat', onHome }) {
         resetBubbleColors={resetBubbleColors}
         setAvailableModels={setAvailableModels}
         normalizeModelOptions={normalizeModelOptions}
-        setSelectedModel={setSelectedModel}
+        setSelectedModel={applySelectedModel}
         loadActiveModels={loadActiveModels}
         chooseModel={chooseModel}
         exportChatArchive={exportChatArchive}
