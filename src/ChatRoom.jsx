@@ -1,4 +1,5 @@
 import { LIGHT_THEME } from './theme.js';
+import { HighlightedText, Stars } from './ChatDecorations.jsx';
 
 function messageDateKey(date) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
@@ -49,7 +50,7 @@ export function ChatRoom(props) {
     setTokenUsageOpen, chatUsage, sessionId, pendingFile, imageUploading,
     setPendingFile, chatImageInputRef, pickFile, chatInputRef, input, setInput,
     send, selectedModel, chooseModel, availableModels, loadActiveModels,
-    modelsLoading, modelsError, HighlightedText,
+    modelsLoading, modelsError,
   } = props;
 
   return (
@@ -262,4 +263,3 @@ export function ChatRoom(props) {
       </div>
   );
 }
-
