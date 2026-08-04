@@ -2053,6 +2053,7 @@ export default function App({ initialView = 'chat', onHome }) {
         sessionSummaryLoading={sessionSummaryLoading}
         sessionSummary={sessionSummary}
         messageActionError={messageActionError}
+        setMessageActionError={setMessageActionError}
         sessionSummaryError={sessionSummaryError}
         tokenUsageOpen={tokenUsageOpen}
         setTokenUsageOpen={setTokenUsageOpen}

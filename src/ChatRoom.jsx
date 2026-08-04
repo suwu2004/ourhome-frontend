@@ -47,7 +47,7 @@ export function ChatRoom(props) {
     toggleThinking, openMessageActions, messageActionLoading, regenerateLast,
     regenerating, editingMessage, cancelEditMsg, rollbackUndo, undoRollback,
     sessionTokenPressure, generateCurrentSessionSummary, sessionSummaryLoading,
-    sessionSummary, messageActionError, sessionSummaryError, tokenUsageOpen,
+    sessionSummary, messageActionError, setMessageActionError, sessionSummaryError, tokenUsageOpen,
     setTokenUsageOpen, chatUsage, sessionId, pendingFile, imageUploading,
     setPendingFile, chatImageInputRef, pickFile, chatInputRef, input, setInput,
     send, selectedModel, chooseModel, availableModels, loadActiveModels,
