@@ -146,6 +146,11 @@ export default function App({ initialView = 'chat', onHome }) {
   const [sessionSummaryLoading, setSessionSummaryLoading] = useState(false);
   const [sessionSummaryError, setSessionSummaryError] = useState('');
   const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
+  const selectedModelRef = useRef("claude-sonnet-4-6");
+  const modelSelectionVersionRef = useRef(0);
+  const modelSaveQueueRef = useRef(Promise.resolve());
+  const [modelSaveState, setModelSaveState] = useState('idle');
+  const [lastUsedModel, setLastUsedModel] = useState('');
   const [hasHistory, setHasHistory] = useState(false);
   const [ready, setReady] = useState(false);
   const [memories, setMemories] = useState([]);
@@ -484,12 +489,40 @@ export default function App({ initialView = 'chat', onHome }) {
   }, [msgs, pendingSearchJump]);
 
   const chooseModel = useCallback((model) => {
-    setSelectedModel(model);
-    apiFetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selected_model: model }),
-    }).catch(console.error);
+    const nextModel = String(model || '').trim();
+    if (!nextModel) return Promise.resolve(null);
+    const selectionVersion = ++modelSelectionVersionRef.current;
+    selectedModelRef.current = nextModel;
+    setSelectedModel(nextModel);
+    setModelSaveState('saving');
+    setModelsError('');
+
+    const saveSelection = async () => {
+      const response = await apiFetch(`${BACKEND}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selected_model: nextModel }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || '模型选择没有保存成功');
+      if (data?.selected_model && data.selected_model !== nextModel) {
+        throw new Error(`站点保存成了“${data.selected_model}”，不是刚选的“${nextModel}”`);
+      }
+      if (modelSelectionVersionRef.current === selectionVersion) setModelSaveState('saved');
+      return data;
+    };
+
+    const queued = modelSaveQueueRef.current.catch(() => null).then(saveSelection);
+    const handled = queued.catch(error => {
+      console.error(error);
+      if (modelSelectionVersionRef.current === selectionVersion) {
+        setModelSaveState('error');
+        setModelsError(error?.message || '模型选择没有保存成功');
+      }
+      return null;
+    });
+    modelSaveQueueRef.current = handled;
+    return handled;
   }, []);
 
   const loadActiveModels = useCallback(async (preferredModel = '') => {
@@ -513,6 +546,7 @@ export default function App({ initialView = 'chat', onHome }) {
 
   useEffect(() => {
     if (locked) return;
+    const selectionVersionAtLoad = modelSelectionVersionRef.current;
     apiFetch(`${BACKEND}/settings`)
       .then(r => r.json())
       .then(data => {
@@ -535,11 +569,16 @@ export default function App({ initialView = 'chat', onHome }) {
         if (typeof data?.daily_journal_enabled === 'boolean') setDailyJournalEnabled(data.daily_journal_enabled);
         if (data?.daily_journal_time) setDailyJournalTime(String(data.daily_journal_time).slice(0, 5));
         const preferredModel = data?.selected_model || '';
-        if (preferredModel) setSelectedModel(preferredModel);
+        const modelChangedWhileLoading = modelSelectionVersionRef.current !== selectionVersionAtLoad;
+        if (preferredModel && !modelChangedWhileLoading) {
+          selectedModelRef.current = preferredModel;
+          setSelectedModel(preferredModel);
+        }
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
         if (typeof data?.min_reply_chars === 'number') setMinReplyCharsInput(data.min_reply_chars);
-        return loadActiveModels(preferredModel).then(models => {
-          if (!preferredModel && models[0]) chooseModel(models[0]);
+        const activeModel = modelChangedWhileLoading ? selectedModelRef.current : preferredModel;
+        return loadActiveModels(activeModel).then(models => {
+          if (!activeModel && models[0]) chooseModel(models[0]);
         });
       })
       .catch(console.error);
@@ -1334,15 +1373,17 @@ export default function App({ initialView = 'chat', onHome }) {
     setThinking(true);
     setRollbackUndo(null);
 
+    const requestModel = selectedModelRef.current || selectedModel;
     try {
       const response = await apiFetch(`${BACKEND}/messages/${id}/edit-and-regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newText, model: selectedModel })
+        body: JSON.stringify({ content: newText, model: requestModel })
       });
       const data = await response.json();
       if (!response.ok) throw createRequestError(data, "重新发送失败");
       if (sessionIdRef.current !== editingSessionId) return;
+      setLastUsedModel(data.model || requestModel);
 
       const replyCreatedAt = data.createdAt || new Date().toISOString();
       const index = msgs.findIndex(message => message.id === id);
@@ -1767,15 +1808,17 @@ export default function App({ initialView = 'chat', onHome }) {
     setThinking(true);
     setMessageActionError("");
     setRollbackUndo(null);
+    const requestModel = selectedModelRef.current || selectedModel;
     try {
       const response = await apiFetch(`${BACKEND}/chat/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, model: selectedModel }),
+        body: JSON.stringify({ session_id: sessionId, model: requestModel }),
       });
       const data = await response.json();
       if (!response.ok) throw createRequestError(data, "重新生成失败");
       if (sessionIdRef.current !== regeneratingSessionId) return;
+      setLastUsedModel(data.model || requestModel);
 
       const replyCreatedAt = data.createdAt || new Date().toISOString();
       setMsgs(current => {
@@ -1811,6 +1854,7 @@ export default function App({ initialView = 'chat', onHome }) {
     }
     if ((!input.trim() && !pendingFile) || !sessionId || thinking || messageActionLoading) return;
     const txt = input.trim();
+    const requestModel = selectedModelRef.current || selectedModel;
     const sendingSessionId = sessionId;
     const fileToSend = pendingFile;
     const isImg = fileToSend && fileToSend.type && fileToSend.type.startsWith('image/');
@@ -1828,7 +1872,7 @@ export default function App({ initialView = 'chat', onHome }) {
       const res = await apiFetch(`${BACKEND}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, message: txt, model: selectedModel, attachment_url: fileToSend?.url || undefined, attachment_type: fileToSend?.type || undefined, attachment_name: fileToSend?.name || undefined })
+        body: JSON.stringify({ session_id: sessionId, message: txt, model: requestModel, attachment_url: fileToSend?.url || undefined, attachment_type: fileToSend?.type || undefined, attachment_name: fileToSend?.name || undefined })
       });
       const data = await res.json();
       if (sessionIdRef.current !== sendingSessionId) return;
@@ -1844,6 +1888,7 @@ export default function App({ initialView = 'chat', onHome }) {
         }
         throw createRequestError(data, "发送失败");
       }
+      setLastUsedModel(data.model || requestModel);
       const replyCreatedAt = data.assistantMessage?.createdAt || data.createdAt || new Date().toISOString();
       const persistedUserCreatedAt = data.userMessage?.createdAt || userCreatedAt;
       setMsgs(ms => [
@@ -1990,6 +2035,8 @@ export default function App({ initialView = 'chat', onHome }) {
         loadActiveModels={loadActiveModels}
         modelsLoading={modelsLoading}
         modelsError={modelsError}
+        modelSaveState={modelSaveState}
+        lastUsedModel={lastUsedModel}
       />
 
       <LettersRoom
