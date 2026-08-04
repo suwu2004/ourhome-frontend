@@ -19,13 +19,13 @@ export function MessageActionSheet({
 
   return (
     <>
-      <div onClick={close} style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(46,31,18,.34)", opacity: action ? 1 : 0, pointerEvents: action ? "auto" : "none", transition: "opacity .2s" }} />
+      <div onClick={close} style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(46,31,18,.34)", opacity: action ? 1 : 0, pointerEvents: action ? "auto" : "none", transition: "opacity .2s", willChange: "opacity" }} />
       <section
         role="dialog"
         aria-modal="true"
         aria-hidden={!action}
         aria-label="消息操作"
-        style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 65, padding: "18px 18px max(18px, env(safe-area-inset-bottom))", background: C.surface, borderRadius: "22px 22px 0 0", borderTop: `1px solid ${C.border}`, boxShadow: "0 -18px 50px rgba(70,45,20,.18)", transform: action ? "translateY(0)" : "translateY(105%)", pointerEvents: action ? "auto" : "none", transition: "transform .25s cubic-bezier(.2,.8,.2,1)" }}
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 65, padding: "18px 18px max(18px, env(safe-area-inset-bottom))", background: C.surface, borderRadius: "22px 22px 0 0", borderTop: `1px solid ${C.border}`, boxShadow: "0 -18px 50px rgba(70,45,20,.18)", transform: action ? "translate3d(0,0,0)" : "translate3d(0,105%,0)", pointerEvents: action ? "auto" : "none", transition: "transform .25s cubic-bezier(.2,.8,.2,1)", willChange: "transform" }}
       >
         {action && (
           <>

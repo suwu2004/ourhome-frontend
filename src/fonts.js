@@ -30,7 +30,17 @@ async function loadFontFiles(key) {
 }
 
 export async function preloadFontOptions() {
-  await Promise.all(Object.keys(FONT_STYLES).map(loadFontFiles));
+  const optionalFonts = Object.keys(FONT_STYLES).filter(key => key !== 'system' && !loaded.has(key));
+  for (const key of optionalFonts) {
+    await new Promise(resolve => {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(resolve, { timeout: 1200 });
+      } else {
+        window.setTimeout(resolve, 80);
+      }
+    });
+    await loadFontFiles(key);
+  }
 }
 
 export async function applyAppFont(key, { persist = true } = {}) {

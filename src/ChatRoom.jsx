@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react';
 import { LIGHT_THEME } from './theme.js';
 import { HighlightedText, Stars } from './ChatDecorations.jsx';
 
@@ -41,7 +42,7 @@ export function ChatRoom(props) {
   const {
     stage, view, C, leaveRoom, setDrawerOpen, setSearchOpen, setSearchQuery,
     setLastSearchQuery, setSearchResults, setSearchMeta, setSearchScope,
-    thinking, listRef, bgImage, bgColor, ready, msgs, visible, highlightMsgId,
+    thinking, listRef, onListScroll, bgImage, bgColor, ready, msgs, visible, highlightMsgId,
     highlightQuery, myAvatar, partnerAvatar, myBubbleColor, partnerBubbleColor,
     toggleThinking, openMessageActions, messageActionLoading, regenerateLast,
     regenerating, editingMessage, cancelEditMsg, rollbackUndo, undoRollback,
@@ -52,6 +53,16 @@ export function ChatRoom(props) {
     send, selectedModel, chooseModel, availableModels, loadActiveModels,
     modelsLoading, modelsError,
   } = props;
+
+  const visibleMessages = msgs.slice(0, Math.max(0, visible));
+
+  useLayoutEffect(() => {
+    const textarea = chatInputRef.current;
+    if (!textarea) return;
+    textarea.style.height = '0px';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > 120 ? 'auto' : 'hidden';
+  }, [chatInputRef, input]);
 
   return (
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "chat") ? 1 : 0, pointerEvents: (stage === "home" && view === "chat") ? "auto" : "none", transition: "opacity .4s ease" }}>
@@ -64,7 +75,7 @@ export function ChatRoom(props) {
             <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", textAlign: "center" }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>陆泽</div>
               <div style={{ fontSize: 10, color: thinking ? C.honey : C.muted, letterSpacing: ".18em", marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                <div style={{ width: 5, height: 5, borderRadius: "50%", background: thinking ? C.honey : C.mutedLight, boxShadow: thinking ? `0 0 5px ${C.honey}` : "none", transition: "all .3s" }} />
+                <div style={{ width: 5, height: 5, borderRadius: "50%", background: thinking ? C.honey : C.mutedLight, boxShadow: thinking ? `0 0 5px ${C.honey}` : "none", transition: "background .3s, box-shadow .3s" }} />
                 <span>{thinking ? "想你中…" : "miss you"}</span>
               </div>
             </div>
@@ -75,18 +86,19 @@ export function ChatRoom(props) {
           <Stars theme={C} />
         </header>
 
-        <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 8px", background: bgImage ? `url(${bgImage}) center/cover no-repeat` : (bgColor || "#FDFAF5") }}>
+        <div style={{ position: "relative", flex: 1, minHeight: 0, overflow: "hidden", background: bgImage ? `url(${bgImage}) center/cover no-repeat` : (bgColor || "#FDFAF5") }}>
+          <div ref={listRef} onScroll={onListScroll} style={{ position: "absolute", inset: 0, overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch", padding: "16px 14px 8px" }}>
           {!ready && (
             <div style={{ textAlign: "center", fontSize: 11, color: C.muted, letterSpacing: ".15em", padding: "30px 0" }}>正在开门…</div>
           )}
-          {msgs.map((m, idx) => {
+          {visibleMessages.map((m, idx) => {
             const isMe = m.role === "me";
-            const isLast = idx === visible - 1;
+            const isLast = idx === visibleMessages.length - 1;
             const dateKey = messageDateKey(m.createdAt);
             const previousDateKey = idx > 0 ? messageDateKey(msgs[idx - 1].createdAt) : '';
             const showDateDivider = Boolean(dateKey && dateKey !== previousDateKey);
             return (
-              <div key={m.id}>
+              <div key={m.id} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 120px" }}>
                 {showDateDivider && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: idx === 0 ? '2px 8px 18px' : '10px 8px 18px' }}>
                     <span style={{ flex: 1, height: 1, background: C.border }} />
@@ -98,7 +110,7 @@ export function ChatRoom(props) {
                   <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} theme={C} />
                   <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6 }}>
                     {m.image && (
-                      <img src={m.image} alt="" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, display: "block" }} />
+                      <img src={m.image} alt="" loading="lazy" decoding="async" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, display: "block" }} />
                     )}
                     {m.file && (
                       <a href={m.file.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 14, background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, textDecoration: "none", color: C.text, maxWidth: "100%" }}>
@@ -144,6 +156,7 @@ export function ChatRoom(props) {
               <div style={{ padding: "10px 16px", borderRadius: "18px 18px 18px 4px", background: C.white, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, letterSpacing: ".15em", fontStyle: "italic" }}>想你中…</div>
             </div>
           )}
+          </div>
         </div>
 
         <div className="ourhome-safe-bottom" style={{ background: C.white, borderTop: `1px solid ${C.border}`, paddingTop: 10, paddingLeft: 14, paddingRight: 14, flexShrink: 0 }}>
@@ -232,8 +245,8 @@ export function ChatRoom(props) {
           <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
             <button type="button" onClick={() => chatImageInputRef.current?.click()} disabled={Boolean(editingMessage) || messageActionLoading} aria-label="添加图片或文件" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: editingMessage || messageActionLoading ? "default" : "pointer", opacity: editingMessage ? .3 : 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
             <input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} />
-            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫步"} value={input} onChange={e => { setInput(e.target.value); if (messageActionError) setMessageActionError(""); }} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
-            <button type="button" onClick={send} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "all .2s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
+            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫步"} value={input} onChange={e => { setInput(e.target.value); if (messageActionError) setMessageActionError(""); }} style={{ flex: 1, maxHeight: 120, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
+            <button type="button" onClick={send} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "background .2s, box-shadow .2s, opacity .2s, transform .15s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
             <select aria-label="选择聊天模型" value={selectedModel} onChange={e => { setMessageActionError(""); chooseModel(e.target.value); }} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
