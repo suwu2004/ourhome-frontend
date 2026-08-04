@@ -283,6 +283,8 @@ export default function App({ initialView = 'chat', onHome }) {
   const partnerAvatarInputRef = useRef(null);
   const [sessions, setSessions] = useState([]);
   const listRef = useRef(null);
+  const chatStickToBottomRef = useRef(true);
+  const chatScrollFrameRef = useRef(0);
 
   const handleLogin = () => {
     if (!pwInput.trim()) return;
@@ -438,22 +440,37 @@ export default function App({ initialView = 'chat', onHome }) {
     if (scrollToMsgId) {
       const el = document.getElementById(`msg-${scrollToMsgId}`);
       if (el) {
+        chatStickToBottomRef.current = false;
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         setScrollToMsgId(null);
         return;
       }
     }
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    const list = listRef.current;
+    if (!list || !chatStickToBottomRef.current) return undefined;
+    cancelAnimationFrame(chatScrollFrameRef.current);
+    chatScrollFrameRef.current = requestAnimationFrame(() => {
+      list.scrollTo({ top: list.scrollHeight, behavior: thinking ? "auto" : "smooth" });
+    });
+    return () => cancelAnimationFrame(chatScrollFrameRef.current);
   }, [visible, thinking, scrollToMsgId]);
+
+  const handleChatScroll = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    chatStickToBottomRef.current = list.scrollHeight - list.scrollTop - list.clientHeight < 120;
+  }, []);
 
   useEffect(() => {
     if (!pendingSearchJump || !msgs.some(message => message.id === pendingSearchJump.id)) return;
+    chatStickToBottomRef.current = false;
     setVisible(msgs.length);
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
       secondFrame = requestAnimationFrame(() => {
         const element = document.getElementById(`msg-${pendingSearchJump.id}`);
         if (!element) return;
+        chatStickToBottomRef.current = false;
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setHighlightMsgId(pendingSearchJump.id);
         setHighlightQuery(pendingSearchJump.query);
@@ -1165,6 +1182,7 @@ export default function App({ initialView = 'chat', onHome }) {
     setRollbackUndo(null);
     setMessageActionError("");
     setTokenUsageOpen(false);
+    chatStickToBottomRef.current = true;
     sessionIdRef.current = id;
     setSessionId(id);
     localStorage.setItem(SESSION_KEY, id);
@@ -1744,6 +1762,7 @@ export default function App({ initialView = 'chat', onHome }) {
     if (!sessionId || regenerating || thinking || messageActionLoading) return;
     const regeneratingSessionId = sessionId;
     const shouldAppendReply = msgs[msgs.length - 1]?.role !== 'ai';
+    chatStickToBottomRef.current = true;
     setRegenerating(true);
     setThinking(true);
     setMessageActionError("");
@@ -1797,6 +1816,7 @@ export default function App({ initialView = 'chat', onHome }) {
     const isImg = fileToSend && fileToSend.type && fileToSend.type.startsWith('image/');
     const userCreatedAt = new Date().toISOString();
     const temporaryUserId = `temp-user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    chatStickToBottomRef.current = true;
     setMsgs(ms => [...ms, { id: temporaryUserId, role: "me", text: txt, image: isImg ? fileToSend.url : null, file: (fileToSend && !isImg) ? { url: fileToSend.url, name: fileToSend.name } : null, createdAt: userCreatedAt, time: formatMsgTime(userCreatedAt) }]);
     setVisible(v => v + 1);
     setInput("");
@@ -1924,6 +1944,7 @@ export default function App({ initialView = 'chat', onHome }) {
         setSearchScope={setSearchScope}
         thinking={thinking}
         listRef={listRef}
+        onListScroll={handleChatScroll}
         bgImage={bgImage}
         bgColor={bgColor}
         ready={ready}
