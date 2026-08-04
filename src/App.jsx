@@ -360,6 +360,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState('');
   const [temperatureInput, setTemperatureInput] = useState(0.8);
+  const [minReplyCharsInput, setMinReplyCharsInput] = useState(80);
   const [savingPersona, setSavingPersona] = useState(false);
   const [view, setView] = useState(initialView);
   const [memoryGroupsResetKey, setMemoryGroupsResetKey] = useState(0);
@@ -722,6 +723,7 @@ export default function App({ initialView = 'chat', onHome }) {
         const preferredModel = data?.selected_model || '';
         if (preferredModel) setSelectedModel(preferredModel);
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
+        if (typeof data?.min_reply_chars === 'number') setMinReplyCharsInput(data.min_reply_chars);
         return loadActiveModels(preferredModel).then(models => {
           if (!preferredModel && models[0]) chooseModel(models[0]);
         });
@@ -769,7 +771,11 @@ export default function App({ initialView = 'chat', onHome }) {
     apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ system_prompt: systemPromptInput, temperature: Number(temperatureInput) }),
+      body: JSON.stringify({
+        system_prompt: systemPromptInput,
+        temperature: Number(temperatureInput),
+        min_reply_chars: Number(minReplyCharsInput),
+      }),
     })
       .then(() => setSavingPersona(false))
       .catch(err => { console.error(err); setSavingPersona(false); });
@@ -2789,6 +2795,8 @@ export default function App({ initialView = 'chat', onHome }) {
         setSystemPromptInput={setSystemPromptInput}
         temperatureInput={temperatureInput}
         setTemperatureInput={setTemperatureInput}
+        minReplyCharsInput={minReplyCharsInput}
+        setMinReplyCharsInput={setMinReplyCharsInput}
         savePersona={savePersona}
         savingPersona={savingPersona}
         newMemory={newMemory}

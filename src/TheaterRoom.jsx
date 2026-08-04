@@ -12,6 +12,7 @@ const emptySettings = {
   chat_background_mode: 'main',
   chat_background_color: '',
   chat_background_image_url: '',
+  min_reply_chars: 120,
 };
 
 const importStarter = `剧场名：
@@ -94,11 +95,13 @@ function appendSection(target, key, value) {
 }
 
 function normalizeDraftSettings(value = {}) {
+  const minimum = Number(value.min_reply_chars);
   return {
     ...emptySettings,
     ...value,
     worldbook_only: Boolean(value.worldbook_only),
     chat_background_mode: value.chat_background_mode || 'main',
+    min_reply_chars: Number.isFinite(minimum) ? Math.min(1200, Math.max(0, Math.round(minimum))) : 120,
   };
 }
 
@@ -176,7 +179,6 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const [importingGlobalRules, setImportingGlobalRules] = useState(false);
   const [uploadingChatBg, setUploadingChatBg] = useState(false);
   const [mode, setMode] = useState('interactive');
-  const [lengthMode, setLengthMode] = useState('long');
   const [model, setModel] = useState(selectedModel || '');
   const chatEndRef = useRef(null);
   const chatScrollerRef = useRef(null);
@@ -489,7 +491,6 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
         body: JSON.stringify({
           message: text,
           play_mode: mode,
-          length_mode: lengthMode,
           model,
         }),
       });
@@ -526,7 +527,6 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           play_mode: mode,
-          length_mode: lengthMode,
           model,
         }),
       });
@@ -769,13 +769,25 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
                   ].map(([value, label]) => (
                     <button key={value} type="button" onClick={() => setMode(value)} style={{ border: `1px solid ${mode === value ? C.honeyMid : C.border}`, background: mode === value ? C.honeyLight : C.surface, color: mode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
                   ))}
-                  {[
-                    ['short', '短'],
-                    ['long', '长'],
-                    ['extra_long', '超长'],
-                  ].map(([value, label]) => (
-                    <button key={value} type="button" onClick={() => setLengthMode(value)} style={{ border: `1px solid ${lengthMode === value ? C.blush : C.border}`, background: lengthMode === value ? C.blush : C.surface, color: lengthMode === value ? C.blushDeep : C.muted, borderRadius: 999, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
-                  ))}
+                </div>
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.borderLight}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
+                    <span style={{ color: C.text, fontSize: 12.5, fontWeight: 700 }}>最低回复长度</span>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, color: C.mutedLight, fontSize: 10.5 }}>
+                      <input
+                        type="number"
+                        min="0"
+                        max="1200"
+                        step="20"
+                        value={bookDraft.settings.min_reply_chars}
+                        onChange={event => patchDraftSettings({ min_reply_chars: Math.min(1200, Math.max(0, Number(event.target.value) || 0)) })}
+                        style={{ width: 68, border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, color: C.text, padding: '4px 6px', fontFamily: 'inherit', textAlign: 'right' }}
+                      />
+                      字
+                    </label>
+                  </div>
+                  <input aria-label="这本小剧场的最低回复长度" type="range" min="0" max="1200" step="20" value={bookDraft.settings.min_reply_chars} onChange={event => patchDraftSettings({ min_reply_chars: Number(event.target.value) })} style={{ width: '100%' }} />
+                  <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.55 }}>人物会按这一轮剧情自行决定长短；较短时只补一点世界内的余韵，不会每次写成同样篇幅。</div>
                 </div>
                 <select value={model} onChange={event => setModel(event.target.value)} style={{ width: '100%', marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.muted, borderRadius: 999, padding: '7px 10px', fontFamily: 'inherit', fontSize: 11 }}>
                   {modelOptions.length ? modelOptions.map(item => <option key={item} value={item}>{item}</option>) : <option value="">默认模型</option>}
@@ -798,7 +810,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
         <div style={{ flexShrink: 0, maxWidth: 760, width: '100%', margin: '0 auto 10px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ color: C.text, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookDraft.title || '未命名小剧本'}</div>
-            <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.12em' }}>{mode === 'interactive' ? '互动推进' : '沉浸纯文'} · {lengthMode === 'extra_long' ? '超长' : lengthMode === 'short' ? '短' : '长'}</div>
+            <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.12em' }}>{mode === 'interactive' ? '互动推进' : '沉浸纯文'} · 最低 {bookDraft.settings.min_reply_chars} 字</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7, alignItems: 'flex-end', flexShrink: 0, maxWidth: '52%' }}>
             <button type="button" onClick={() => setBookPane('settings')} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.honeyDeep, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>设定</button>
