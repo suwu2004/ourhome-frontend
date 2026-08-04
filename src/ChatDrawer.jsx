@@ -13,8 +13,8 @@ export function ChatDrawer({
 }) {
   return (
     <>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(46,31,18,.2)", opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none", transition: "opacity .25s" }} />
-      <aside aria-hidden={!open} style={{ position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 25, width: 252, background: C.white, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", transform: open ? "none" : "translateX(-100%)", transition: "transform .28s cubic-bezier(.4,0,.2,1)", boxShadow: open ? "8px 0 32px rgba(100,70,30,.1)" : "none" }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(46,31,18,.2)", opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none", transition: "opacity .25s", willChange: "opacity" }} />
+      <aside aria-hidden={!open} style={{ position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 25, width: 252, background: C.white, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", transform: open ? "translate3d(0,0,0)" : "translate3d(-100%,0,0)", transition: "transform .28s cubic-bezier(.4,0,.2,1)", willChange: "transform", boxShadow: open ? "8px 0 32px rgba(100,70,30,.1)" : "none" }}>
         <div className="ourhome-safe-top" style={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>聊天栖息地</span>
           <button type="button" onClick={onClose} aria-label="关闭对话列表" style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4, border: 0, background: "transparent", fontFamily: "inherit" }}>✕</button>
