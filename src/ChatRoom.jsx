@@ -42,16 +42,16 @@ export function ChatRoom(props) {
   const {
     stage, view, C, leaveRoom, setDrawerOpen, setSearchOpen, setSearchQuery,
     setLastSearchQuery, setSearchResults, setSearchMeta, setSearchScope,
-    thinking, listRef, onListScroll, bgImage, bgColor, ready, msgs, visible, highlightMsgId,
+    thinking, listRef, onListScroll, bgImage, bgColor, ready, msgs, visible, formatMsgTime, highlightMsgId,
     highlightQuery, myAvatar, partnerAvatar, myBubbleColor, partnerBubbleColor,
-    toggleThinking, openMessageActions, messageActionLoading, regenerateLast,
+    toggleThinking, openMessageActions, messageAction, messageActionLoading, regenerateLast,
     regenerating, editingMessage, cancelEditMsg, rollbackUndo, undoRollback,
     sessionTokenPressure, generateCurrentSessionSummary, sessionSummaryLoading,
     sessionSummary, messageActionError, setMessageActionError, sessionSummaryError, tokenUsageOpen,
     setTokenUsageOpen, chatUsage, sessionId, pendingFile, imageUploading,
     setPendingFile, chatImageInputRef, pickFile, chatInputRef, input, setInput,
     send, selectedModel, chooseModel, availableModels, loadActiveModels,
-    modelsLoading, modelsError, modelSaveState, lastUsedModel, lastRequestedModel,
+    modelsLoading, modelsError,
   } = props;
 
   const visibleMessages = msgs.slice(0, Math.max(0, visible));
@@ -61,18 +61,6 @@ export function ChatRoom(props) {
     selectedModel,
     ...availableModels,
   ].map(item => String(item || '').trim()).filter(Boolean))];
-  const modelRouteText = modelSaveState === 'saving'
-    ? `正在保存：${selectedModel}`
-    : modelSaveState === 'error'
-      ? `模型未保存：${modelsError || '请再选一次'}`
-      : lastRequestedModel && lastUsedModel && lastRequestedModel !== lastUsedModel
-        ? `请求：${lastRequestedModel} → 线路返回：${lastUsedModel}`
-        : lastRequestedModel
-          ? `本次模型：${lastRequestedModel}`
-          : modelSaveState === 'saved'
-            ? `已切换：${selectedModel}`
-            : '';
-
   useEffect(() => {
     if (!availableModels.length) {
       if (!chatModel && selectedModel) setChatModel(selectedModel);
@@ -298,15 +286,7 @@ export function ChatRoom(props) {
               style={{ minWidth: 86, height: 26, flexShrink: 0, borderRadius: 999, border: `1px solid ${tokenUsageOpen ? C.honeyMid : C.border}`, background: tokenUsageOpen ? C.honeyLight : "transparent", color: tokenUsageOpen ? C.honeyDeep : C.muted, cursor: "pointer", padding: "0 9px", fontFamily: "inherit", fontSize: 9.5, whiteSpace: "nowrap" }}
             >◎ 上下文 {compactUsageNumber(chatUsage.currentContextTokens)}</button>
           </div>
-          {modelRouteText && (
-            <div
-              role="status"
-              title={modelRouteText}
-              style={{ marginTop: 4, paddingLeft: 5, color: modelSaveState === 'error' ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-            >
-              {modelRouteText}
-            </div>
-          )}
+
         </div>
       </div>
   );

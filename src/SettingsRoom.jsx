@@ -39,7 +39,7 @@ export function SettingsRoom(props) {
     dailyJournalTime, weatherCityInput, setWeatherCityInput, setWeatherCitySaved,
     saveWeatherCity, weatherCitySaved, homeDayBgImage, homeNightBgImage,
     homeMemoBgImage, uploadingHomeBg, uploadHomeBackground, resetHomeBackground,
-    homeBgError, setDailyJournalEnabled, setDailyJournalSaved,
+    homeBgError, setDailyJournalEnabled, setDailyJournalTime, setDailyJournalSaved,
     saveDailyJournalSchedule, dailyJournalSaved, enablePushNotifications,
     subscribing, myAvatarInputRef, partnerAvatarInputRef, uploadingAvatar,
     myAvatar, partnerAvatar, uploadAvatar, bgImageInputRef, bgImage, uploadingBg,

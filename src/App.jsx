@@ -2033,6 +2033,7 @@ export default function App({ initialView = 'chat', onHome }) {
         ready={ready}
         msgs={msgs}
         visible={visible}
+        formatMsgTime={formatMsgTime}
         highlightMsgId={highlightMsgId}
         highlightQuery={highlightQuery}
         myAvatar={myAvatar}
@@ -2041,6 +2042,7 @@ export default function App({ initialView = 'chat', onHome }) {
         partnerBubbleColor={partnerBubbleColor}
         toggleThinking={toggleThinking}
         openMessageActions={openMessageActions}
+        messageAction={messageAction}
         messageActionLoading={messageActionLoading}
         regenerateLast={regenerateLast}
         regenerating={regenerating}
@@ -2074,9 +2076,6 @@ export default function App({ initialView = 'chat', onHome }) {
         loadActiveModels={loadActiveModels}
         modelsLoading={modelsLoading}
         modelsError={modelsError}
-        modelSaveState={modelSaveState}
-        lastUsedModel={lastUsedModel}
-        lastRequestedModel={lastRequestedModel}
       />
 
       <LettersRoom
@@ -2303,6 +2302,7 @@ export default function App({ initialView = 'chat', onHome }) {
         resetHomeBackground={resetHomeBackground}
         homeBgError={homeBgError}
         setDailyJournalEnabled={setDailyJournalEnabled}
+        setDailyJournalTime={setDailyJournalTime}
         setDailyJournalSaved={setDailyJournalSaved}
         saveDailyJournalSchedule={saveDailyJournalSchedule}
         dailyJournalSaved={dailyJournalSaved}
