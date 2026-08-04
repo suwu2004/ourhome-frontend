@@ -1392,7 +1392,7 @@ export default function App({ initialView = 'chat', onHome }) {
     setMessageActionError("");
   };
 
-  const saveEditMsg = async () => {
+  const saveEditMsg = async (modelOverride = '') => {
     if (!editingMessage || messageActionLoading) return;
     const id = editingMessage.id;
     const editingSessionId = sessionId;
@@ -1408,7 +1408,7 @@ export default function App({ initialView = 'chat', onHome }) {
     setThinking(true);
     setRollbackUndo(null);
 
-    const requestModel = selectedModelRef.current || selectedModel;
+    const requestModel = String(modelOverride || '').trim() || selectedModelRef.current || selectedModel;
     try {
       const response = await apiFetch(`${BACKEND}/messages/${id}/edit-and-regenerate`, {
         method: 'POST',
@@ -1835,7 +1835,7 @@ export default function App({ initialView = 'chat', onHome }) {
     }
   };
 
-  const regenerateLast = async () => {
+  const regenerateLast = async (modelOverride = '') => {
     if (!sessionId || regenerating || thinking || messageActionLoading) return;
     const regeneratingSessionId = sessionId;
     const shouldAppendReply = msgs[msgs.length - 1]?.role !== 'ai';
@@ -1844,7 +1844,7 @@ export default function App({ initialView = 'chat', onHome }) {
     setThinking(true);
     setMessageActionError("");
     setRollbackUndo(null);
-    const requestModel = selectedModelRef.current || selectedModel;
+    const requestModel = String(modelOverride || '').trim() || selectedModelRef.current || selectedModel;
     try {
       const response = await apiFetch(`${BACKEND}/chat/regenerate`, {
         method: 'POST',
@@ -1884,14 +1884,14 @@ export default function App({ initialView = 'chat', onHome }) {
     }
   };
 
-  const send = async () => {
+  const send = async (modelOverride = '') => {
     if (editingMessage) {
-      await saveEditMsg();
+      await saveEditMsg(modelOverride);
       return;
     }
     if ((!input.trim() && !pendingFile) || !sessionId || thinking || messageActionLoading) return;
     const txt = input.trim();
-    const requestModel = selectedModelRef.current || selectedModel;
+    const requestModel = String(modelOverride || '').trim() || selectedModelRef.current || selectedModel;
     const sendingSessionId = sessionId;
     const fileToSend = pendingFile;
     const isImg = fileToSend && fileToSend.type && fileToSend.type.startsWith('image/');
