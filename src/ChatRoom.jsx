@@ -51,7 +51,7 @@ export function ChatRoom(props) {
     setTokenUsageOpen, chatUsage, sessionId, pendingFile, imageUploading,
     setPendingFile, chatImageInputRef, pickFile, chatInputRef, input, setInput,
     send, selectedModel, chooseModel, availableModels, loadActiveModels,
-    modelsLoading, modelsError,
+    modelsLoading, modelsError, modelSaveState, lastUsedModel,
   } = props;
 
   const visibleMessages = msgs.slice(0, Math.max(0, visible));
@@ -272,6 +272,21 @@ export function ChatRoom(props) {
               style={{ minWidth: 86, height: 26, flexShrink: 0, borderRadius: 999, border: `1px solid ${tokenUsageOpen ? C.honeyMid : C.border}`, background: tokenUsageOpen ? C.honeyLight : "transparent", color: tokenUsageOpen ? C.honeyDeep : C.muted, cursor: "pointer", padding: "0 9px", fontFamily: "inherit", fontSize: 9.5, whiteSpace: "nowrap" }}
             >◎ 上下文 {compactUsageNumber(chatUsage.currentContextTokens)}</button>
           </div>
+          {(modelSaveState !== 'idle' || lastUsedModel) && (
+            <div
+              role="status"
+              title={modelSaveState === 'error' ? modelsError : (lastUsedModel ? `上次回复实际请求：${lastUsedModel}` : '')}
+              style={{ marginTop: 4, paddingLeft: 5, color: modelSaveState === 'error' ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+            >
+              {modelSaveState === 'saving'
+                ? `正在保存：${selectedModel}`
+                : modelSaveState === 'error'
+                  ? `模型未保存：${modelsError || '请再选一次'}`
+                  : lastUsedModel
+                    ? `上次回复实际使用：${lastUsedModel}`
+                    : `已切换：${selectedModel}`}
+            </div>
+          )}
         </div>
       </div>
   );
