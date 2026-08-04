@@ -275,7 +275,7 @@ export function ChatRoom(props) {
           {(modelSaveState !== 'idle' || lastUsedModel) && (
             <div
               role="status"
-              title={modelSaveState === 'error' ? modelsError : (lastUsedModel ? `上次回复实际请求：${lastUsedModel}` : '')}
+              title={modelSaveState === 'error' ? modelsError : (lastUsedModel ? `上次回复线路返回：${lastUsedModel}` : '')}
               style={{ marginTop: 4, paddingLeft: 5, color: modelSaveState === 'error' ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
             >
               {modelSaveState === 'saving'
@@ -283,7 +283,7 @@ export function ChatRoom(props) {
                 : modelSaveState === 'error'
                   ? `模型未保存：${modelsError || '请再选一次'}`
                   : lastUsedModel
-                    ? `上次回复实际使用：${lastUsedModel}`
+                    ? `上次回复线路返回：${lastUsedModel}`
                     : `已切换：${selectedModel}`}
             </div>
           )}
