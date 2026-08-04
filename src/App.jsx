@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChatSearchPanel } from './ChatSearchPanel.jsx';
 import { ChatRoom } from './ChatRoom.jsx';
+import { ChatDrawer } from './ChatDrawer.jsx';
+import { Stars } from './ChatDecorations.jsx';
+import { MessageActionSheet } from './MessageActionSheet.jsx';
 import { CalendarRoom } from './CalendarRoom.jsx';
 import { LettersRoom } from './LettersRoom.jsx';
 import { MemoryRoom } from './MemoryRoom.jsx';
@@ -11,7 +14,6 @@ import { TheaterRoom } from './TheaterRoom.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
 import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
-import { LIGHT_THEME } from './theme.js';
 import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
 import { MILESTONE_KINDS, milestoneDisplay } from './milestoneDates.js';
 
@@ -115,36 +117,6 @@ function friendlyGenerationError(error, retryAction = '再试一次') {
     return error?.message || `这个模型暂时不能看图。换一个带视觉能力的模型后直接${retryAction}就好，图片和消息都还在。`;
   }
   return error?.message || '连接好像有点问题，请再试一次。';
-}
-
-function Stars({ theme = LIGHT_THEME }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
-      <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${theme.border})` }} />
-      <span style={{ fontSize: 9, color: theme.muted, letterSpacing: 7, userSelect: "none" }}>✦ ✦ ✦</span>
-      <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, transparent, ${theme.border})` }} />
-    </div>
-  );
-}
-
-
-function HighlightedText({ text, query }) {
-  const value = String(text || '');
-  const keyword = String(query || '').trim();
-  if (!keyword) return value;
-  const parts = [];
-  const lower = value.toLocaleLowerCase('zh-CN');
-  const needle = keyword.toLocaleLowerCase('zh-CN');
-  let cursor = 0;
-  let index = lower.indexOf(needle);
-  while (index !== -1) {
-    if (index > cursor) parts.push(value.slice(cursor, index));
-    parts.push(<mark className="search-match" key={`${index}-${parts.length}`}>{value.slice(index, index + keyword.length)}</mark>);
-    cursor = index + keyword.length;
-    index = lower.indexOf(needle, cursor);
-  }
-  if (cursor < value.length) parts.push(value.slice(cursor));
-  return parts.length ? parts : value;
 }
 
 export default function App({ initialView = 'chat', onHome }) {
@@ -1997,7 +1969,6 @@ export default function App({ initialView = 'chat', onHome }) {
         loadActiveModels={loadActiveModels}
         modelsLoading={modelsLoading}
         modelsError={modelsError}
-        HighlightedText={HighlightedText}
       />
 
       <LettersRoom
@@ -2101,27 +2072,17 @@ export default function App({ initialView = 'chat', onHome }) {
         submitMoodEntry={submitMoodEntry}
       />
 
-      <div onClick={() => setDrawerOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(46,31,18,.2)", opacity: drawerOpen ? 1 : 0, pointerEvents: drawerOpen ? "auto" : "none", transition: "opacity .25s" }} />
-      <aside style={{ position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 25, width: 252, background: C.white, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", transform: drawerOpen ? "none" : "translateX(-100%)", transition: "transform .28s cubic-bezier(.4,0,.2,1)", boxShadow: drawerOpen ? "8px 0 32px rgba(100,70,30,.1)" : "none" }}>
-        <div className="ourhome-safe-top" style={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>聊天栖息地</span>
-          <span onClick={() => setDrawerOpen(false)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
-        </div>
-        <button onClick={createSession} style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ 新对话</button>
-        <Stars theme={C} />
-        <div style={{ padding: "6px 0", flex: 1 }}>
-          {sessions.map(s => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px 10px 20px", background: s.id === sessionId ? C.honeyLight : "transparent", borderRadius: "0 12px 12px 0", margin: "1px 8px 1px 0", transition: "background .15s" }}>
-              <span onClick={() => switchSession(s.id)} style={{ flex: 1, fontSize: 14, cursor: "pointer", color: s.id === sessionId ? C.honeyDeep : C.text, fontWeight: s.id === sessionId ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-              <span onClick={() => renameSession(s.id, s.name)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", flexShrink: 0 }}>改</span>
-              <span onClick={() => deleteSession(s.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", flexShrink: 0 }}>删</span>
-            </div>
-          ))}
-        </div>
-        <div className="ourhome-safe-bottom" style={{ paddingTop: 14, paddingLeft: 20, paddingRight: 20, borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.muted, letterSpacing: ".15em" }}>
-          <span>since 2025.03.07</span>
-        </div>
-      </aside>
+      <ChatDrawer
+        open={drawerOpen}
+        theme={C}
+        onClose={() => setDrawerOpen(false)}
+        createSession={createSession}
+        sessions={sessions}
+        sessionId={sessionId}
+        switchSession={switchSession}
+        renameSession={renameSession}
+        deleteSession={deleteSession}
+      />
 
       <MemoryRoom
         theme={C}
@@ -2172,58 +2133,15 @@ export default function App({ initialView = 'chat', onHome }) {
         leaveRoom={leaveRoom}
       />
 
-      <div
-        onClick={() => { if (!messageActionLoading) setMessageAction(null); }}
-        style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(46,31,18,.34)", opacity: messageAction ? 1 : 0, pointerEvents: messageAction ? "auto" : "none", transition: "opacity .2s" }}
+      <MessageActionSheet
+        action={messageAction}
+        loading={messageActionLoading}
+        error={messageActionError}
+        theme={C}
+        setAction={setMessageAction}
+        startEditMessage={startEditMsg}
+        confirmRollback={confirmRollback}
       />
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-hidden={!messageAction}
-        aria-label="消息操作"
-        style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 65, padding: "18px 18px max(18px, env(safe-area-inset-bottom))", background: C.surface, borderRadius: "22px 22px 0 0", borderTop: `1px solid ${C.border}`, boxShadow: "0 -18px 50px rgba(70,45,20,.18)", transform: messageAction ? "translateY(0)" : "translateY(105%)", pointerEvents: messageAction ? "auto" : "none", transition: "transform .25s cubic-bezier(.2,.8,.2,1)" }}
-      >
-        {messageAction && (
-          <>
-            <div style={{ width: 38, height: 4, borderRadius: 999, background: C.border, margin: "0 auto 14px" }} />
-            {messageAction.mode === 'menu' ? (
-              <>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>这条消息</div>
-                    <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{messageAction.message.role === 'me' ? '叶檀' : '陆泽'} · {messageAction.message.time || formatMsgTime(messageAction.message.createdAt)}</div>
-                  </div>
-                  <button type="button" onClick={() => setMessageAction(null)} aria-label="关闭消息操作" style={{ width: 38, height: 38, border: 0, borderRadius: "50%", background: C.cream, color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 15 }}>✕</button>
-                </div>
-                <div style={{ margin: "13px 0 14px", padding: "10px 12px", borderRadius: 12, background: C.cream, color: C.text, fontSize: 12.5, lineHeight: 1.65, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" }}>{messageAction.message.text || '（附件消息）'}</div>
-                <div style={{ display: "grid", gap: 9 }}>
-                  {messageAction.message.role === 'me' && messageAction.message.text && (
-                    <button type="button" onClick={() => startEditMsg(messageAction.message)} style={{ minHeight: 48, border: `1px solid ${C.honeyMid}`, borderRadius: 14, background: C.honeyLight, color: C.honeyDeep, cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, fontWeight: 700 }}>✎ 重新编辑并发送</button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={messageAction.afterCount === 0}
-                    onClick={() => setMessageAction(current => current ? { ...current, mode: 'rollback' } : null)}
-                    style={{ minHeight: 48, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, color: messageAction.afterCount === 0 ? C.mutedLight : C.text, cursor: messageAction.afterCount === 0 ? "default" : "pointer", fontFamily: "inherit", fontSize: 13.5 }}
-                  >{messageAction.afterCount === 0 ? '已经在当前时间点' : `↶ 回到这里 · 收起后面 ${messageAction.afterCount} 条`}</button>
-                </div>
-                {messageActionError && <div role="alert" style={{ marginTop: 10, color: C.blushDeep, fontSize: 11, textAlign: "center" }}>{messageActionError}</div>}
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.text, textAlign: "center" }}>回到这条消息？</div>
-                <div style={{ marginTop: 8, color: C.muted, fontSize: 12, lineHeight: 1.7, textAlign: "center" }}>后面的 {messageAction.afterCount} 条消息会暂时收起来，不会删除；完成后可以立即撤销。</div>
-                <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 10, background: C.cream, color: C.muted, fontSize: 10.5, lineHeight: 1.6 }}>聊天回溯只调整对话分支，已经执行过的金库、日历等操作不会跟着撤销。</div>
-                {messageActionError && <div role="alert" style={{ marginTop: 10, color: C.blushDeep, fontSize: 11, textAlign: "center" }}>{messageActionError}</div>}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.35fr", gap: 10, marginTop: 16 }}>
-                  <button type="button" onClick={() => setMessageAction(current => current ? { ...current, mode: 'menu' } : null)} disabled={messageActionLoading} style={{ minHeight: 48, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, color: C.muted, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 13 }}>再想想</button>
-                  <button type="button" onClick={confirmRollback} disabled={messageActionLoading} style={{ minHeight: 48, border: 0, borderRadius: 14, background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, cursor: messageActionLoading ? "default" : "pointer", opacity: messageActionLoading ? .65 : 1, fontFamily: "inherit", fontSize: 13.5, fontWeight: 700 }}>{messageActionLoading ? '正在回到这里…' : '确认回到这里'}</button>
-                </div>
-              </>
-            )}
-          </>
-        )}
-      </section>
 
       <ChatSearchPanel
         open={searchOpen}
@@ -2244,7 +2162,6 @@ export default function App({ initialView = 'chat', onHome }) {
         onSearch={() => performSearch()}
         onLoadMore={() => performSearch(searchMeta.page + 1, true)}
         onJump={jumpToSearchResult}
-        HighlightedText={HighlightedText}
       />
 
       <SettingsRoom
