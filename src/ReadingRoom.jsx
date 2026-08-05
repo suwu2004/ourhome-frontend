@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
 import './ReadingRoom.css';
+import './ReadingRoomPolish.css';
 
 function formatCount(value) {
   const number = Number(value) || 0;
@@ -174,6 +175,7 @@ export function ReadingRoom({ onClose }) {
   const currentChapter = activeBook?.chapters?.[activeChapterIndex] || null;
   const paragraphs = useMemo(() => splitParagraphs(currentChapter?.content), [currentChapter?.content]);
   const readingPercent = activeBook ? progressForChapter(activeChapterIndex, activeBook.chapters.length) : 0;
+  const currentShelfBook = books[0] || null;
 
   if (activeBook) {
     return (
@@ -239,7 +241,7 @@ export function ReadingRoom({ onClose }) {
     <main className={`reading-room reading-room--shelf ${darkMode ? 'is-dark' : ''}`} style={roomStyle}>
       <header className="reading-shelf-header">
         <button type="button" onClick={onClose} aria-label="回到主页">←</button>
-        <div><span>OUR LITTLE LIBRARY</span><h1>共读小屋</h1><p>把想一起读的文字，慢慢放进来。</p></div>
+        <div><span>OUR LITTLE LIBRARY</span><h1>共读小屋</h1></div>
         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} aria-label="导入文本">＋</button>
       </header>
 
@@ -247,10 +249,16 @@ export function ReadingRoom({ onClose }) {
 
       <section className="reading-shelf-body">
         <div className="reading-shelf-intro">
-          <span>FIRST SHELF</span>
+          <span>NOW READING</span>
           <h2>我们正在读</h2>
-          <p>第一阶段已经能导入 TXT、按日期或章节拆分，并替我们记住读到哪里。</p>
-          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>{uploading ? '正在把书放上架…' : '导入一本 TXT'}</button>
+          {currentShelfBook ? (
+            <>
+              <strong className="reading-current-title">《{currentShelfBook.title}》</strong>
+              <p className="reading-shelf-thought">“慢慢读，才不会漏掉你藏在日期里的小心情。”<em>—— 陆泽</em></p>
+            </>
+          ) : (
+            <p className="reading-shelf-thought">书架还空着，点右上角的＋，把第一本想一起读的书放进来。</p>
+          )}
         </div>
 
         {bookError && <div className="reading-error">{bookError}</div>}
@@ -268,6 +276,7 @@ export function ReadingRoom({ onClose }) {
               <article className="reading-book-card" key={book.id}>
                 <button className="reading-book-cover" type="button" onClick={() => openBook(book.id)}>
                   <span>{String(index + 1).padStart(2, '0')}</span>
+                  <b className="reading-cover-flower" aria-hidden="true">❦</b>
                   <div><small>OUR BOOK</small><strong>{book.title}</strong><em>陆泽 ♡ 叶檀</em></div>
                 </button>
                 <div className="reading-book-info">
