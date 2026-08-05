@@ -1,40 +1,37 @@
-.reading-home-entry {
-  position: fixed;
-  right: 18px;
-  bottom: calc(90px + env(safe-area-inset-bottom));
-  z-index: 32;
-  min-width: 76px;
-  height: 42px;
-  padding: 0 14px 0 11px;
-  border: 1px solid rgba(184, 128, 58, .28);
-  border-radius: 999px;
-  background: rgba(255, 249, 233, .9);
-  color: #75522f;
-  box-shadow: 0 8px 22px rgba(104, 70, 36, .16);
-  backdrop-filter: blur(14px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  cursor: pointer;
-  font-family: "Noto Serif SC", "Songti SC", serif;
-  font-size: 11px;
-  letter-spacing: .06em;
-  transition: transform .18s ease, box-shadow .18s ease;
+/* 共读小屋跟“一起听”等小功能一起悬浮在主页音符带里。 */
+.home-music-garden .home-room-app--reading {
+  top: 160px;
+  left: 50%;
+  width: 72px;
+  margin-left: -36px;
+  animation-delay: -2.8s;
 }
 
-.reading-home-entry:active {
-  transform: scale(.96);
-  box-shadow: 0 4px 12px rgba(104, 70, 36, .13);
+.home-music-garden .home-room-app--reading > span {
+  color: color-mix(in srgb, var(--home-honey-deep) 78%, var(--home-blush));
+  background: color-mix(in srgb, var(--home-card-solid) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--home-honey) 30%, transparent);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--home-shadow) 34%, transparent);
+  backdrop-filter: blur(8px);
 }
 
-.reading-home-entry i {
-  font-style: normal;
-  font-size: 17px;
+.home-music-garden .home-room-app--reading strong {
+  color: color-mix(in srgb, var(--home-honey-deep) 82%, var(--home-ink));
 }
 
-@media (min-width: 760px) {
-  .reading-home-entry {
-    right: max(24px, calc((100vw - 720px) / 2 + 24px));
+@media (max-width: 560px) {
+  .home-music-garden .home-room-app--reading {
+    top: 126px;
+    left: 50%;
+    width: 66px;
+    margin-left: -33px;
+  }
+}
+
+@media (max-width: 370px) {
+  .home-music-garden .home-room-app--reading {
+    top: 120px;
+    width: 62px;
+    margin-left: -31px;
   }
 }
