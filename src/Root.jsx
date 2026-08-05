@@ -4,6 +4,7 @@ import App from './App.jsx';
 import { HomeHub } from './HomeHub.jsx';
 import ReadingRoom from './ReadingRoom.jsx';
 import ReadingCompanionPanel from './ReadingCompanionPanel.jsx';
+import ReadingShelfLiveNote from './ReadingShelfLiveNote.jsx';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
 import './ReadingLuZeReply.css';
@@ -92,6 +93,7 @@ export default function Root() {
     return (
       <>
         <ReadingRoom onClose={goHome} />
+        <ReadingShelfLiveNote />
         <ReadingCompanionPanel />
       </>
     );
