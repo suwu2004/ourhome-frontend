@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import App from './App.jsx';
 import { HomeHub } from './HomeHub.jsx';
 import ReadingRoom from './ReadingRoom.jsx';
+import './ReadingHomeEntry.css';
 import { useTheme } from './ThemeContext.jsx';
 import VaultPage from './VaultPage.jsx';
 
@@ -43,13 +44,18 @@ export default function Root() {
   if (room !== 'home') return <App key={room} initialView={room} onHome={goHome} />;
 
   return (
-    <HomeHub
-      onOpen={openRoom}
-      onRefresh={() => {
-        setHomeRefreshToken(value => value + 1);
-        refreshTheme();
-      }}
-      refreshToken={homeRefreshToken}
-    />
+    <>
+      <HomeHub
+        onOpen={openRoom}
+        onRefresh={() => {
+          setHomeRefreshToken(value => value + 1);
+          refreshTheme();
+        }}
+        refreshToken={homeRefreshToken}
+      />
+      <button className="reading-home-entry" type="button" onClick={() => openRoom('reading')} aria-label="打开共读小屋">
+        <i aria-hidden="true">📖</i><span>共读小屋</span>
+      </button>
+    </>
   );
 }
