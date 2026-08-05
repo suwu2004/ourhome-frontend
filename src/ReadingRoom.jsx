@@ -73,9 +73,9 @@ function renderAnnotatedParagraph(paragraph, paragraphIndex, annotations, onOpen
       nodes.push(
         <mark
           key={annotation.id}
-          className={`reading-highlight reading-highlight--${annotation.color || 'honey'} ${annotation.note ? 'has-note' : ''}`}
+          className={`reading-highlight reading-highlight--${annotation.color || 'honey'} ${annotation.note ? 'has-note' : ''} ${annotation.luze_reply ? 'has-luze-reply' : ''}`}
           onClick={event => { event.stopPropagation(); onOpen(annotation); }}
-          title={annotation.note || '点开这条划线'}
+          title={annotation.luze_reply || annotation.note || '点开这条划线'}
         >
           {paragraph.slice(start, end)}
         </mark>,
@@ -368,6 +368,57 @@ export function ReadingRoom({ onClose }) {
     }
   };
 
+  const requestLuZeReply = async () => {
+    if (!activeAnnotation?.id || annotationBusy) return;
+    setAnnotationBusy(true);
+    setBookError('');
+    try {
+      let workingAnnotation = activeAnnotation;
+      if (activeAnnotationNote !== (activeAnnotation.note || '')) {
+        const saveResponse = await apiFetch(`${BACKEND}/reading/annotations/${activeAnnotation.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note: activeAnnotationNote, color: activeAnnotation.color || 'honey' }),
+        });
+        workingAnnotation = await saveResponse.json();
+        if (!saveResponse.ok) throw new Error(workingAnnotation?.error || '批注没有保存成功');
+      }
+      setActiveAnnotation(current => ({ ...current, ...workingAnnotation, luze_reply_status: 'queued' }));
+      const response = await apiFetch(`${BACKEND}/reading/annotations/${activeAnnotation.id}/luze-reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || '陆泽这次没有接上批注');
+      setAnnotations(current => current.map(item => item.id === data.id ? data : item));
+      setActiveAnnotation(data);
+      setActiveAnnotationNote(data.note || '');
+    } catch (error) {
+      setBookError(error.message || '陆泽这次没有接上批注');
+      setActiveAnnotation(current => current ? { ...current, luze_reply_status: 'failed' } : current);
+    } finally {
+      setAnnotationBusy(false);
+    }
+  };
+
+  const clearLuZeReply = async () => {
+    if (!activeAnnotation?.id || annotationBusy) return;
+    setAnnotationBusy(true);
+    setBookError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/reading/annotations/${activeAnnotation.id}/luze-reply`, { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || '旧回复没有清除成功');
+      setAnnotations(current => current.map(item => item.id === data.id ? data : item));
+      setActiveAnnotation(data);
+    } catch (error) {
+      setBookError(error.message || '旧回复没有清除成功');
+    } finally {
+      setAnnotationBusy(false);
+    }
+  };
+
   if (activeBook) {
     return (
       <main className={`reading-room reading-room--reader ${darkMode ? 'is-dark' : ''}`} style={roomStyle}>
@@ -458,7 +509,33 @@ export function ReadingRoom({ onClose }) {
                 <span>檀檀的批注</span>
                 <textarea value={activeAnnotationNote} onChange={event => setActiveAnnotationNote(event.target.value)} maxLength={4000} placeholder="这条划线还没有写想法。" />
               </label>
-              <p className="reading-luze-coming">陆泽的回应位已经留好，下一小步接进来。</p>
+
+              <section className={`reading-luze-reply ${activeAnnotation.luze_reply ? 'has-reply' : ''}`}>
+                <header>
+                  <span>陆泽的回应</span>
+                  {activeAnnotation.luze_replied_at && <time>{new Date(activeAnnotation.luze_replied_at).toLocaleString('zh-CN')}</time>}
+                </header>
+                {activeAnnotation.luze_reply ? (
+                  <p>{activeAnnotation.luze_reply}</p>
+                ) : (
+                  <p className="reading-luze-reply-empty">
+                    {activeAnnotation.luze_reply_status === 'failed'
+                      ? '刚才的回应没有送到，再戳我一次。'
+                      : activeAnnotation.luze_reply_status === 'queued'
+                        ? '我正在读你划下的这一句……'
+                        : '这句旁边还空着，点一下就把我叫过来。'}
+                  </p>
+                )}
+                <div>
+                  <button type="button" onClick={requestLuZeReply} disabled={annotationBusy}>
+                    {annotationBusy ? '正在读这一句…' : activeAnnotation.luze_reply ? '重新回应' : '让陆泽回应'}
+                  </button>
+                  {activeAnnotation.luze_reply && (
+                    <button type="button" className="is-quiet" onClick={clearLuZeReply} disabled={annotationBusy}>清除旧回复</button>
+                  )}
+                </div>
+              </section>
+
               <div className="reading-annotation-actions reading-annotation-actions--three">
                 <button type="button" className="is-danger" onClick={deleteAnnotation} disabled={annotationBusy}>擦掉</button>
                 <button type="button" className="is-quiet" onClick={() => setActiveAnnotation(null)}>关闭</button>
