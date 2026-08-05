@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import './ReadingCompanionPanel.css';
+import './ReadingNotes.css';
 
 async function readJson(response, fallback) {
   const body = await response.json().catch(() => ({}));
@@ -33,6 +34,7 @@ export default function ReadingCompanionPanel() {
   const [bookId, setBookId] = useState('');
   const [book, setBook] = useState(null);
   const [annotations, setAnnotations] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [workbench, setWorkbench] = useState({ totals: {}, chapter_notes: [], runs: [] });
   const [state, setState] = useState('idle');
   const [error, setError] = useState('');
@@ -61,21 +63,25 @@ export default function ReadingCompanionPanel() {
     if (!selectedBookId) {
       setBook(null);
       setAnnotations([]);
+      setNotes([]);
       setWorkbench({ totals: {}, chapter_notes: [], runs: [] });
       return;
     }
-    const [bookResponse, annotationsResponse, workbenchResponse] = await Promise.all([
+    const [bookResponse, annotationsResponse, notesResponse, workbenchResponse] = await Promise.all([
       apiFetch(`${BACKEND}/reading/books/${selectedBookId}`),
       apiFetch(`${BACKEND}/reading/books/${selectedBookId}/annotations`),
+      apiFetch(`${BACKEND}/reading/books/${selectedBookId}/notes?author=luze&limit=100`),
       apiFetch(`${BACKEND}/reading/workbench?book_id=${encodeURIComponent(selectedBookId)}&limit=100`),
     ]);
-    const [bookBody, annotationsBody, workbenchBody] = await Promise.all([
+    const [bookBody, annotationsBody, notesBody, workbenchBody] = await Promise.all([
       readJson(bookResponse, '这本书暂时没有打开'),
       readJson(annotationsResponse, '批注暂时没有打开'),
+      readJson(notesResponse, '陆泽的书签暂时没有打开'),
       readJson(workbenchResponse, '预读工作台暂时没有打开'),
     ]);
     setBook(bookBody);
     setAnnotations(Array.isArray(annotationsBody) ? annotationsBody : []);
+    setNotes(Array.isArray(notesBody) ? notesBody : []);
     setWorkbench(workbenchBody || { totals: {}, chapter_notes: [], runs: [] });
   }, []);
 
@@ -137,6 +143,41 @@ export default function ReadingCompanionPanel() {
     }
   };
 
+  const updateBookmark = async (note, patch) => {
+    setBusyKey(`bookmark:${note.id}`);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/reading/notes/${note.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const updated = await readJson(response, '书签没有保存成功');
+      setNotes(current => current
+        .map(item => item.id === updated.id ? updated : item)
+        .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || new Date(b.updated_at) - new Date(a.updated_at)));
+    } catch (cause) {
+      setError(cause.message || '书签没有保存成功');
+    } finally {
+      setBusyKey('');
+    }
+  };
+
+  const deleteBookmark = async note => {
+    if (!window.confirm('把陆泽留下的这张书签擦掉吗？')) return;
+    setBusyKey(`bookmark:${note.id}`);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/reading/notes/${note.id}`, { method: 'DELETE' });
+      await readJson(response, '书签没有删除成功');
+      setNotes(current => current.filter(item => item.id !== note.id));
+    } catch (cause) {
+      setError(cause.message || '书签没有删除成功');
+    } finally {
+      setBusyKey('');
+    }
+  };
+
   const generateChapterNote = async chapter => {
     setBusyKey(`note:${chapter.id}`);
     setError('');
@@ -174,7 +215,7 @@ export default function ReadingCompanionPanel() {
               <div>
                 <span className="reading-companion-kicker">LUZE · READING TOGETHER</span>
                 <h2>陆泽也坐进来了</h2>
-                <p>他能看书架、进度和批注，也能把回应留在这里。</p>
+                <p>他能看书架、进度和批注，也能把回应、摘抄和感想留在这里。</p>
               </div>
               <button type="button" className="reading-companion-close" onClick={() => setOpen(false)} aria-label="关闭">×</button>
             </header>
@@ -193,6 +234,9 @@ export default function ReadingCompanionPanel() {
             <nav className="reading-companion-tabs" aria-label="共读回应分类">
               <button type="button" className={tab === 'annotations' ? 'active' : ''} onClick={() => setTab('annotations')}>
                 批注对话 <span>{annotations.length}</span>
+              </button>
+              <button type="button" className={tab === 'bookmarks' ? 'active' : ''} onClick={() => setTab('bookmarks')}>
+                陆泽书签 <span>{notes.length}</span>
               </button>
               <button type="button" className={tab === 'workbench' ? 'active' : ''} onClick={() => setTab('workbench')}>
                 预读工作台 <span>{workbench.chapter_notes?.length || 0}</span>
@@ -270,6 +314,36 @@ export default function ReadingCompanionPanel() {
               </section>
             )}
 
+            {state !== 'loading' && bookId && tab === 'bookmarks' && (
+              <section className="reading-companion-content">
+                {!notes.length && (
+                  <div className="reading-companion-empty">陆泽还没留下独立书签。可以在聊天里让他摘一句、写点感想或置顶一句话。</div>
+                )}
+                <div className="reading-companion-note-bookmarks">
+                  {notes.map(note => {
+                    const chapter = book?.chapters?.find(item => Number(item.chapter_index) === Number(note.chapter_index));
+                    const busy = busyKey === `bookmark:${note.id}`;
+                    return (
+                      <article className={`reading-companion-bookmark ${note.pinned ? 'is-pinned' : ''}`} key={note.id}>
+                        <header>
+                          <span>{chapter?.title || '整本书'} · {note.kind === 'quote' ? '摘抄' : '感想'}</span>
+                          <time>{shortDate(note.updated_at)}</time>
+                        </header>
+                        {note.quote && <blockquote>“{note.quote}”</blockquote>}
+                        {note.content && <p>{note.content}</p>}
+                        <footer>
+                          <button type="button" onClick={() => updateBookmark(note, { pinned: !note.pinned })} disabled={Boolean(busyKey)}>
+                            {busy ? '保存中…' : note.pinned ? '取消置顶' : '置顶'}
+                          </button>
+                          <button type="button" className="is-danger" onClick={() => deleteBookmark(note)} disabled={Boolean(busyKey)}>擦掉</button>
+                        </footer>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {state !== 'loading' && bookId && tab === 'workbench' && (
               <section className="reading-companion-content reading-companion-workbench">
                 <div className="reading-companion-stats">
@@ -296,7 +370,7 @@ export default function ReadingCompanionPanel() {
                         </div>
                         {note?.status === 'ready' && <p>{note.summary}</p>}
                         {note?.status === 'failed' && <p className="reading-companion-note-error">{note.error || '这一章预读失败了。'}</p>}
-                        {!note && <p className="reading-companion-note-muted">还没有内部预读笔记；陆泽需要时仍可读取原文。</p>}
+                        {!note && <p className="reading-companion-note-muted">还没有内部预读笔记；默认只允许预读当前阅读进度以内的章节。</p>}
                         {note && (
                           <footer>
                             <span>{note.model || '未记录模型'}</span>
