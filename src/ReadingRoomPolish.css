@@ -1,0 +1,166 @@
+/* 共读小屋第二轮：把导航、正在读与书封收得更像 OurHome 的其他小房间。 */
+.reading-shelf-header,
+.reading-reader-header {
+  min-height: 68px;
+  padding: max(12px, env(safe-area-inset-top)) 15px 10px;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  gap: 10px;
+}
+
+.reading-shelf-header > button,
+.reading-reader-header > button {
+  width: 40px;
+  height: 40px;
+  font-size: 23px;
+}
+
+.reading-shelf-header > div,
+.reading-reader-header > div {
+  align-self: center;
+  min-width: 0;
+}
+
+.reading-shelf-header h1 {
+  margin: 1px 0 0;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.reading-reader-header strong {
+  margin-top: 1px;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.reading-shelf-header span,
+.reading-reader-header span {
+  font-size: 8px;
+  letter-spacing: .22em;
+}
+
+.reading-shelf-body {
+  height: calc(100% - 68px);
+  padding-top: 18px;
+}
+
+.reading-shelf-intro {
+  min-height: 0;
+  padding: 20px 21px 18px;
+}
+
+.reading-shelf-intro h2 {
+  margin: 6px 0 2px;
+}
+
+.reading-current-title {
+  display: block;
+  max-width: calc(100% - 52px);
+  margin: 2px 0 8px;
+  overflow: hidden;
+  color: var(--reading-text);
+  font-family: serif;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.55;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reading-shelf-thought {
+  margin: 0 !important;
+  padding-right: 24px;
+  font-size: 12px !important;
+  line-height: 1.8 !important;
+}
+
+.reading-shelf-thought em {
+  display: block;
+  margin-top: 3px;
+  color: color-mix(in srgb, var(--reading-accent) 72%, var(--reading-muted));
+  font-size: 10px;
+  font-style: normal;
+}
+
+.reading-book-card {
+  overflow: hidden;
+}
+
+.reading-book-cover {
+  min-height: 0;
+  aspect-ratio: 5 / 4;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(255, 245, 218, .2) 0 2px, transparent 3px),
+    radial-gradient(circle at 82% 74%, rgba(255, 245, 218, .15) 0 2px, transparent 3px),
+    repeating-linear-gradient(90deg, rgba(91, 55, 30, .14) 0 4px, transparent 4px 10px, rgba(255,255,255,.08) 10px 12px, transparent 12px 26px),
+    linear-gradient(145deg, color-mix(in srgb, var(--reading-accent) 78%, #e8bd87), color-mix(in srgb, var(--reading-accent) 48%, #76503a));
+  background-size: 34px 34px, 42px 42px, auto, auto;
+}
+
+.reading-book-cover::before {
+  inset: 9px;
+  border: 1px solid rgba(255, 248, 226, .46);
+  box-shadow:
+    inset 0 0 0 4px rgba(255, 248, 226, .06),
+    inset 0 0 0 5px rgba(255, 248, 226, .2);
+}
+
+.reading-book-cover::after {
+  content: "✦  ·  ✦";
+  position: absolute;
+  right: 17px;
+  bottom: 14px;
+  width: auto;
+  height: auto;
+  border: 0;
+  background: none;
+  color: rgba(255, 248, 226, .5);
+  font-size: 10px;
+  letter-spacing: .12em;
+}
+
+.reading-cover-flower {
+  position: absolute;
+  top: 18px;
+  left: 20px;
+  z-index: 1;
+  color: rgba(255, 248, 226, .64);
+  font-size: 24px;
+  font-weight: 400;
+  transform: rotate(-12deg);
+}
+
+.reading-book-cover > div {
+  z-index: 2;
+}
+
+@media (max-width: 560px) {
+  .reading-shelf-header,
+  .reading-reader-header {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .reading-shelf-intro {
+    border-radius: 21px;
+  }
+
+  .reading-book-cover {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+@media (max-width: 370px) {
+  .reading-book-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reading-book-cover {
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+    padding: 14px;
+  }
+
+  .reading-book-cover strong {
+    font-size: 18px;
+  }
+}
