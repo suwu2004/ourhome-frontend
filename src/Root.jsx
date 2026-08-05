@@ -20,10 +20,31 @@ function ReadingHomeEntry({ onOpen }) {
   const [target, setTarget] = useState(null);
 
   useEffect(() => {
-    setTarget(document.querySelector('.home-room-shelf'));
+    let observer = null;
+    let retryTimer = null;
+
+    const findShelf = () => {
+      const shelf = document.querySelector('.home-room-shelf');
+      if (!shelf) return false;
+      setTarget(current => (current === shelf ? current : shelf));
+      return true;
+    };
+
+    if (!findShelf()) {
+      observer = new MutationObserver(() => {
+        if (findShelf()) observer?.disconnect();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      retryTimer = window.setInterval(findShelf, 300);
+    }
+
+    return () => {
+      observer?.disconnect();
+      if (retryTimer) window.clearInterval(retryTimer);
+    };
   }, []);
 
-  if (!target) return null;
+  if (!target || !document.body.contains(target)) return null;
   return createPortal(
     <button className="home-room-app home-room-app--reading" type="button" onClick={onOpen} aria-label="打开共读小屋">
       <span>
