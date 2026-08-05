@@ -1,0 +1,40 @@
+.reading-home-entry {
+  position: fixed;
+  right: 18px;
+  bottom: calc(90px + env(safe-area-inset-bottom));
+  z-index: 32;
+  min-width: 76px;
+  height: 42px;
+  padding: 0 14px 0 11px;
+  border: 1px solid rgba(184, 128, 58, .28);
+  border-radius: 999px;
+  background: rgba(255, 249, 233, .9);
+  color: #75522f;
+  box-shadow: 0 8px 22px rgba(104, 70, 36, .16);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 11px;
+  letter-spacing: .06em;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.reading-home-entry:active {
+  transform: scale(.96);
+  box-shadow: 0 4px 12px rgba(104, 70, 36, .13);
+}
+
+.reading-home-entry i {
+  font-style: normal;
+  font-size: 17px;
+}
+
+@media (min-width: 760px) {
+  .reading-home-entry {
+    right: max(24px, calc((100vw - 720px) / 2 + 24px));
+  }
+}
