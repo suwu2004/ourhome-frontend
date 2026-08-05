@@ -1,3 +1,14 @@
+.reading-companion-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reading-companion-tabs button {
+  padding-right: 3px;
+  padding-left: 3px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .reading-shelf-intro.has-live-luze-note > .reading-shelf-thought:not(.reading-shelf-thought--live) {
   display: none;
 }
@@ -142,4 +153,22 @@
 :root[data-theme="dark"] .reading-companion-bookmark p,
 :root[data-theme="dark"] .reading-companion-bookmark blockquote {
   color: #eadfce;
+}
+
+@media (max-width: 380px) {
+  .reading-companion-tabs {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .reading-companion-tabs button {
+    font-size: 10px;
+  }
+
+  .reading-companion-tabs span {
+    min-width: 17px;
+    height: 17px;
+    margin-left: 2px;
+    padding: 0 4px;
+  }
 }
