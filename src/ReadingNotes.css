@@ -1,0 +1,174 @@
+.reading-companion-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.reading-companion-tabs button {
+  padding-right: 3px;
+  padding-left: 3px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.reading-shelf-intro.has-live-luze-note > .reading-shelf-thought:not(.reading-shelf-thought--live) {
+  display: none;
+}
+
+.reading-shelf-thought--live {
+  display: grid;
+  gap: 5px;
+}
+
+.reading-shelf-thought--live q,
+.reading-shelf-thought--live span {
+  quotes: none;
+}
+
+.reading-shelf-thought--live q {
+  overflow: hidden;
+  display: -webkit-box;
+  color: color-mix(in srgb, var(--reading-text) 82%, var(--reading-accent));
+  font-family: serif;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.reading-shelf-thought--live em {
+  justify-self: end;
+}
+
+.reading-highlight--sky {
+  background:
+    linear-gradient(
+      180deg,
+      transparent 5%,
+      color-mix(in srgb, #b9d9ed 68%, transparent) 6% 90%,
+      color-mix(in srgb, #78abc9 34%, transparent) 91% 100%
+    );
+}
+
+.reading-highlight--lavender {
+  background:
+    linear-gradient(
+      180deg,
+      transparent 5%,
+      color-mix(in srgb, #d7caec 70%, transparent) 6% 90%,
+      color-mix(in srgb, #a58bc7 34%, transparent) 91% 100%
+    );
+}
+
+.reading-companion-note-bookmarks {
+  display: grid;
+  gap: 12px;
+}
+
+.reading-companion-bookmark {
+  position: relative;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--reading-accent, #b97a1f) 18%, #eadcc7);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 253, 247, .96), rgba(246, 238, 223, .76));
+  box-shadow: 0 9px 26px rgba(88, 60, 32, .07);
+}
+
+.reading-companion-bookmark.is-pinned::before {
+  content: "置顶";
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #8f621d;
+  background: #fff0bf;
+  font-size: 8px;
+  letter-spacing: .08em;
+}
+
+.reading-companion-bookmark header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+  padding-right: 38px;
+}
+
+.reading-companion-bookmark header span {
+  color: #a87324;
+  font-size: 9px;
+  letter-spacing: .12em;
+}
+
+.reading-companion-bookmark header time {
+  color: #ad9880;
+  font-size: 9px;
+}
+
+.reading-companion-bookmark blockquote {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-left: 3px solid #9dbbd2;
+  border-radius: 0 12px 12px 0;
+  background: rgba(205, 225, 239, .36);
+  color: #4c4038;
+  font-family: serif;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.reading-companion-bookmark p {
+  margin: 0;
+  color: #4d3b2b;
+  font-size: 12px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+.reading-companion-bookmark footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reading-companion-bookmark footer button {
+  padding: 7px 11px;
+  border: 1px solid rgba(181, 132, 54, .22);
+  border-radius: 999px;
+  background: rgba(255, 252, 244, .8);
+  color: #8f681f;
+  font-size: 10px;
+}
+
+.reading-companion-bookmark footer button.is-danger {
+  color: #a35d59;
+}
+
+.reading-room.is-dark .reading-companion-bookmark,
+:root[data-theme="dark"] .reading-companion-bookmark {
+  background: linear-gradient(145deg, rgba(49, 40, 32, .97), rgba(37, 31, 27, .92));
+  border-color: rgba(212, 174, 107, .2);
+}
+
+:root[data-theme="dark"] .reading-companion-bookmark p,
+:root[data-theme="dark"] .reading-companion-bookmark blockquote {
+  color: #eadfce;
+}
+
+@media (max-width: 380px) {
+  .reading-companion-tabs {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .reading-companion-tabs button {
+    font-size: 10px;
+  }
+
+  .reading-companion-tabs span {
+    min-width: 17px;
+    height: 17px;
+    margin-left: 2px;
+    padding: 0 4px;
+  }
+}
