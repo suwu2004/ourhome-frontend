@@ -1,0 +1,109 @@
+/* 六个小功能固定为两排三列；错位只做轻微上下呼吸，不再横向乱飘。 */
+.home-music-garden {
+  min-height: clamp(158px, 22vh, 204px);
+}
+
+.home-music-garden .home-room-shelf {
+  position: absolute;
+  z-index: 3;
+  inset: 6px 8px 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(66px, 1fr));
+  align-items: center;
+  justify-items: center;
+  gap: 4px 8px;
+  pointer-events: none;
+}
+
+.home-music-garden .home-room-app,
+.home-music-garden .home-room-app--music,
+.home-music-garden .home-room-app--letters,
+.home-music-garden .home-room-app--theater,
+.home-music-garden .home-room-app--vault,
+.home-music-garden .home-room-app--photos,
+.home-music-garden .home-room-app--reading {
+  --home-room-rest: 0px;
+  position: relative;
+  inset: auto;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: 100%;
+  max-width: 88px;
+  min-height: 58px;
+  margin: 0;
+  align-self: center;
+  justify-self: center;
+  pointer-events: auto;
+  animation: home-room-breathe 4.9s ease-in-out infinite;
+  will-change: transform;
+}
+
+.home-music-garden .home-room-app--music {
+  --home-room-rest: 3px;
+  animation-delay: -.4s;
+}
+
+.home-music-garden .home-room-app--letters {
+  --home-room-rest: -3px;
+  animation-delay: -1.3s;
+}
+
+.home-music-garden .home-room-app--theater {
+  --home-room-rest: 2px;
+  animation-delay: -2.2s;
+}
+
+.home-music-garden .home-room-app--vault {
+  --home-room-rest: -2px;
+  animation-delay: -3.1s;
+}
+
+.home-music-garden .home-room-app--photos {
+  --home-room-rest: 4px;
+  animation-delay: -4s;
+}
+
+.home-music-garden .home-room-app--reading {
+  --home-room-rest: -1px;
+  animation-delay: -4.6s;
+}
+
+@keyframes home-room-breathe {
+  0%, 100% {
+    transform: translateY(var(--home-room-rest));
+  }
+  50% {
+    transform: translateY(calc(var(--home-room-rest) - 5px));
+  }
+}
+
+.home-music-garden .home-room-app:active {
+  transform: translateY(var(--home-room-rest)) scale(.96) !important;
+}
+
+@media (max-width: 380px) {
+  .home-music-garden {
+    min-height: 150px;
+  }
+
+  .home-music-garden .home-room-shelf {
+    right: 3px;
+    left: 3px;
+    gap: 2px 3px;
+  }
+
+  .home-music-garden .home-room-app,
+  .home-music-garden .home-room-app--reading {
+    max-width: 76px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-music-garden .home-room-app {
+    animation: none;
+    transform: translateY(var(--home-room-rest));
+  }
+}
