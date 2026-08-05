@@ -1,7 +1,7 @@
-/* 共读小屋跟“一起听”等小功能一起悬浮在主页音符带里。 */
+/* 共读小屋和“一起听”属于同一组，但要保留清楚的呼吸距离。 */
 .home-music-garden .home-room-app--reading {
-  top: 160px;
-  left: 50%;
+  top: 210px;
+  left: 58%;
   width: 72px;
   margin-left: -36px;
   animation-delay: -2.8s;
@@ -17,12 +17,13 @@
 
 .home-music-garden .home-room-app--reading strong {
   color: color-mix(in srgb, var(--home-honey-deep) 82%, var(--home-ink));
+  line-height: 1.35;
 }
 
 @media (max-width: 560px) {
   .home-music-garden .home-room-app--reading {
-    top: 126px;
-    left: 50%;
+    top: 184px;
+    left: 58%;
     width: 66px;
     margin-left: -33px;
   }
@@ -30,7 +31,8 @@
 
 @media (max-width: 370px) {
   .home-music-garden .home-room-app--reading {
-    top: 120px;
+    top: 176px;
+    left: 59%;
     width: 62px;
     margin-left: -31px;
   }
