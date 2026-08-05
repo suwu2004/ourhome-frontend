@@ -28,13 +28,39 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
+          root_path = Path('src/Root.jsx')
+          root = root_path.read_text(encoding='utf-8')
+          start_anchor = "  return (\n    <>\n      <HomeHub"
+          start = root.find(start_anchor)
+          if start < 0:
+              raise SystemExit('Root home fragment anchor not found')
+          end_marker = "\n  );\n}"
+          end = root.find(end_marker, start)
+          if end < 0:
+              raise SystemExit('Root return end not found')
+          replacement = '''  return (
+    <HomeHub
+      onOpen={openRoom}
+      onRefresh={() => {
+        setHomeRefreshToken(value => value + 1);
+        refreshTheme();
+      }}
+      refreshToken={homeRefreshToken}
+    />
+  );'''
+          root_path.write_text(root[:start] + replacement + root[end + len("\n  );"):], encoding='utf-8')
+
           source = Path('.github/workflows/one-off-polish-reading-room.yml').read_text(encoding='utf-8')
           start_marker = "          python3 - <<'PY'\n"
           end_marker = "\n          PY\n"
-          start = source.index(start_marker) + len(start_marker)
-          end = source.index(end_marker, start)
-          lines = source[start:end].splitlines()
+          source_start = source.index(start_marker) + len(start_marker)
+          source_end = source.index(end_marker, source_start)
+          lines = source[source_start:source_end].splitlines()
           script = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines) + '\n'
+          root_section = script.index("root_path = Path('src/Root.jsx')")
+          home_section = script.index("home_path = Path('src/HomeHub.jsx')", root_section)
+          script = script[:root_section] + script[home_section:]
           Path('/tmp/polish_reading_room.py').write_text(script, encoding='utf-8')
           PY
           python3 /tmp/polish_reading_room.py
