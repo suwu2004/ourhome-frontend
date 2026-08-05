@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import App from './App.jsx';
 import { HomeHub } from './HomeHub.jsx';
+import ReadingRoom from './ReadingRoom.jsx';
 import { useTheme } from './ThemeContext.jsx';
 import VaultPage from './VaultPage.jsx';
 
-const roomKeys = new Set(['chat', 'theater', 'music', 'letters', 'memories', 'calendar', 'vault', 'photos', 'settings']);
+const roomKeys = new Set(['chat', 'theater', 'music', 'reading', 'letters', 'memories', 'calendar', 'vault', 'photos', 'settings']);
 
 function roomFromHash() {
   const key = window.location.hash.replace(/^#/, '');
@@ -38,6 +39,7 @@ export default function Root() {
   };
 
   if (room === 'vault') return <VaultPage onClose={goHome} />;
+  if (room === 'reading') return <ReadingRoom onClose={goHome} />;
   if (room !== 'home') return <App key={room} initialView={room} onHome={goHome} />;
 
   return (
