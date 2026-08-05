@@ -80,3 +80,5 @@ jobs:
           git add src/Root.jsx src/HomeHub.jsx src/ReadingHomeEntry.css src/ReadingRoom.jsx src/ReadingRoom.css .github/workflows
           git commit -m "Polish shared reading room UI"
           git push origin HEAD:agent/polish-reading-room-20260805
+
+# retry after making the Root patch robust
