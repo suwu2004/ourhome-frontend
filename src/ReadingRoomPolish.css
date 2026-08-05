@@ -133,6 +133,85 @@
   z-index: 2;
 }
 
+/* 正文页单独做成被花边包住的暖色信纸，书架背景保持原样。 */
+.reading-room--reader {
+  background:
+    radial-gradient(circle at 8% 16%, color-mix(in srgb, var(--reading-blush) 36%, transparent) 0 7%, transparent 24%),
+    radial-gradient(circle at 92% 82%, color-mix(in srgb, var(--reading-accent-soft) 72%, transparent) 0 8%, transparent 27%),
+    linear-gradient(155deg, color-mix(in srgb, var(--reading-bg) 94%, #fffdf6), color-mix(in srgb, var(--reading-blush) 22%, var(--reading-bg)));
+}
+
+.reading-room--reader .reading-page {
+  position: relative;
+  background:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--reading-accent) 9%, transparent) 0 2px, transparent 3px),
+    radial-gradient(circle at 87% 18%, color-mix(in srgb, var(--reading-blush) 18%, transparent) 0 3px, transparent 4px),
+    radial-gradient(circle at 22% 82%, color-mix(in srgb, var(--reading-accent-soft) 50%, transparent) 0 5px, transparent 7px),
+    linear-gradient(180deg, color-mix(in srgb, var(--reading-paper) 54%, transparent), color-mix(in srgb, var(--reading-blush) 12%, transparent));
+  background-size: 62px 62px, 84px 84px, 112px 112px, auto;
+}
+
+.reading-room--reader .reading-page article {
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--reading-accent) 22%, var(--reading-border));
+  background:
+    linear-gradient(90deg, transparent 0 16px, color-mix(in srgb, var(--reading-blush) 26%, transparent) 16px 17px, transparent 17px),
+    repeating-linear-gradient(0deg, transparent 0 31px, color-mix(in srgb, var(--reading-border) 21%, transparent) 31px 32px),
+    radial-gradient(circle at 92% 7%, color-mix(in srgb, var(--reading-accent-soft) 38%, transparent), transparent 18%),
+    radial-gradient(circle at 7% 94%, color-mix(in srgb, var(--reading-blush) 25%, transparent), transparent 20%),
+    color-mix(in srgb, var(--reading-paper) 98%, #fff7e8);
+  box-shadow:
+    0 22px 58px color-mix(in srgb, var(--reading-accent) 14%, transparent),
+    inset 0 0 0 7px color-mix(in srgb, var(--reading-paper) 72%, transparent),
+    inset 0 0 0 8px color-mix(in srgb, var(--reading-accent) 10%, transparent);
+}
+
+.reading-room--reader .reading-page article::after {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  z-index: 0;
+  border: 1px solid color-mix(in srgb, var(--reading-accent) 16%, transparent);
+  border-radius: 8px 20px 20px 8px;
+  background:
+    radial-gradient(circle at 0 0, color-mix(in srgb, var(--reading-accent) 28%, transparent) 0 2px, transparent 3px),
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--reading-blush) 35%, transparent) 0 2px, transparent 3px),
+    radial-gradient(circle at 0 100%, color-mix(in srgb, var(--reading-blush) 30%, transparent) 0 2px, transparent 3px),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--reading-accent) 24%, transparent) 0 2px, transparent 3px);
+  pointer-events: none;
+}
+
+.reading-room--reader .reading-chapter-mark,
+.reading-room--reader .reading-page h1,
+.reading-room--reader .reading-ornament,
+.reading-room--reader .reading-prose {
+  position: relative;
+  z-index: 1;
+}
+
+.reading-room--reader .reading-prose::before,
+.reading-room--reader .reading-prose::after {
+  position: absolute;
+  color: color-mix(in srgb, var(--reading-accent) 30%, transparent);
+  font-size: 18px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.reading-room--reader .reading-prose::before {
+  content: "❦";
+  top: -18px;
+  left: -11px;
+  transform: rotate(-18deg);
+}
+
+.reading-room--reader .reading-prose::after {
+  content: "❧";
+  right: -9px;
+  bottom: -22px;
+  transform: rotate(16deg);
+}
+
 @media (max-width: 560px) {
   .reading-shelf-header,
   .reading-reader-header {
@@ -146,6 +225,17 @@
 
   .reading-book-cover {
     aspect-ratio: 4 / 3;
+  }
+
+  .reading-room--reader .reading-page {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .reading-room--reader .reading-page article {
+    padding-left: 31px;
+    padding-right: 27px;
+    border-radius: 9px 22px 22px 9px;
   }
 }
 
