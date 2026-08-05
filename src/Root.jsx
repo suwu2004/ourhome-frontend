@@ -8,6 +8,7 @@ import ReadingShelfLiveNote from './ReadingShelfLiveNote.jsx';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
 import './ReadingLuZeReply.css';
+import './ReadingMobileFix.css';
 import { useTheme } from './ThemeContext.jsx';
 import VaultPage from './VaultPage.jsx';
 import TheaterRuleLibrary from './TheaterRuleLibrary.jsx';
