@@ -24,6 +24,12 @@
   background: linear-gradient(180deg, transparent 5%, rgba(213, 199, 235, .62) 6% 90%, rgba(153, 124, 196, .25) 91% 100%);
 }
 
+.reading-annotation-sheet {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .reading-luze-reply {
   position: relative;
   z-index: 1;
