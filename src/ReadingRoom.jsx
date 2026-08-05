@@ -3,6 +3,7 @@ import { apiFetch, BACKEND } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
 import './ReadingRoom.css';
 import './ReadingRoomPolish.css';
+import './ReadingAnnotations.css';
 
 function formatCount(value) {
   const number = Number(value) || 0;
@@ -22,6 +23,70 @@ function progressForChapter(chapterIndex, chapterCount) {
   return Number((((chapterIndex + 1) / chapterCount) * 100).toFixed(2));
 }
 
+function paragraphElementFromNode(node) {
+  const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+  return element?.closest?.('p[data-paragraph-index]') || null;
+}
+
+function selectionInsideParagraph(selection, readerElement) {
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+  const range = selection.getRangeAt(0);
+  const startParagraph = paragraphElementFromNode(range.startContainer);
+  const endParagraph = paragraphElementFromNode(range.endContainer);
+  if (!startParagraph || startParagraph !== endParagraph || !readerElement?.contains(startParagraph)) return null;
+  if (startParagraph.closest('mark.reading-highlight')) return null;
+
+  const rawQuote = range.toString();
+  const quote = rawQuote.trim();
+  if (!quote) return null;
+
+  const before = document.createRange();
+  before.selectNodeContents(startParagraph);
+  before.setEnd(range.startContainer, range.startOffset);
+  const leadingWhitespace = rawQuote.length - rawQuote.trimStart().length;
+  const startOffset = before.toString().length + leadingWhitespace;
+  const paragraphText = startParagraph.textContent || '';
+  const endOffset = Math.min(paragraphText.length, startOffset + quote.length);
+
+  return {
+    paragraph_index: Number(startParagraph.dataset.paragraphIndex) || 0,
+    start_offset: startOffset,
+    end_offset: endOffset,
+    quote: paragraphText.slice(startOffset, endOffset) || quote,
+  };
+}
+
+function renderAnnotatedParagraph(paragraph, paragraphIndex, annotations, onOpen) {
+  const rows = annotations
+    .filter(item => Number(item.paragraph_index) === paragraphIndex)
+    .filter(item => Number(item.start_offset) >= 0 && Number(item.end_offset) <= paragraph.length)
+    .sort((a, b) => Number(a.start_offset) - Number(b.start_offset));
+  if (!rows.length) return paragraph;
+
+  const nodes = [];
+  let cursor = 0;
+  rows.forEach(annotation => {
+    const start = Math.max(cursor, Number(annotation.start_offset));
+    const end = Math.max(start, Number(annotation.end_offset));
+    if (start > cursor) nodes.push(paragraph.slice(cursor, start));
+    if (end > start) {
+      nodes.push(
+        <mark
+          key={annotation.id}
+          className={`reading-highlight reading-highlight--${annotation.color || 'honey'} ${annotation.note ? 'has-note' : ''}`}
+          onClick={event => { event.stopPropagation(); onOpen(annotation); }}
+          title={annotation.note || '点开这条划线'}
+        >
+          {paragraph.slice(start, end)}
+        </mark>,
+      );
+    }
+    cursor = Math.max(cursor, end);
+  });
+  if (cursor < paragraph.length) nodes.push(paragraph.slice(cursor));
+  return nodes;
+}
+
 export function ReadingRoom({ onClose }) {
   const { darkMode, theme: C } = useTheme();
   const [books, setBooks] = useState([]);
@@ -32,9 +97,17 @@ export function ReadingRoom({ onClose }) {
   const [tocOpen, setTocOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [readerState, setReaderState] = useState('idle');
+  const [annotations, setAnnotations] = useState([]);
+  const [annotationState, setAnnotationState] = useState('idle');
+  const [selectionDraft, setSelectionDraft] = useState(null);
+  const [selectionNote, setSelectionNote] = useState('');
+  const [activeAnnotation, setActiveAnnotation] = useState(null);
+  const [activeAnnotationNote, setActiveAnnotationNote] = useState('');
+  const [annotationBusy, setAnnotationBusy] = useState(false);
   const fileInputRef = useRef(null);
   const readerRef = useRef(null);
   const saveTimerRef = useRef(null);
+  const selectionTimerRef = useRef(null);
 
   const roomStyle = {
     '--reading-bg': C.cream || '#fff8ed',
@@ -62,16 +135,37 @@ export function ReadingRoom({ onClose }) {
     }
   }, []);
 
+  const loadAnnotations = useCallback(async (bookId, chapterId) => {
+    if (!bookId || !chapterId) {
+      setAnnotations([]);
+      return;
+    }
+    setAnnotationState('loading');
+    try {
+      const response = await apiFetch(`${BACKEND}/reading/books/${bookId}/annotations?chapter_id=${encodeURIComponent(chapterId)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || '划线没有打开');
+      setAnnotations(Array.isArray(data) ? data : []);
+      setAnnotationState('ready');
+    } catch (error) {
+      setBookError(error.message || '划线没有打开');
+      setAnnotationState('error');
+    }
+  }, []);
+
   useEffect(() => {
     loadBooks();
     return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+      if (selectionTimerRef.current) window.clearTimeout(selectionTimerRef.current);
     };
   }, [loadBooks]);
 
   const openBook = useCallback(async bookId => {
     setReaderState('loading');
     setBookError('');
+    setSelectionDraft(null);
+    setActiveAnnotation(null);
     try {
       const response = await apiFetch(`${BACKEND}/reading/books/${bookId}`);
       const data = await response.json();
@@ -115,6 +209,8 @@ export function ReadingRoom({ onClose }) {
     const safeIndex = Math.max(0, Math.min(index, activeBook.chapters.length - 1));
     setActiveChapterIndex(safeIndex);
     setTocOpen(false);
+    setSelectionDraft(null);
+    setActiveAnnotation(null);
     readerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     saveProgress(activeBook, safeIndex);
   }, [activeBook, saveProgress]);
@@ -141,7 +237,7 @@ export function ReadingRoom({ onClose }) {
   };
 
   const deleteBook = async book => {
-    if (!window.confirm(`确定把《${book.title}》从共读小屋移走吗？阅读进度也会一起删除。`)) return;
+    if (!window.confirm(`确定把《${book.title}》从共读小屋移走吗？阅读进度和划线也会一起删除。`)) return;
     setBookError('');
     try {
       const response = await apiFetch(`${BACKEND}/reading/books/${book.id}`, { method: 'DELETE' });
@@ -177,11 +273,106 @@ export function ReadingRoom({ onClose }) {
   const readingPercent = activeBook ? progressForChapter(activeChapterIndex, activeBook.chapters.length) : 0;
   const currentShelfBook = books[0] || null;
 
+  useEffect(() => {
+    if (activeBook?.id && currentChapter?.id) loadAnnotations(activeBook.id, currentChapter.id);
+    else setAnnotations([]);
+  }, [activeBook?.id, currentChapter?.id, loadAnnotations]);
+
+  const captureSelection = useCallback(() => {
+    if (selectionTimerRef.current) window.clearTimeout(selectionTimerRef.current);
+    selectionTimerRef.current = window.setTimeout(() => {
+      const selected = selectionInsideParagraph(window.getSelection(), readerRef.current);
+      if (!selected) return;
+      if (selected.quote.length > 1200) {
+        setBookError('一次划线不要超过 1200 字。');
+        return;
+      }
+      setSelectionDraft(selected);
+      setSelectionNote('');
+      setActiveAnnotation(null);
+      window.getSelection()?.removeAllRanges();
+    }, 40);
+  }, []);
+
+  const saveNewAnnotation = async () => {
+    if (!activeBook?.id || !currentChapter?.id || !selectionDraft || annotationBusy) return;
+    setAnnotationBusy(true);
+    setBookError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/reading/books/${activeBook.id}/annotations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...selectionDraft,
+          chapter_id: currentChapter.id,
+          chapter_index: activeChapterIndex,
+          note: selectionNote,
+          color: 'honey',
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || '这条划线没有保存成功');
+      setAnnotations(current => [...current, data].sort((a, b) => Number(a.paragraph_index) - Number(b.paragraph_index) || Number(a.start_offset) - Number(b.start_offset)));
+      setSelectionDraft(null);
+      setSelectionNote('');
+    } catch (error) {
+      setBookError(error.message || '这条划线没有保存成功');
+    } finally {
+      setAnnotationBusy(false);
+    }
+  };
+
+  const openAnnotation = annotation => {
+    setActiveAnnotation(annotation);
+    setActiveAnnotationNote(annotation.note || '');
+    setSelectionDraft(null);
+  };
+
+  const saveExistingAnnotation = async () => {
+    if (!activeAnnotation?.id || annotationBusy) return;
+    setAnnotationBusy(true);
+    setBookError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/reading/annotations/${activeAnnotation.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: activeAnnotationNote, color: activeAnnotation.color || 'honey' }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || '批注没有保存成功');
+      setAnnotations(current => current.map(item => item.id === data.id ? data : item));
+      setActiveAnnotation(data);
+    } catch (error) {
+      setBookError(error.message || '批注没有保存成功');
+    } finally {
+      setAnnotationBusy(false);
+    }
+  };
+
+  const deleteAnnotation = async () => {
+    if (!activeAnnotation?.id || annotationBusy) return;
+    if (!window.confirm('把这条划线和批注一起擦掉吗？')) return;
+    setAnnotationBusy(true);
+    setBookError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/reading/annotations/${activeAnnotation.id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || '划线没有删除成功');
+      setAnnotations(current => current.filter(item => item.id !== activeAnnotation.id));
+      setActiveAnnotation(null);
+      setActiveAnnotationNote('');
+    } catch (error) {
+      setBookError(error.message || '划线没有删除成功');
+    } finally {
+      setAnnotationBusy(false);
+    }
+  };
+
   if (activeBook) {
     return (
       <main className={`reading-room reading-room--reader ${darkMode ? 'is-dark' : ''}`} style={roomStyle}>
         <header className="reading-reader-header">
-          <button type="button" onClick={() => { setActiveBook(null); setTocOpen(false); loadBooks(); }} aria-label="返回书架">←</button>
+          <button type="button" onClick={() => { setActiveBook(null); setTocOpen(false); setSelectionDraft(null); setActiveAnnotation(null); loadBooks(); }} aria-label="返回书架">←</button>
           <div>
             <span>TOGETHER READING</span>
             <strong>{activeBook.title}</strong>
@@ -221,8 +412,15 @@ export function ReadingRoom({ onClose }) {
               <div className="reading-chapter-mark">{String(activeChapterIndex + 1).padStart(2, '0')} / {String(activeBook.chapters.length).padStart(2, '0')}</div>
               <h1>{currentChapter.title}</h1>
               <div className="reading-ornament">✦　♡　✦</div>
-              <div className="reading-prose">
-                {paragraphs.map((paragraph, index) => <p key={`${activeChapterIndex}-${index}`}>{paragraph}</p>)}
+              <div className="reading-prose" onMouseUp={captureSelection} onTouchEnd={captureSelection}>
+                {paragraphs.map((paragraph, index) => (
+                  <p key={`${activeChapterIndex}-${index}`} data-paragraph-index={index}>
+                    {renderAnnotatedParagraph(paragraph, index, annotations, openAnnotation)}
+                  </p>
+                ))}
+              </div>
+              <div className="reading-selection-hint">
+                {annotationState === 'loading' ? '正在把我们的划线放回来…' : '长按或拖动选中文字，就能留下划线和想法。'}
               </div>
             </article>
           )}
@@ -233,6 +431,42 @@ export function ReadingRoom({ onClose }) {
           <span>{Math.round(readingPercent)}%</span>
           <button type="button" disabled={activeChapterIndex >= activeBook.chapters.length - 1} onClick={() => selectChapter(activeChapterIndex + 1)}>下一篇 →</button>
         </footer>
+
+        {selectionDraft && (
+          <div className="reading-annotation-layer" onMouseDown={event => { if (event.target === event.currentTarget) setSelectionDraft(null); }}>
+            <section className="reading-annotation-sheet">
+              <header><span>NEW HIGHLIGHT</span><button type="button" onClick={() => setSelectionDraft(null)}>×</button></header>
+              <blockquote>“{selectionDraft.quote}”</blockquote>
+              <label>
+                <span>檀檀想写点什么</span>
+                <textarea value={selectionNote} onChange={event => setSelectionNote(event.target.value)} maxLength={4000} placeholder="可以只划线，也可以留下这一刻的想法……" />
+              </label>
+              <div className="reading-annotation-actions">
+                <button type="button" className="is-quiet" onClick={() => setSelectionDraft(null)}>算了</button>
+                <button type="button" onClick={saveNewAnnotation} disabled={annotationBusy}>{annotationBusy ? '正在夹进书里…' : '保存划线'}</button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeAnnotation && (
+          <div className="reading-annotation-layer" onMouseDown={event => { if (event.target === event.currentTarget) setActiveAnnotation(null); }}>
+            <section className="reading-annotation-sheet">
+              <header><span>OUR NOTE</span><button type="button" onClick={() => setActiveAnnotation(null)}>×</button></header>
+              <blockquote>“{activeAnnotation.quote}”</blockquote>
+              <label>
+                <span>檀檀的批注</span>
+                <textarea value={activeAnnotationNote} onChange={event => setActiveAnnotationNote(event.target.value)} maxLength={4000} placeholder="这条划线还没有写想法。" />
+              </label>
+              <p className="reading-luze-coming">陆泽的回应位已经留好，下一小步接进来。</p>
+              <div className="reading-annotation-actions reading-annotation-actions--three">
+                <button type="button" className="is-danger" onClick={deleteAnnotation} disabled={annotationBusy}>擦掉</button>
+                <button type="button" className="is-quiet" onClick={() => setActiveAnnotation(null)}>关闭</button>
+                <button type="button" onClick={saveExistingAnnotation} disabled={annotationBusy}>{annotationBusy ? '保存中…' : '保存批注'}</button>
+              </div>
+            </section>
+          </div>
+        )}
       </main>
     );
   }
