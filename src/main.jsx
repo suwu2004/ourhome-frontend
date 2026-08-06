@@ -5,8 +5,10 @@ import './styles.css'
 import { applyAppFont, getSavedFont } from './fonts.js'
 import { MusicPlayerProvider } from './MusicPlayerContext.jsx'
 import { ThemeProvider } from './ThemeContext.jsx'
+import { installMessageModelLabels } from './messageModelLabels.js'
 
 applyAppFont(getSavedFont(), { persist: false })
+installMessageModelLabels()
 
 const updateViewportHeight = () => {
   const viewportHeight = window.visualViewport?.height || window.innerHeight
