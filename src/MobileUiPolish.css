@@ -48,12 +48,6 @@
     height: 32px;
   }
 
-  .toybox-shared-room .toybox-bear::before {
-    content: "୨୧" !important;
-    font-size: 21px !important;
-    line-height: 1 !important;
-  }
-
   .toybox-shared-room .toybox-title small::after {
     font-size: 8px !important;
     letter-spacing: .14em !important;
@@ -101,10 +95,17 @@
     font-size: 13px !important;
   }
 
-  /* Four games become a compact 2 x 2 shelf on phones. */
+  /* Four games become one real 2 x 2 shelf on phones. The old budget CSS made Secret span both columns. */
   .toybox-shared-room .toybox-game-grid--three {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
+  }
+
+  .toybox-shared-room .toybox-game-grid--three .toybox-game-card,
+  .toybox-shared-room .toybox-game-grid--three .toybox-game-card--secret,
+  .toybox-shared-room .toybox-game-grid--three .toybox-game-card--gomoku {
+    grid-column: auto !important;
+    min-width: 0 !important;
   }
 
   .toybox-shared-room .toybox-game-grid--three .toybox-game-card {

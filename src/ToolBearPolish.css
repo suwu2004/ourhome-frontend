@@ -1,29 +1,60 @@
 /* 工具熊：保留玩具箱逻辑，只做更克制的视觉和文案收束。 */
+:root {
+  --toolbear-bow: #d4ad78;
+}
+
+/* 不再依赖 Unicode 字形：直接用 CSS 画一个小蝴蝶结，避免不同手机渲染成奇怪字符。 */
+.home-toolbear-symbol,
+.toybox-bear {
+  position: relative;
+  font-size: 0 !important;
+  color: transparent !important;
+}
+
 .home-toolbear-symbol {
   width: 34px;
   height: 34px;
+  display: block;
+  background: radial-gradient(circle at 50% 49%, var(--toolbear-bow) 0 2.4px, transparent 2.7px);
+}
+
+.toybox-bear {
   display: grid;
   place-items: center;
-  color: currentColor;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 22px;
-  font-weight: 400;
-  line-height: 1;
+  background: radial-gradient(circle at 50% 49%, var(--toolbear-bow) 0 2.5px, transparent 2.8px);
 }
 
-/* 原来的熊脸线稿全部隐藏，只留一个极简可爱的蝴蝶结符号。 */
+.home-toolbear-symbol::before,
+.home-toolbear-symbol::after,
+.toybox-bear::before,
+.toybox-bear::after {
+  content: "" !important;
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 9px;
+  box-sizing: border-box;
+  border: 2px solid var(--toolbear-bow);
+  background: rgba(255,255,255,.08);
+}
+
+.home-toolbear-symbol::before,
+.toybox-bear::before {
+  left: 50%;
+  border-radius: 70% 44% 62% 42%;
+  transform: translate(-100%, -58%) rotate(18deg);
+}
+
+.home-toolbear-symbol::after,
+.toybox-bear::after {
+  right: 50%;
+  border-radius: 44% 70% 42% 62%;
+  transform: translate(100%, -58%) rotate(-18deg);
+}
+
+/* 原来的熊脸线稿全部隐藏，只留 CSS 蝴蝶结。 */
 .toybox-bear svg {
   display: none !important;
-}
-
-.toybox-bear::before {
-  content: "୨୧";
-  display: block;
-  color: currentColor;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 24px;
-  font-weight: 400;
-  line-height: 1;
 }
 
 /* 右上角历史入口与底部「记录」重复，保留下方记录入口。 */
