@@ -1,10 +1,12 @@
+@import './RoomHeaderPolish.css';
+
 /* Final geometry pass: the whole navigation zone stays visually consistent. */
 body[data-ourhome-room] {
-  --ourhome-room-nav-height: 76px;
-  --ourhome-room-title-row: 44px;
+  --ourhome-room-nav-height: 82px;
+  --ourhome-room-title-row: 48px;
 }
 
-/* Rooms with secondary tabs: 44px title row + compact tab row. */
+/* Rooms with secondary tabs: compact title row + tab row inside the same header. */
 body[data-ourhome-room="music"] header.ourhome-safe-top,
 body[data-ourhome-room="calendar"] header.ourhome-safe-top,
 body[data-ourhome-room="vault"] header.ourhome-safe-top {
@@ -19,8 +21,8 @@ body[data-ourhome-room="vault"] header.ourhome-safe-top > div:first-child {
 body[data-ourhome-room="music"] header.ourhome-safe-top [role="tablist"] button,
 body[data-ourhome-room="vault"] header.ourhome-safe-top [role="tablist"] button,
 body[data-ourhome-room="calendar"] header.ourhome-safe-top > div:nth-child(2) > span {
-  padding-top: 5px !important;
-  padding-bottom: 7px !important;
+  padding-top: 6px !important;
+  padding-bottom: 8px !important;
   font-size: 10.5px !important;
 }
 
@@ -59,7 +61,7 @@ body[data-ourhome-room="toybox"] .toybox-shared-room:not(:has(.toybox-shelf)) .t
 
 @media (max-width: 480px) {
   body[data-ourhome-room] {
-    --ourhome-room-nav-height: 72px;
-    --ourhome-room-title-row: 42px;
+    --ourhome-room-nav-height: 78px;
+    --ourhome-room-title-row: 46px;
   }
 }
