@@ -7,6 +7,7 @@ import ReadingCompanionPanel from './ReadingCompanionPanel.jsx';
 import ReadingShelfLiveNote from './ReadingShelfLiveNote.jsx';
 import ToyBoxSharedRoom from './ToyBoxSharedRoom.jsx';
 import ToyBoxGomokuIntegration from './ToyBoxGomokuIntegration.jsx';
+import ToolBearGameDock from './ToolBearGameDock.jsx';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
 import './ToyBoxBudget.css';
@@ -14,6 +15,8 @@ import './ToolBearPolish.css';
 import './ReadingLuZeReply.css';
 import './ReadingMobileFix.css';
 import './MobileUiPolish.css';
+import './UnifiedRoomHeaders.css';
+import './RoomHeaderFinal.css';
 import { useTheme } from './ThemeContext.jsx';
 import VaultPage from './VaultPage.jsx';
 import TheaterRuleLibrary from './TheaterRuleLibrary.jsx';
@@ -77,11 +80,11 @@ function ToyboxHomeEntry({ onOpen }) {
   const target = useHomeShelfTarget();
   if (!target) return null;
   return createPortal(
-    <button className="home-room-app home-room-app--toybox" type="button" onClick={onOpen} aria-label="打开工具熊">
+    <button className="home-room-app home-room-app--toybox" type="button" onClick={onOpen} aria-label="打开玩具熊">
       <span>
         <span className="home-toolbear-symbol" aria-hidden="true">୨୧</span>
       </span>
-      <strong>工具熊</strong>
+      <strong>玩具熊</strong>
     </button>,
     target,
   );
@@ -102,6 +105,13 @@ export default function Root() {
     };
   }, []);
 
+  useEffect(() => {
+    document.body.dataset.ourhomeRoom = room;
+    return () => {
+      if (document.body.dataset.ourhomeRoom === room) delete document.body.dataset.ourhomeRoom;
+    };
+  }, [room]);
+
   const openRoom = key => {
     window.location.hash = key;
     setRoom(key);
@@ -119,6 +129,7 @@ export default function Root() {
       <>
         <ToyBoxSharedRoom onClose={goHome} />
         <ToyBoxGomokuIntegration />
+        <ToolBearGameDock />
       </>
     );
   }
