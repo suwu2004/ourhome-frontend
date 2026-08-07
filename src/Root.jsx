@@ -78,7 +78,7 @@ function ToyboxHomeEntry({ onOpen }) {
   return createPortal(
     <button className="home-room-app home-room-app--toybox" type="button" onClick={onOpen} aria-label="打开工具熊">
       <span>
-        <span className="home-toolbear-symbol" aria-hidden="true">✦</span>
+        <span className="home-toolbear-symbol" aria-hidden="true">୨୧</span>
       </span>
       <strong>工具熊</strong>
     </button>,
