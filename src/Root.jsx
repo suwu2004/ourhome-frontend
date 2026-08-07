@@ -8,6 +8,7 @@ import ReadingShelfLiveNote from './ReadingShelfLiveNote.jsx';
 import ToyBoxRoom from './ToyBoxRoom.jsx';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
+import './ToyBoxBudget.css';
 import './ReadingLuZeReply.css';
 import './ReadingMobileFix.css';
 import { useTheme } from './ThemeContext.jsx';
@@ -76,12 +77,13 @@ function ToyboxHomeEntry({ onOpen }) {
     <button className="home-room-app home-room-app--toybox" type="button" onClick={onOpen} aria-label="打开玩具箱">
       <span>
         <svg className="home-room-glyph home-bear-icon" viewBox="0 0 36 36" aria-hidden="true">
-          <circle cx="11" cy="11" r="5" />
-          <circle cx="25" cy="11" r="5" />
-          <path d="M8.5 20c0-7.7 4.2-12 9.5-12s9.5 4.3 9.5 12-4.2 11-9.5 11S8.5 27.7 8.5 20Z" />
-          <circle cx="14" cy="19" r="1.3" />
-          <circle cx="22" cy="19" r="1.3" />
-          <path d="M16 24c1.4 1.2 2.6 1.2 4 0M18 22.5V25" />
+          <circle cx="11.5" cy="10.5" r="4.2" />
+          <circle cx="24.5" cy="10.5" r="4.2" />
+          <path d="M8.2 20.2C8.2 12.7 12 8.5 18 8.5s9.8 4.2 9.8 11.7c0 6.9-3.7 10.8-9.8 10.8s-9.8-3.9-9.8-10.8Z" />
+          <circle cx="14.2" cy="18.6" r="1.05" fill="currentColor" stroke="none" />
+          <circle cx="21.8" cy="18.6" r="1.05" fill="currentColor" stroke="none" />
+          <ellipse cx="18" cy="23" rx="4.1" ry="3.4" />
+          <path d="m16.5 22.3 1.5 1 1.5-1M18 23.3v1.4M16.1 25c1.2.9 2.6.9 3.8 0" />
         </svg>
       </span>
       <strong>玩具箱</strong>
