@@ -99,7 +99,7 @@ export default function ApiUsageLogPanel() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <strong style={{ fontSize: 15 }}>API 调用记录</strong>
-                  <small style={{ display: 'block', marginTop: 3, color: C.muted, fontSize: 9.5 }}>最近 24 小时 · 精确到秒 · 不保存聊天正文和密钥</small>
+                  <small style={{ display: 'block', marginTop: 3, color: C.muted, fontSize: 9.5 }}>最近 24 小时 · 调用开始时间精确到秒 · 不保存聊天正文和密钥</small>
                 </div>
                 <button type="button" onClick={load} disabled={loading} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontSize: 18, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
                 <button type="button" onClick={() => setOpen(false)} style={{ border: 0, background: 'transparent', color: C.text, fontSize: 20, cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
@@ -131,7 +131,7 @@ export default function ApiUsageLogPanel() {
                   return (
                     <article key={row.id} style={{ padding: '10px 11px', borderRadius: 13, border: `1px solid ${failed ? C.blushDeep : C.borderLight}`, background: C.white }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <b style={{ fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{clock(row.created_at)}</b>
+                        <b style={{ fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{clock(row.started_at || row.created_at)}</b>
                         <span style={{ marginLeft: 'auto', color: failed ? C.blushDeep : C.honeyDeep, fontSize: 9.5 }}>{failed ? `失败 · HTTP ${row.http_status || '—'}` : `HTTP ${row.http_status || 200}`}</span>
                       </div>
                       <div style={{ marginTop: 5, fontSize: 11.5, lineHeight: 1.45, overflowWrap: 'anywhere' }}>
