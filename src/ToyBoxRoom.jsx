@@ -4,9 +4,12 @@ import { useTheme } from './ThemeContext.jsx';
 import './ToyBoxRoom.css';
 
 const HARMONY_STORE = 'ourhome_toybox_harmony_v1';
+const HARMONY_QUEUE_STORE = 'ourhome_toybox_harmony_queue_v2';
 const SECRET_STORE = 'ourhome_toybox_secret_recent_v1';
+const SECRET_QUEUE_STORE = 'ourhome_toybox_secret_queue_v2';
 const DRAWING_STORE = 'ourhome_toybox_drawing_recent_v1';
-const CAT_STORE = 'ourhome_toybox_cat2048_v1';
+const DRAWING_QUEUE_STORE = 'ourhome_toybox_drawing_queue_v2';
+const MODEL_STORE = 'ourhome_toybox_budget_model_v1';
 
 function readJson(key, fallback) {
   try {
@@ -21,6 +24,14 @@ function writeJson(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore storage failures */ }
 }
 
+function readString(key) {
+  try { return localStorage.getItem(key) || ''; } catch { return ''; }
+}
+
+function writeString(key, value) {
+  try { localStorage.setItem(key, value || ''); } catch { /* ignore storage failures */ }
+}
+
 async function postToybox(path, body = {}) {
   const response = await apiFetch(`${BACKEND}${path}`, {
     method: 'POST',
@@ -32,42 +43,114 @@ async function postToybox(path, body = {}) {
   return data;
 }
 
+async function fetchToyboxModels() {
+  const response = await apiFetch(`${BACKEND}/settings/models`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || '模型列表暂时没拿到');
+  return Array.isArray(data?.models) ? data.models.map(String).filter(Boolean) : [];
+}
+
+function isToyboxModelCandidate(model) {
+  const value = String(model || '').toLowerCase();
+  if (!value) return false;
+  return !/(embedding|rerank|tts|whisper|audio|image[-_ ]?gen|dall[-_ ]?e|stable[-_ ]?diffusion|moderation|ocr|transcrib)/i.test(value);
+}
+
+function explicitPriceHint(model) {
+  const value = String(model || '').toLowerCase();
+  const matches = [...value.matchAll(/(?:^|[-_\[(（])(?:x|price|cost)?\s*(0\.\d{1,4})(?=[\])）_\-])/g)]
+    .map(match => Number(match[1]))
+    .filter(number => Number.isFinite(number) && number > 0 && number < 1);
+  return matches.length ? Math.min(...matches) : null;
+}
+
+function budgetScore(model) {
+  const value = String(model || '').toLowerCase();
+  const explicit = explicitPriceHint(value);
+  if (explicit !== null) return explicit;
+  let score = 50;
+  if (/flash[-_ ]?lite|nano/.test(value)) score = 1;
+  else if (/haiku|mini|lite|small/.test(value)) score = 2;
+  else if (/flash|instant/.test(value)) score = 3;
+  else if (/sonnet/.test(value)) score = 7;
+  else if (/opus|pro|max/.test(value)) score = 12;
+  if (/thinking|reasoning/.test(value)) score += 0.8;
+  return score;
+}
+
+function pickBudgetModel(models) {
+  return [...models]
+    .filter(isToyboxModelCandidate)
+    .sort((a, b) => budgetScore(a) - budgetScore(b) || String(a).localeCompare(String(b)))[0] || '';
+}
+
+function taggedRounds(data, model) {
+  const rounds = Array.isArray(data?.rounds) ? data.rounds : (data ? [data] : []);
+  return rounds.filter(Boolean).map(item => ({ ...item, _toyboxModel: model || item.model || data?.model || '' }));
+}
+
+function takeQueuedRound(queue, model) {
+  const list = Array.isArray(queue) ? queue : [];
+  const index = list.findIndex(item => !model || !item?._toyboxModel || item._toyboxModel === model);
+  if (index < 0) return { round: null, rest: list };
+  return { round: list[index], rest: [...list.slice(0, index), ...list.slice(index + 1)] };
+}
+
 function BearIcon() {
   return (
     <svg viewBox="0 0 64 64" aria-hidden="true">
-      <circle cx="18" cy="18" r="9" />
-      <circle cx="46" cy="18" r="9" />
-      <path d="M14 34c0-13 8-22 18-22s18 9 18 22-8 20-18 20-18-7-18-20Z" />
-      <circle cx="25" cy="31" r="2.5" />
-      <circle cx="39" cy="31" r="2.5" />
-      <path d="M28 39c2.7 2.5 5.3 2.5 8 0M32 36v4" />
+      <circle cx="18" cy="18" r="8" />
+      <circle cx="46" cy="18" r="8" />
+      <path d="M13.5 34.5c0-13.8 7.6-22 18.5-22s18.5 8.2 18.5 22c0 12.5-7 20-18.5 20s-18.5-7.5-18.5-20Z" />
+      <circle cx="25" cy="32" r="1.8" fill="currentColor" stroke="none" />
+      <circle cx="39" cy="32" r="1.8" fill="currentColor" stroke="none" />
+      <ellipse cx="32" cy="40" rx="7.5" ry="6" />
+      <path d="M29.4 39.2 32 41l2.6-1.8M32 41v2.2M28.6 43.3c2.2 1.7 4.6 1.7 6.8 0" />
     </svg>
   );
 }
 
 const GAME_CARDS = [
-  { key: 'harmony', icon: '💌', title: '默契大考验', note: '答案先锁住，再一起揭晓' },
-  { key: 'cat2048', icon: '🐱', title: '猫猫 2048', note: '把小猫一路合成猫猫王' },
-  { key: 'drawing', icon: '🎨', title: '你画我猜', note: '你负责鬼画符，陆泽负责猜' },
-  { key: 'secret', icon: '🔐', title: '暗号猜猜', note: '每局随机，不被固定词库绑住' },
+  { key: 'harmony', icon: '💌', title: '默契大考验', note: '一次锁一批答案，慢慢揭晓' },
+  { key: 'drawing', icon: '🎨', title: '你画我猜', note: '画题批量缓存，猜画才调用一次' },
+  { key: 'secret', icon: '🔐', title: '暗号猜猜', note: '随机题材，一次藏一批词' },
 ];
 
-function HarmonyGame() {
+function HarmonyGame({ model, modelReady }) {
   const [round, setRound] = useState(null);
   const [choice, setChoice] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [stats, setStats] = useState(() => readJson(HARMONY_STORE, { played: 0, matches: 0, recent: [] }));
+  const [queue, setQueue] = useState(() => readJson(HARMONY_QUEUE_STORE, []));
 
   const loadRound = useCallback(async () => {
-    if (loading) return;
+    if (loading || !modelReady) return;
     setLoading(true);
     setError('');
     setChoice('');
     try {
-      const data = await postToybox('/toybox/harmony-round', { recent_questions: stats.recent || [] });
-      setRound(data);
-      const next = { ...stats, recent: [data.question, ...(stats.recent || [])].slice(0, 12) };
+      const cached = takeQueuedRound(queue, model);
+      if (cached.round) {
+        setRound(cached.round);
+        setQueue(cached.rest);
+        writeJson(HARMONY_QUEUE_STORE, cached.rest);
+        return;
+      }
+
+      const data = await postToybox('/toybox/harmony-round', {
+        recent_questions: stats.recent || [],
+        count: 10,
+        model,
+      });
+      const generated = taggedRounds(data, model);
+      if (!generated.length) throw new Error('这批默契题没抽出来');
+      const [first, ...rest] = generated;
+      setRound(first);
+      setQueue(rest);
+      writeJson(HARMONY_QUEUE_STORE, rest);
+      const questions = generated.map(item => item.question).filter(Boolean);
+      const next = { ...stats, recent: [...questions, ...(stats.recent || [])].slice(0, 24) };
       setStats(next);
       writeJson(HARMONY_STORE, next);
     } catch (err) {
@@ -75,9 +158,9 @@ function HarmonyGame() {
     } finally {
       setLoading(false);
     }
-  }, [loading, stats]);
+  }, [loading, modelReady, queue, model, stats]);
 
-  useEffect(() => { if (!round && !loading && !error) loadRound(); }, [round, loading, error, loadRound]);
+  useEffect(() => { if (!round && !loading && !error && modelReady) loadRound(); }, [round, loading, error, modelReady, loadRound]);
 
   const choose = value => {
     if (!round || choice) return;
@@ -97,8 +180,9 @@ function HarmonyGame() {
   return (
     <section className="toy-game toy-harmony">
       <div className="toy-score-strip"><span>玩过 {stats.played || 0} 题</span><b>默契 {rate}%</b></div>
-      {loading && <div className="toy-loading">陆泽正在偷偷锁答案……</div>}
-      {error && <div className="toy-error"><p>{error}</p><button type="button" onClick={loadRound}>再抽一次</button></div>}
+      {!modelReady && <div className="toy-loading">先等省钱模型准备好，别烧冤枉钱……</div>}
+      {loading && modelReady && <div className="toy-loading">陆泽一次偷偷锁十道答案……</div>}
+      {error && <div className="toy-error"><p>{error}</p><button type="button" onClick={loadRound}>再抽一批</button></div>}
       {round && !loading && (
         <>
           <article className="toy-question-card">
@@ -123,145 +207,7 @@ function HarmonyGame() {
   );
 }
 
-const CAT_TILES = {
-  1: '🐾', 2: '🧶', 4: '🐟', 8: '🥫', 16: '🐱', 32: '😼',
-  64: '🐈', 128: '🐈‍⬛', 256: '🏠', 512: '💗', 1024: '✨', 2048: '👑',
-};
-
-function emptyBoard() { return Array.from({ length: 4 }, () => Array(4).fill(0)); }
-function cloneBoard(board) { return board.map(row => [...row]); }
-function transpose(board) { return board[0].map((_, col) => board.map(row => row[col])); }
-
-function collapseLine(line) {
-  const values = line.filter(Boolean);
-  const merged = [];
-  let gained = 0;
-  for (let index = 0; index < values.length; index += 1) {
-    if (values[index] === values[index + 1]) {
-      const value = values[index] * 2;
-      merged.push(value);
-      gained += value;
-      index += 1;
-    } else merged.push(values[index]);
-  }
-  while (merged.length < 4) merged.push(0);
-  return { line: merged, gained };
-}
-
-function moveBoard(board, direction) {
-  let working = cloneBoard(board);
-  let gained = 0;
-  if (direction === 'up' || direction === 'down') working = transpose(working);
-  const reverse = direction === 'right' || direction === 'down';
-  working = working.map(row => {
-    const input = reverse ? [...row].reverse() : row;
-    const collapsed = collapseLine(input);
-    gained += collapsed.gained;
-    return reverse ? collapsed.line.reverse() : collapsed.line;
-  });
-  if (direction === 'up' || direction === 'down') working = transpose(working);
-  return { board: working, gained };
-}
-
-function boardsEqual(left, right) {
-  return left.every((row, r) => row.every((value, c) => value === right[r][c]));
-}
-
-function addRandomTile(board) {
-  const empty = [];
-  board.forEach((row, r) => row.forEach((value, c) => { if (!value) empty.push([r, c]); }));
-  if (!empty.length) return board;
-  const next = cloneBoard(board);
-  const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-  next[r][c] = Math.random() < 0.88 ? 1 : 2;
-  return next;
-}
-
-function newCatGame() { return addRandomTile(addRandomTile(emptyBoard())); }
-
-function hasMoves(board) {
-  if (board.some(row => row.some(value => !value))) return true;
-  for (let r = 0; r < 4; r += 1) {
-    for (let c = 0; c < 4; c += 1) {
-      if (r < 3 && board[r][c] === board[r + 1][c]) return true;
-      if (c < 3 && board[r][c] === board[r][c + 1]) return true;
-    }
-  }
-  return false;
-}
-
-function Cat2048Game() {
-  const saved = readJson(CAT_STORE, {});
-  const [board, setBoard] = useState(() => Array.isArray(saved.board) ? saved.board : newCatGame());
-  const [score, setScore] = useState(() => Number(saved.score) || 0);
-  const [best, setBest] = useState(() => Number(saved.best) || 0);
-  const touchStart = useRef(null);
-
-  const persist = useCallback((nextBoard, nextScore, nextBest) => {
-    writeJson(CAT_STORE, { board: nextBoard, score: nextScore, best: nextBest });
-  }, []);
-
-  const move = useCallback(direction => {
-    const result = moveBoard(board, direction);
-    if (boardsEqual(result.board, board)) return;
-    const nextBoard = addRandomTile(result.board);
-    const nextScore = score + result.gained;
-    const nextBest = Math.max(best, nextScore);
-    setBoard(nextBoard);
-    setScore(nextScore);
-    setBest(nextBest);
-    persist(nextBoard, nextScore, nextBest);
-  }, [board, score, best, persist]);
-
-  useEffect(() => {
-    const onKey = event => {
-      const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
-      if (!map[event.key]) return;
-      event.preventDefault();
-      move(map[event.key]);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [move]);
-
-  const reset = () => {
-    const next = newCatGame();
-    setBoard(next);
-    setScore(0);
-    persist(next, 0, best);
-  };
-
-  const onTouchEnd = event => {
-    if (!touchStart.current) return;
-    const touch = event.changedTouches[0];
-    const dx = touch.clientX - touchStart.current.x;
-    const dy = touch.clientY - touchStart.current.y;
-    touchStart.current = null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 28) return;
-    if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 'right' : 'left');
-    else move(dy > 0 ? 'down' : 'up');
-  };
-
-  return (
-    <section className="toy-game toy-cat2048">
-      <div className="toy-score-strip"><span>分数 {score}</span><b>最高 {best}</b></div>
-      <div
-        className="cat-board"
-        onTouchStart={event => { const t = event.touches[0]; touchStart.current = { x: t.clientX, y: t.clientY }; }}
-        onTouchEnd={onTouchEnd}
-      >
-        {board.flatMap((row, r) => row.map((value, c) => (
-          <div className={`cat-tile cat-tile--${value || 0}`} key={`${r}-${c}`}><span>{value ? (CAT_TILES[value] || '🐱') : ''}</span></div>
-        )))}
-      </div>
-      <p className="toy-help">手机上下左右滑，电脑也可以用方向键。</p>
-      {!hasMoves(board) && <div className="toy-gameover"><b>猫猫挤满啦。</b><span>这局 {score} 分</span></div>}
-      <button className="toy-secondary" type="button" onClick={reset}>重新开一局</button>
-    </section>
-  );
-}
-
-function DrawingGame() {
+function DrawingGame({ model, modelReady }) {
   const canvasRef = useRef(null);
   const drawingRef = useRef(false);
   const lastPointRef = useRef(null);
@@ -272,6 +218,7 @@ function DrawingGame() {
   const [error, setError] = useState('');
   const [eraser, setEraser] = useState(false);
   const [recent, setRecent] = useState(() => readJson(DRAWING_STORE, []));
+  const [queue, setQueue] = useState(() => readJson(DRAWING_QUEUE_STORE, []));
 
   const resetCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -320,14 +267,28 @@ function DrawingGame() {
   const stopDraw = () => { drawingRef.current = false; lastPointRef.current = null; };
 
   const newPrompt = async () => {
-    if (loadingPrompt) return;
+    if (loadingPrompt || !modelReady) return;
     setLoadingPrompt(true);
     setError('');
     setGuess(null);
     try {
-      const data = await postToybox('/toybox/drawing-prompt', { recent_prompts: recent });
-      setPrompt(data);
-      const next = [data.prompt, ...recent].slice(0, 12);
+      const cached = takeQueuedRound(queue, model);
+      if (cached.round) {
+        setPrompt(cached.round);
+        setQueue(cached.rest);
+        writeJson(DRAWING_QUEUE_STORE, cached.rest);
+        resetCanvas();
+        return;
+      }
+      const data = await postToybox('/toybox/drawing-prompt', { recent_prompts: recent, count: 12, model });
+      const generated = taggedRounds(data, model);
+      if (!generated.length) throw new Error('画题没抽出来');
+      const [first, ...rest] = generated;
+      setPrompt(first);
+      setQueue(rest);
+      writeJson(DRAWING_QUEUE_STORE, rest);
+      const prompts = generated.map(item => item.prompt).filter(Boolean);
+      const next = [...prompts, ...recent].slice(0, 24);
       setRecent(next);
       writeJson(DRAWING_STORE, next);
       resetCanvas();
@@ -339,11 +300,14 @@ function DrawingGame() {
   };
 
   const askGuess = async () => {
-    if (guessing || !canvasRef.current) return;
+    if (guessing || !canvasRef.current || !modelReady) return;
     setGuessing(true);
     setError('');
     try {
-      const data = await postToybox('/toybox/guess-drawing', { image: canvasRef.current.toDataURL('image/png') });
+      const data = await postToybox('/toybox/guess-drawing', {
+        image: canvasRef.current.toDataURL('image/png'),
+        model,
+      });
       setGuess(data);
     } catch (err) {
       setError(err.message || '陆泽这次没看懂');
@@ -355,8 +319,8 @@ function DrawingGame() {
   return (
     <section className="toy-game toy-drawing">
       <div className="drawing-prompt">
-        {prompt ? <><small>偷偷看题</small><b>{prompt.prompt}</b><p>{prompt.tease}</p></> : <><small>DRAW & GUESS</small><b>随便画，或者让陆泽出题</b></>}
-        <button type="button" onClick={newPrompt} disabled={loadingPrompt}>{loadingPrompt ? '抽题中…' : prompt ? '换一道' : '给我出题'}</button>
+        {prompt ? <><small>偷偷看题</small><b>{prompt.prompt}</b><p>{prompt.tease}</p></> : <><small>DRAW & GUESS</small><b>随便画，或者一次抽十二道题</b></>}
+        <button type="button" onClick={newPrompt} disabled={loadingPrompt || !modelReady}>{loadingPrompt ? '抽一批中…' : prompt ? '换一道' : '给我出题'}</button>
       </div>
       <canvas
         ref={canvasRef}
@@ -372,8 +336,9 @@ function DrawingGame() {
       <div className="drawing-tools">
         <button type="button" className={eraser ? 'is-active' : ''} onClick={() => setEraser(value => !value)}>{eraser ? '✎ 画笔' : '⌫ 橡皮'}</button>
         <button type="button" onClick={resetCanvas}>清空</button>
-        <button className="toy-primary" type="button" onClick={askGuess} disabled={guessing}>{guessing ? '陆泽在看……' : '让陆泽猜'}</button>
+        <button className="toy-primary" type="button" onClick={askGuess} disabled={guessing || !modelReady}>{guessing ? '陆泽在看……' : '让陆泽猜 · 调用1次'}</button>
       </div>
+      <p className="toy-api-note">画画、擦除、换缓存题都不调用 API；只有点“让陆泽猜”才看图调用一次。</p>
       {error && <p className="toy-inline-error">{error}</p>}
       {guess && <article className="drawing-guess"><small>陆泽猜</small><h3>{guess.guess}</h3><p>{guess.comment}</p><span>把握：{guess.confidence === 'high' ? '很大' : guess.confidence === 'low' ? '不太大' : '一半一半'}</span></article>}
     </section>
@@ -388,24 +353,38 @@ function guessFeedback(answer, guess) {
   }));
 }
 
-function SecretGame() {
+function SecretGame({ model, modelReady }) {
   const [round, setRound] = useState(null);
   const [input, setInput] = useState('');
   const [guesses, setGuesses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [recent, setRecent] = useState(() => readJson(SECRET_STORE, []));
+  const [queue, setQueue] = useState(() => readJson(SECRET_QUEUE_STORE, []));
 
   const newRound = useCallback(async () => {
-    if (loading) return;
+    if (loading || !modelReady) return;
     setLoading(true);
     setError('');
     setInput('');
     setGuesses([]);
     try {
-      const data = await postToybox('/toybox/secret-round', { recent_answers: recent });
-      setRound(data);
-      const next = [data.answer, ...recent].slice(0, 16);
+      const cached = takeQueuedRound(queue, model);
+      if (cached.round) {
+        setRound(cached.round);
+        setQueue(cached.rest);
+        writeJson(SECRET_QUEUE_STORE, cached.rest);
+        return;
+      }
+      const data = await postToybox('/toybox/secret-round', { recent_answers: recent, count: 12, model });
+      const generated = taggedRounds(data, model);
+      if (!generated.length) throw new Error('暗号没藏好');
+      const [first, ...rest] = generated;
+      setRound(first);
+      setQueue(rest);
+      writeJson(SECRET_QUEUE_STORE, rest);
+      const answers = generated.map(item => item.answer).filter(Boolean);
+      const next = [...answers, ...recent].slice(0, 28);
       setRecent(next);
       writeJson(SECRET_STORE, next);
     } catch (err) {
@@ -413,9 +392,9 @@ function SecretGame() {
     } finally {
       setLoading(false);
     }
-  }, [loading, recent]);
+  }, [loading, modelReady, queue, model, recent]);
 
-  useEffect(() => { if (!round && !loading && !error) newRound(); }, [round, loading, error, newRound]);
+  useEffect(() => { if (!round && !loading && !error && modelReady) newRound(); }, [round, loading, error, modelReady, newRound]);
 
   const won = Boolean(round && guesses.some(item => item.value === round.answer));
   const finished = won || guesses.length >= 6;
@@ -432,8 +411,9 @@ function SecretGame() {
 
   return (
     <section className="toy-game toy-secret">
-      {loading && <div className="toy-loading">陆泽正在藏一个谁也想不到的词……</div>}
-      {error && <div className="toy-error"><p>{error}</p><button type="button" onClick={newRound}>重新藏</button></div>}
+      {!modelReady && <div className="toy-loading">省钱模型还在找，先别让钱包受伤……</div>}
+      {loading && modelReady && <div className="toy-loading">陆泽一次藏十二个随机暗号……</div>}
+      {error && <div className="toy-error"><p>{error}</p><button type="button" onClick={newRound}>重新藏一批</button></div>}
       {round && !loading && (
         <>
           <article className="secret-clue"><small>分类 · {round.category}</small><h2>{'□'.repeat(Math.min([...round.answer].length, 8))}</h2><p>提示一：{round.hint1}</p>{guesses.length >= 3 && !finished && <p>提示二：{round.hint2}</p>}</article>
@@ -462,7 +442,56 @@ function SecretGame() {
 export default function ToyBoxRoom({ onClose }) {
   const { darkMode } = useTheme();
   const [activeGame, setActiveGame] = useState(null);
+  const [models, setModels] = useState([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [modelError, setModelError] = useState('');
+  const [selectedModel, setSelectedModel] = useState(() => readString(MODEL_STORE));
+  const [autoPicked, setAutoPicked] = useState(false);
   const game = useMemo(() => GAME_CARDS.find(item => item.key === activeGame), [activeGame]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setModelsLoading(true);
+    fetchToyboxModels()
+      .then(list => {
+        if (cancelled) return;
+        const candidates = list.filter(isToyboxModelCandidate);
+        setModels(candidates);
+        const saved = readString(MODEL_STORE);
+        if (saved && candidates.includes(saved)) {
+          setSelectedModel(saved);
+          setAutoPicked(false);
+        } else {
+          const picked = pickBudgetModel(candidates);
+          setSelectedModel(picked);
+          writeString(MODEL_STORE, picked);
+          setAutoPicked(Boolean(picked));
+        }
+        setModelError('');
+      })
+      .catch(error => {
+        if (cancelled) return;
+        setModelError(error.message || '省钱模型没拿到');
+      })
+      .finally(() => { if (!cancelled) setModelsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const chooseModel = value => {
+    setSelectedModel(value);
+    writeString(MODEL_STORE, value);
+    setAutoPicked(false);
+  };
+
+  const autoChoose = () => {
+    const picked = pickBudgetModel(models);
+    if (!picked) return;
+    setSelectedModel(picked);
+    writeString(MODEL_STORE, picked);
+    setAutoPicked(true);
+  };
+
+  const modelReady = Boolean(selectedModel) && !modelsLoading;
 
   return (
     <main className={`toybox-room ${darkMode ? 'toybox-room--night' : ''}`}>
@@ -476,24 +505,40 @@ export default function ToyBoxRoom({ onClose }) {
         <span className="toybox-header-star">✦</span>
       </header>
 
+      <section className="toybox-budget-panel">
+        <div className="toybox-budget-copy">
+          <b>💰 省钱模型</b>
+          <small>只给玩具箱用，不会改 Chat 的模型。</small>
+        </div>
+        <div className="toybox-budget-controls">
+          <select value={selectedModel} disabled={modelsLoading || !models.length} onChange={event => chooseModel(event.target.value)} aria-label="选择玩具箱模型">
+            {modelsLoading && <option value="">正在找便宜模型…</option>}
+            {!modelsLoading && !models.length && <option value="">没有拿到模型列表</option>}
+            {models.map(model => <option value={model} key={model}>{model}</option>)}
+          </select>
+          <button type="button" onClick={autoChoose} disabled={modelsLoading || !models.length}>自动省钱</button>
+        </div>
+        {selectedModel && <p>{autoPicked ? '已按站点价格标记 / 轻量模型名自动挑选：' : '当前玩具箱使用：'}<span>{selectedModel}</span></p>}
+        {modelError && <p className="toybox-budget-error">{modelError}。为了防止误烧 Chat 大模型，AI 小游戏暂时不会自动调用。</p>}
+      </section>
+
       {!activeGame && (
         <section className="toybox-shelf">
           <p>今天从哪一个开始捣乱？</p>
-          <div className="toybox-game-grid">
+          <div className="toybox-game-grid toybox-game-grid--three">
             {GAME_CARDS.map(item => (
               <button key={item.key} type="button" className={`toybox-game-card toybox-game-card--${item.key}`} onClick={() => setActiveGame(item.key)}>
                 <span>{item.icon}</span><strong>{item.title}</strong><small>{item.note}</small><i>打开 →</i>
               </button>
             ))}
           </div>
-          <div className="toybox-footnote">四个玩具各玩各的，不会往 Chat 里塞游戏消息。</div>
+          <div className="toybox-footnote">默契题、暗号和画题会一次生成一批并缓存；连续玩不再一题烧一次 API。猫猫 2048 已撤掉。</div>
         </section>
       )}
 
-      {activeGame === 'harmony' && <HarmonyGame />}
-      {activeGame === 'cat2048' && <Cat2048Game />}
-      {activeGame === 'drawing' && <DrawingGame />}
-      {activeGame === 'secret' && <SecretGame />}
+      {activeGame === 'harmony' && <HarmonyGame model={selectedModel} modelReady={modelReady} />}
+      {activeGame === 'drawing' && <DrawingGame model={selectedModel} modelReady={modelReady} />}
+      {activeGame === 'secret' && <SecretGame model={selectedModel} modelReady={modelReady} />}
     </main>
   );
 }
