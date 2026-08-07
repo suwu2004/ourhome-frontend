@@ -1,32 +1,59 @@
 @import './RoomHeaderPolish.css';
 
-/* Final geometry pass: the whole navigation zone stays visually consistent. */
+/* Final geometry pass: one compact doorway for every room. */
 body[data-ourhome-room] {
-  --ourhome-room-nav-height: 82px;
-  --ourhome-room-title-row: 48px;
+  --ourhome-room-nav-height: 68px;
+  --ourhome-room-title-row: 68px;
+  --ourhome-room-tabs-height: 38px;
 }
 
-/* Rooms with secondary tabs: compact title row + tab row inside the same header. */
+/* The header itself is only the doorway. Secondary room navigation sits below the divider. */
 body[data-ourhome-room="music"] header.ourhome-safe-top,
 body[data-ourhome-room="calendar"] header.ourhome-safe-top,
 body[data-ourhome-room="vault"] header.ourhome-safe-top {
+  position: relative !important;
   min-height: var(--ourhome-room-nav-height) !important;
   box-sizing: border-box !important;
+  overflow: visible !important;
+  padding-bottom: 0 !important;
+  z-index: 8;
 }
 body[data-ourhome-room="music"] header.ourhome-safe-top > div:first-child,
 body[data-ourhome-room="calendar"] header.ourhome-safe-top > div:first-child,
 body[data-ourhome-room="vault"] header.ourhome-safe-top > div:first-child {
   min-height: var(--ourhome-room-title-row) !important;
+  box-sizing: border-box !important;
+  padding-bottom: 0 !important;
+}
+
+/* Together Listening / Mood Calendar / Cat Vault: tabs are page navigation, not part of the header. */
+body[data-ourhome-room="music"] header.ourhome-safe-top [role="tablist"],
+body[data-ourhome-room="vault"] header.ourhome-safe-top [role="tablist"],
+body[data-ourhome-room="calendar"] header.ourhome-safe-top > div:nth-child(2) {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: calc(100% + 1px) !important;
+  min-height: var(--ourhome-room-tabs-height) !important;
+  box-sizing: border-box !important;
+  background: inherit !important;
+  border-bottom: 1px solid rgba(181, 137, 82, .16) !important;
+  z-index: 7;
 }
 body[data-ourhome-room="music"] header.ourhome-safe-top [role="tablist"] button,
 body[data-ourhome-room="vault"] header.ourhome-safe-top [role="tablist"] button,
 body[data-ourhome-room="calendar"] header.ourhome-safe-top > div:nth-child(2) > span {
-  padding-top: 6px !important;
-  padding-bottom: 8px !important;
+  padding-top: 8px !important;
+  padding-bottom: 9px !important;
   font-size: 10.5px !important;
 }
+body[data-ourhome-room="music"] header.ourhome-safe-top + main,
+body[data-ourhome-room="vault"] header.ourhome-safe-top + main,
+body[data-ourhome-room="calendar"] header.ourhome-safe-top + div {
+  margin-top: calc(var(--ourhome-room-tabs-height) + 1px) !important;
+}
 
-/* Rooms without tabs keep the same total navigation height. */
+/* Rooms without secondary navigation keep the exact same compact doorway height. */
 body[data-ourhome-room="letters"] header.ourhome-safe-top,
 body[data-ourhome-room="photos"] header.ourhome-safe-top,
 body[data-ourhome-room="theater"] header.ourhome-safe-top,
@@ -67,46 +94,47 @@ body[data-ourhome-room="music"] header.ourhome-safe-top > div:first-child > butt
   flex: 0 0 auto !important;
 }
 
-/* Together Listening: header ends at the divider; room tabs live below it as secondary navigation. */
-body[data-ourhome-room="music"] header.ourhome-safe-top {
-  position: relative !important;
-  min-height: var(--ourhome-room-nav-height) !important;
-  overflow: visible !important;
-  padding-bottom: 0 !important;
-  z-index: 8;
+/* Toy Bear shelf: one calm main-palette list, smaller touch cards, no rainbow backgrounds. */
+body[data-ourhome-room="toybox"] .toybox-game-grid,
+body[data-ourhome-room="toybox"] .toybox-game-grid--three {
+  grid-template-columns: 1fr !important;
+  gap: 7px !important;
 }
-body[data-ourhome-room="music"] header.ourhome-safe-top > div:first-child {
-  min-height: var(--ourhome-room-nav-height) !important;
-  box-sizing: border-box !important;
-  padding-bottom: 0 !important;
+body[data-ourhome-room="toybox"] .toybox-game-card,
+body[data-ourhome-room="toybox"] .toybox-game-card--harmony,
+body[data-ourhome-room="toybox"] .toybox-game-card--drawing,
+body[data-ourhome-room="toybox"] .toybox-game-card--secret,
+body[data-ourhome-room="toybox"] .toybox-game-card--gomoku {
+  min-height: 58px !important;
+  border: 1px solid rgba(181, 137, 82, .24) !important;
+  border-radius: 16px !important;
+  padding: 8px 12px !important;
+  background: linear-gradient(145deg, rgba(255, 251, 241, .96), rgba(247, 236, 216, .94)) !important;
+  box-shadow: 0 7px 18px rgba(102, 69, 31, .045) !important;
+  grid-template-columns: 36px minmax(0, 1fr) !important;
+  gap: 8px !important;
 }
-body[data-ourhome-room="music"] header.ourhome-safe-top [role="tablist"] {
-  position: absolute !important;
-  left: 0 !important;
-  right: 0 !important;
-  top: calc(100% + 1px) !important;
-  min-height: 38px !important;
-  box-sizing: border-box !important;
-  background: inherit !important;
-  border-bottom: 1px solid rgba(181, 137, 82, .16) !important;
+body[data-ourhome-room="toybox"] .toybox-game-card > span {
+  font-size: 22px !important;
 }
-body[data-ourhome-room="music"] header.ourhome-safe-top [role="tablist"] button {
-  padding-top: 8px !important;
-  padding-bottom: 9px !important;
-}
-body[data-ourhome-room="music"] header.ourhome-safe-top + main {
-  margin-top: 39px !important;
+body[data-ourhome-room="toybox"] .toybox-game-card strong {
+  font-size: 14px !important;
+  font-weight: 600 !important;
 }
 
 @media (max-width: 480px) {
   body[data-ourhome-room] {
-    --ourhome-room-nav-height: 78px;
-    --ourhome-room-title-row: 46px;
+    --ourhome-room-nav-height: 64px;
+    --ourhome-room-title-row: 64px;
+    --ourhome-room-tabs-height: 36px;
   }
-  body[data-ourhome-room="music"] header.ourhome-safe-top [role="tablist"] {
-    min-height: 36px !important;
-  }
-  body[data-ourhome-room="music"] header.ourhome-safe-top + main {
-    margin-top: 37px !important;
+  body[data-ourhome-room="toybox"] .toybox-game-card,
+  body[data-ourhome-room="toybox"] .toybox-game-card--harmony,
+  body[data-ourhome-room="toybox"] .toybox-game-card--drawing,
+  body[data-ourhome-room="toybox"] .toybox-game-card--secret,
+  body[data-ourhome-room="toybox"] .toybox-game-card--gomoku {
+    min-height: 54px !important;
+    padding: 7px 11px !important;
+    border-radius: 15px !important;
   }
 }
