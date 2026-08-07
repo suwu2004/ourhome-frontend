@@ -1,0 +1,75 @@
+/* 工具熊：保留玩具箱逻辑，只做更克制的视觉和文案收束。 */
+.home-toolbear-symbol {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: currentColor;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+/* 原来的熊脸线稿全部隐藏，只留一个极简符号。 */
+.toybox-bear svg {
+  display: none !important;
+}
+
+.toybox-bear::before {
+  content: "✦";
+  display: block;
+  color: currentColor;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+/* 右上角历史入口与底部「记录」重复，保留下方记录入口。 */
+.toybox-log-button {
+  display: none !important;
+}
+
+.toybox-shared-header {
+  grid-template-columns: 52px 1fr 52px;
+}
+
+/* 只在工具熊首页改名；进入具体小游戏后继续显示游戏自己的标题。 */
+.toybox-shared-room:has(.toybox-shelf) .toybox-title h1,
+.toybox-shared-room:has(.toybox-shelf) .toybox-title small {
+  font-size: 0;
+  letter-spacing: 0;
+}
+
+.toybox-shared-room:has(.toybox-shelf) .toybox-title h1::after {
+  content: "工具熊";
+  font-size: clamp(25px, 6vw, 34px);
+  letter-spacing: .08em;
+}
+
+.toybox-shared-room:has(.toybox-shelf) .toybox-title small::after {
+  content: "OUR LITTLE TOOL BEAR";
+  color: var(--toy-soft-ink);
+  font-size: 10px;
+  letter-spacing: .18em;
+}
+
+/* 文案做减法。 */
+.toybox-shared-room .toybox-shelf > p,
+.toybox-shared-room .toy-budget-panel > p {
+  font-size: 0;
+}
+
+.toybox-shared-room .toybox-shelf > p::after {
+  content: "今天从哪一个开始捣乱？";
+  color: var(--toy-soft-ink);
+  font-size: 14px;
+}
+
+.toybox-shared-room .toy-budget-panel > p::after {
+  content: "题目批量缓存 · 猜画才额外调用";
+  color: var(--toy-soft-ink);
+  font-size: 10px;
+  line-height: 1.55;
+}
