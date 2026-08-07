@@ -6,22 +6,22 @@
   place-items: center;
   color: currentColor;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 400;
   line-height: 1;
 }
 
-/* 原来的熊脸线稿全部隐藏，只留一个极简符号。 */
+/* 原来的熊脸线稿全部隐藏，只留一个极简可爱的蝴蝶结符号。 */
 .toybox-bear svg {
   display: none !important;
 }
 
 .toybox-bear::before {
-  content: "✦";
+  content: "୨୧";
   display: block;
   color: currentColor;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 400;
   line-height: 1;
 }
