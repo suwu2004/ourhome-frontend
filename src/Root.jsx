@@ -6,6 +6,7 @@ import ReadingRoom from './ReadingRoom.jsx';
 import ReadingCompanionPanel from './ReadingCompanionPanel.jsx';
 import ReadingShelfLiveNote from './ReadingShelfLiveNote.jsx';
 import ToyBoxSharedRoom from './ToyBoxSharedRoom.jsx';
+import ToyBoxGomokuIntegration from './ToyBoxGomokuIntegration.jsx';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
 import './ToyBoxBudget.css';
@@ -119,7 +120,14 @@ export default function Root() {
   };
 
   if (room === 'vault') return <VaultPage onClose={goHome} />;
-  if (room === 'toybox') return <ToyBoxSharedRoom onClose={goHome} />;
+  if (room === 'toybox') {
+    return (
+      <>
+        <ToyBoxSharedRoom onClose={goHome} />
+        <ToyBoxGomokuIntegration />
+      </>
+    );
+  }
   if (room === 'reading') {
     return (
       <>
