@@ -6,6 +6,8 @@ import './ToyBoxGomoku.css';
 const BOARD_SIZE = 15;
 const CENTER = Math.floor(BOARD_SIZE / 2);
 const DIRECTIONS = [[1, 0], [0, 1], [1, 1], [1, -1]];
+const LOCAL_RUN_STORE = 'ourhome_gomoku_local_run_v1';
+const LOCAL_RUN_PREFIX = 'local-gomoku-';
 
 async function requestJson(path, options = {}) {
   const response = await apiFetch(`${BACKEND}${path}`, options);
@@ -28,6 +30,26 @@ async function patchJson(path, body = {}) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+function isLocalRunId(value) {
+  return String(value || '').startsWith(LOCAL_RUN_PREFIX);
+}
+
+function readLocalRun() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_RUN_STORE) || 'null');
+    return parsed?.id && isLocalRunId(parsed.id) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalRun(run) {
+  try {
+    if (!run) localStorage.removeItem(LOCAL_RUN_STORE);
+    else localStorage.setItem(LOCAL_RUN_STORE, JSON.stringify(run));
+  } catch { /* local play should never fail because storage is unavailable */ }
 }
 
 function validMoves(value) {
@@ -154,6 +176,18 @@ function runState(moves, turn, userColor, luzeColor) {
   };
 }
 
+function makeLocalRun({ moves = [], turn = 'user', userColor = 'black', luzeColor = 'white', status = 'active', result = {}, title = '' } = {}) {
+  return {
+    id: `${LOCAL_RUN_PREFIX}${Date.now()}`,
+    game: 'gomoku',
+    initiator: 'user',
+    status,
+    title: title || `五子棋 · ${userColor === 'black' ? '你执黑' : '陆泽执黑'}`,
+    state: runState(moves, turn, userColor, luzeColor),
+    result,
+  };
+}
+
 function GomokuGame({ initialRun, onClose, onRefresh }) {
   const installedRunRef = useRef('');
   const creatingRef = useRef(false);
@@ -166,9 +200,11 @@ function GomokuGame({ initialRun, onClose, onRefresh }) {
   const [result, setResult] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [localNotice, setLocalNotice] = useState('');
 
   const board = useMemo(() => boardFromMoves(moves), [moves]);
   const lastMove = moves.at(-1) || null;
+  const localOnly = isLocalRunId(runId);
 
   const installRun = useCallback(run => {
     if (!run?.id) return;
@@ -176,11 +212,12 @@ function GomokuGame({ initialRun, onClose, onRefresh }) {
     const state = run.state || {};
     setRunId(String(run.id));
     setMoves(validMoves(state.moves));
-    setTurn(state.turn === 'luze' ? 'luze' : 'user');
+    setTurn(state.turn === 'luze' ? 'luze' : state.turn === 'done' ? 'done' : 'user');
     setUserColor(state.user_color === 'white' ? 'white' : 'black');
     setLuzeColor(state.luze_color === 'black' ? 'black' : 'white');
     setStatus(run.status === 'completed' ? 'completed' : 'active');
     setResult(run.result || {});
+    setLocalNotice(isLocalRunId(run.id) ? '云端记录暂时没接上，这盘先在本机下，不影响对弈。' : '');
     setError('');
   }, []);
 
@@ -195,19 +232,27 @@ function GomokuGame({ initialRun, onClose, onRefresh }) {
     setBusy(true);
     setError('');
     try {
-      if (runId && status === 'active') await patchJson(`/toybox/runs/${runId}`, { status: 'abandoned' });
+      if (runId && status === 'active' && !isLocalRunId(runId)) {
+        await patchJson(`/toybox/runs/${runId}`, { status: 'abandoned' }).catch(() => null);
+      }
+      writeLocalRun(null);
       const state = runState([], 'user', 'black', 'white');
-      const run = await postJson('/toybox/runs', {
-        game: 'gomoku',
-        status: 'active',
-        initiator: 'user',
-        title: '五子棋 · 你执黑',
-        state,
-      });
-      installRun(run);
-      onRefresh?.();
-    } catch (err) {
-      setError(err.message || '棋盘没摆好');
+      try {
+        const run = await postJson('/toybox/runs', {
+          game: 'gomoku',
+          status: 'active',
+          initiator: 'user',
+          title: '五子棋 · 你执黑',
+          state,
+        });
+        installRun(run);
+        onRefresh?.();
+      } catch (cloudError) {
+        console.warn('Gomoku cloud record unavailable, using local game:', cloudError.message);
+        const local = makeLocalRun();
+        writeLocalRun(local);
+        installRun(local);
+      }
     } finally {
       creatingRef.current = false;
       setBusy(false);
@@ -216,11 +261,28 @@ function GomokuGame({ initialRun, onClose, onRefresh }) {
 
   useEffect(() => {
     if (initialRun?.id || runId || status !== 'idle') return;
+    const local = readLocalRun();
+    if (local?.status === 'active') {
+      installRun(local);
+      return;
+    }
     startNew();
-  }, [initialRun, runId, startNew, status]);
+  }, [initialRun, installRun, runId, startNew, status]);
 
   const persistMove = useCallback(async (actor, move, nextMoves, nextTurn) => {
     if (!runId) return;
+    if (isLocalRunId(runId)) {
+      writeLocalRun({
+        id: runId,
+        game: 'gomoku',
+        initiator: 'user',
+        status: 'active',
+        title: `五子棋 · ${userColor === 'black' ? '你执黑' : '陆泽执黑'}`,
+        state: runState(nextMoves, nextTurn, userColor, luzeColor),
+        result: {},
+      });
+      return;
+    }
     await Promise.all([
       postJson(`/toybox/runs/${runId}/events`, {
         actor,
@@ -244,6 +306,18 @@ function GomokuGame({ initialRun, onClose, onRefresh }) {
     setStatus('completed');
     setResult(finalResult);
     if (!runId) return;
+    if (isLocalRunId(runId)) {
+      writeLocalRun({
+        id: runId,
+        game: 'gomoku',
+        initiator: 'user',
+        status: 'completed',
+        title: `五子棋 · ${userColor === 'black' ? '你执黑' : '陆泽执黑'}`,
+        state: runState(finalMoves, 'done', userColor, luzeColor),
+        result: finalResult,
+      });
+      return;
+    }
     await patchJson(`/toybox/runs/${runId}`, {
       status: 'completed',
       state: runState(finalMoves, 'done', userColor, luzeColor),
@@ -330,10 +404,22 @@ function GomokuGame({ initialRun, onClose, onRefresh }) {
     setMoves(nextMoves);
     setBusy(true);
     try {
-      await Promise.all([
-        postJson(`/toybox/runs/${runId}/events`, { actor: 'user', event_type: '悔棋', payload: { title: '你悄悄撤回了一轮 👿' } }),
-        patchJson(`/toybox/runs/${runId}`, { state: runState(nextMoves, 'user', userColor, luzeColor) }),
-      ]);
+      if (localOnly) {
+        writeLocalRun({
+          id: runId,
+          game: 'gomoku',
+          initiator: 'user',
+          status: 'active',
+          title: `五子棋 · ${userColor === 'black' ? '你执黑' : '陆泽执黑'}`,
+          state: runState(nextMoves, 'user', userColor, luzeColor),
+          result: {},
+        });
+      } else {
+        await Promise.all([
+          postJson(`/toybox/runs/${runId}/events`, { actor: 'user', event_type: '悔棋', payload: { title: '你悄悄撤回了一轮 👿' } }),
+          patchJson(`/toybox/runs/${runId}`, { state: runState(nextMoves, 'user', userColor, luzeColor) }),
+        ]);
+      }
       setTurn('user');
     } catch (err) {
       setError(err.message || '悔棋没保存好');
@@ -346,7 +432,9 @@ function GomokuGame({ initialRun, onClose, onRefresh }) {
     if (busy || status !== 'active') return;
     setBusy(true);
     try {
-      await postJson(`/toybox/runs/${runId}/events`, { actor: 'user', event_type: '认输', payload: { title: '你把棋盘推给陆泽了' } });
+      if (!localOnly) {
+        await postJson(`/toybox/runs/${runId}/events`, { actor: 'user', event_type: '认输', payload: { title: '你把棋盘推给陆泽了' } });
+      }
       await completeRun('luze', moves, 'surrender');
       setTurn('done');
     } catch (err) {
@@ -402,13 +490,14 @@ function GomokuGame({ initialRun, onClose, onRefresh }) {
         </div>
       </div>
 
+      {localNotice && <p className="gomoku-error">{localNotice}</p>}
       {error && <p className="gomoku-error">{error}</p>}
       <div className="gomoku-controls">
         <button type="button" onClick={undo} disabled={busy || status !== 'active' || turn !== 'user' || !moves.some(move => move.actor === 'user')}>悔一步</button>
         <button type="button" onClick={surrender} disabled={busy || status !== 'active'}>认输</button>
         <button type="button" className="is-primary" onClick={startNew} disabled={busy}>再来一盘</button>
       </div>
-      <p className="gomoku-footnote">棋力在本地计算，不会每落一子调用模型。棋谱、输赢和悔棋都会写进游戏记录册；右下角的「陆泽」聊天仍然可以边下边开。</p>
+      <p className="gomoku-footnote">棋力始终在本地计算，不会每落一子调用模型。云端正常时棋谱和输赢会写进记录册；云端断开时照样能下，这盘先保存在本机。</p>
     </section>
   );
 }
@@ -436,6 +525,10 @@ export default function ToyBoxGomokuIntegration() {
   const [open, setOpen] = useState(false);
   const [selectedRun, setSelectedRun] = useState(null);
   const [inviteError, setInviteError] = useState('');
+  const [localResume, setLocalResume] = useState(() => {
+    const run = readLocalRun();
+    return run?.status === 'active' ? run : null;
+  });
 
   const refreshOpen = useCallback(async () => {
     try {
@@ -444,6 +537,8 @@ export default function ToyBoxGomokuIntegration() {
     } catch {
       setOpenRuns([]);
     }
+    const local = readLocalRun();
+    setLocalResume(local?.status === 'active' ? local : null);
   }, []);
 
   useEffect(() => {
@@ -453,7 +548,7 @@ export default function ToyBoxGomokuIntegration() {
   }, [refreshOpen]);
 
   const invitation = openRuns.find(run => run.game === 'gomoku' && run.initiator === 'luze' && run.status === 'invited') || null;
-  const resumable = openRuns.find(run => run.game === 'gomoku' && run.status === 'active') || null;
+  const resumable = openRuns.find(run => run.game === 'gomoku' && run.status === 'active') || localResume || null;
 
   useEffect(() => {
     document.body.classList.toggle('toybox-gomoku-invite-active', Boolean(invitation));
@@ -474,7 +569,20 @@ export default function ToyBoxGomokuIntegration() {
       setOpen(true);
       await refreshOpen();
     } catch (err) {
-      setInviteError(err.message || '这盘棋没接住');
+      console.warn('Gomoku invitation cloud accept failed, continuing locally:', err.message);
+      const firstMove = { row: CENTER, col: CENTER, actor: 'luze' };
+      const local = makeLocalRun({
+        moves: [firstMove],
+        turn: 'user',
+        userColor: 'white',
+        luzeColor: 'black',
+        title: '五子棋 · 陆泽执黑',
+      });
+      writeLocalRun(local);
+      setLocalResume(local);
+      setSelectedRun(local);
+      setOpen(true);
+      setInviteError('');
     }
   };
 
