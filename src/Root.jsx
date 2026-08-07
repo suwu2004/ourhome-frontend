@@ -5,7 +5,7 @@ import { HomeHub } from './HomeHub.jsx';
 import ReadingRoom from './ReadingRoom.jsx';
 import ReadingCompanionPanel from './ReadingCompanionPanel.jsx';
 import ReadingShelfLiveNote from './ReadingShelfLiveNote.jsx';
-import ToyBoxRoom from './ToyBoxRoom.jsx';
+import ToyBoxSharedRoom from './ToyBoxSharedRoom.jsx';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
 import './ToyBoxBudget.css';
@@ -119,7 +119,7 @@ export default function Root() {
   };
 
   if (room === 'vault') return <VaultPage onClose={goHome} />;
-  if (room === 'toybox') return <ToyBoxRoom onClose={goHome} />;
+  if (room === 'toybox') return <ToyBoxSharedRoom onClose={goHome} />;
   if (room === 'reading') {
     return (
       <>
