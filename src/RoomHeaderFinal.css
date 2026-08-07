@@ -2,9 +2,9 @@
 
 /* Final geometry pass: one compact doorway for every room. */
 body[data-ourhome-room] {
-  --ourhome-room-nav-height: 68px;
-  --ourhome-room-title-row: 68px;
-  --ourhome-room-tabs-height: 38px;
+  --ourhome-room-nav-height: 54px;
+  --ourhome-room-title-row: 54px;
+  --ourhome-room-tabs-height: 34px;
 }
 
 /* The header itself is only the doorway. Secondary room navigation sits below the divider. */
@@ -37,15 +37,15 @@ body[data-ourhome-room="calendar"] header.ourhome-safe-top > div:nth-child(2) {
   min-height: var(--ourhome-room-tabs-height) !important;
   box-sizing: border-box !important;
   background: inherit !important;
-  border-bottom: 1px solid rgba(181, 137, 82, .16) !important;
+  border-bottom: 1px solid rgba(181, 137, 82, .14) !important;
   z-index: 7;
 }
 body[data-ourhome-room="music"] header.ourhome-safe-top [role="tablist"] button,
 body[data-ourhome-room="vault"] header.ourhome-safe-top [role="tablist"] button,
 body[data-ourhome-room="calendar"] header.ourhome-safe-top > div:nth-child(2) > span {
-  padding-top: 8px !important;
-  padding-bottom: 9px !important;
-  font-size: 10.5px !important;
+  padding-top: 6px !important;
+  padding-bottom: 7px !important;
+  font-size: 10px !important;
 }
 body[data-ourhome-room="music"] header.ourhome-safe-top + main,
 body[data-ourhome-room="vault"] header.ourhome-safe-top + main,
@@ -65,12 +65,20 @@ body[data-ourhome-room="toybox"] .toybox-header {
   min-height: var(--ourhome-room-nav-height) !important;
 }
 
+/* Keep the compact title pair breathable. */
+body[data-ourhome-room] header.ourhome-safe-top,
+body[data-ourhome-room="reading"] .reading-shelf-header,
+body[data-ourhome-room="reading"] .reading-reader-header,
+body[data-ourhome-room="toybox"] .toybox-header {
+  line-height: 1.1;
+}
+
 /* On a game page, restore the real game name; only the Toy Bear shelf is renamed. */
 body[data-ourhome-room="toybox"] .toybox-shared-room:not(:has(.toybox-shelf)) .toybox-title h1 {
   order: 1 !important;
   margin: 0 !important;
-  font-size: 16.5px !important;
-  line-height: 1.15 !important;
+  font-size: 16px !important;
+  line-height: 1.12 !important;
   letter-spacing: .05em !important;
 }
 body[data-ourhome-room="toybox"] .toybox-shared-room:not(:has(.toybox-shelf)) .toybox-title h1::after {
@@ -78,9 +86,9 @@ body[data-ourhome-room="toybox"] .toybox-shared-room:not(:has(.toybox-shelf)) .t
 }
 body[data-ourhome-room="toybox"] .toybox-shared-room:not(:has(.toybox-shelf)) .toybox-title small {
   order: 2 !important;
-  margin-top: 4px !important;
-  font-size: 8.5px !important;
-  letter-spacing: .17em !important;
+  margin-top: 3px !important;
+  font-size: 8px !important;
+  letter-spacing: .16em !important;
 }
 body[data-ourhome-room="toybox"] .toybox-shared-room:not(:has(.toybox-shelf)) .toybox-title small::after {
   content: none !important;
@@ -98,43 +106,43 @@ body[data-ourhome-room="music"] header.ourhome-safe-top > div:first-child > butt
 body[data-ourhome-room="toybox"] .toybox-game-grid,
 body[data-ourhome-room="toybox"] .toybox-game-grid--three {
   grid-template-columns: 1fr !important;
-  gap: 7px !important;
+  gap: 6px !important;
 }
 body[data-ourhome-room="toybox"] .toybox-game-card,
 body[data-ourhome-room="toybox"] .toybox-game-card--harmony,
 body[data-ourhome-room="toybox"] .toybox-game-card--drawing,
 body[data-ourhome-room="toybox"] .toybox-game-card--secret,
 body[data-ourhome-room="toybox"] .toybox-game-card--gomoku {
-  min-height: 58px !important;
-  border: 1px solid rgba(181, 137, 82, .24) !important;
-  border-radius: 16px !important;
-  padding: 8px 12px !important;
-  background: linear-gradient(145deg, rgba(255, 251, 241, .96), rgba(247, 236, 216, .94)) !important;
-  box-shadow: 0 7px 18px rgba(102, 69, 31, .045) !important;
-  grid-template-columns: 36px minmax(0, 1fr) !important;
-  gap: 8px !important;
+  min-height: 50px !important;
+  border: 1px solid rgba(181, 137, 82, .20) !important;
+  border-radius: 14px !important;
+  padding: 6px 11px !important;
+  background: rgba(255, 250, 239, .90) !important;
+  box-shadow: 0 5px 14px rgba(102, 69, 31, .035) !important;
+  grid-template-columns: 32px minmax(0, 1fr) !important;
+  gap: 7px !important;
 }
 body[data-ourhome-room="toybox"] .toybox-game-card > span {
-  font-size: 22px !important;
+  font-size: 20px !important;
 }
 body[data-ourhome-room="toybox"] .toybox-game-card strong {
-  font-size: 14px !important;
+  font-size: 13.5px !important;
   font-weight: 600 !important;
 }
 
 @media (max-width: 480px) {
   body[data-ourhome-room] {
-    --ourhome-room-nav-height: 64px;
-    --ourhome-room-title-row: 64px;
-    --ourhome-room-tabs-height: 36px;
+    --ourhome-room-nav-height: 52px;
+    --ourhome-room-title-row: 52px;
+    --ourhome-room-tabs-height: 33px;
   }
   body[data-ourhome-room="toybox"] .toybox-game-card,
   body[data-ourhome-room="toybox"] .toybox-game-card--harmony,
   body[data-ourhome-room="toybox"] .toybox-game-card--drawing,
   body[data-ourhome-room="toybox"] .toybox-game-card--secret,
   body[data-ourhome-room="toybox"] .toybox-game-card--gomoku {
-    min-height: 54px !important;
-    padding: 7px 11px !important;
-    border-radius: 15px !important;
+    min-height: 48px !important;
+    padding: 6px 10px !important;
+    border-radius: 13px !important;
   }
 }
