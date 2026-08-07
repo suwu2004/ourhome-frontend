@@ -35,6 +35,14 @@ function sourceLabel(value) {
   return source || 'OurHome';
 }
 
+function purposeLabel(value) {
+  const purpose = String(value || '').trim();
+  if (purpose === 'context-ledger') return '隐藏账本整理';
+  if (purpose === 'memory-journal') return '记忆整理';
+  if (purpose === 'visible-thinking') return '可见思考补全';
+  return '';
+}
+
 export default function ApiUsageLogPanel() {
   const { theme: C } = useTheme();
   const [open, setOpen] = useState(false);
@@ -99,7 +107,7 @@ export default function ApiUsageLogPanel() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <strong style={{ fontSize: 15 }}>API 调用记录</strong>
-                  <small style={{ display: 'block', marginTop: 3, color: C.muted, fontSize: 9.5 }}>最近 24 小时 · 精确到秒 · 不保存聊天正文和密钥</small>
+                  <small style={{ display: 'block', marginTop: 3, color: C.muted, fontSize: 9.5 }}>最近 24 小时 · 真正发出上游请求的时间 · 不保存聊天正文和密钥</small>
                 </div>
                 <button type="button" onClick={load} disabled={loading} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontSize: 18, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
                 <button type="button" onClick={() => setOpen(false)} style={{ border: 0, background: 'transparent', color: C.text, fontSize: 20, cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
@@ -128,10 +136,11 @@ export default function ApiUsageLogPanel() {
                 {logs.map(row => {
                   const repeated = (requestCounts.get(row.request_id) || 0) > 1;
                   const failed = row.status === 'error';
+                  const purpose = purposeLabel(row.purpose);
                   return (
                     <article key={row.id} style={{ padding: '10px 11px', borderRadius: 13, border: `1px solid ${failed ? C.blushDeep : C.borderLight}`, background: C.white }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <b style={{ fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{clock(row.created_at)}</b>
+                        <b style={{ fontSize: 10.5, fontVariantNumeric: 'tabular-nums' }}>{clock(row.started_at || row.created_at)}</b>
                         <span style={{ marginLeft: 'auto', color: failed ? C.blushDeep : C.honeyDeep, fontSize: 9.5 }}>{failed ? `失败 · HTTP ${row.http_status || '—'}` : `HTTP ${row.http_status || 200}`}</span>
                       </div>
                       <div style={{ marginTop: 5, fontSize: 11.5, lineHeight: 1.45, overflowWrap: 'anywhere' }}>
@@ -140,10 +149,11 @@ export default function ApiUsageLogPanel() {
                       </div>
                       <div style={{ marginTop: 5, color: C.muted, fontSize: 9.5, display: 'flex', flexWrap: 'wrap', gap: '3px 10px' }}>
                         <span>{sourceLabel(row.source)}</span>
-                        <span>输入 {number(row.input_tokens)}</span>
-                        <span>输出 {number(row.output_tokens)}</span>
+                        <span>输入 {number(row.input_tokens)} token</span>
+                        <span>输出 {number(row.output_tokens)} token</span>
                         <span>{Number.isFinite(Number(row.duration_ms)) ? `${(Number(row.duration_ms) / 1000).toFixed(1)}s` : '—'}</span>
                       </div>
+                      {purpose && <div style={{ marginTop: 6, display: 'inline-block', padding: '2px 7px', borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, fontSize: 9 }}>{purpose}</div>}
                       {repeated && <div style={{ marginTop: 6, color: C.honeyDeep, fontSize: 9.5 }}>同一个 OurHome 请求里的第 {row.call_index} 次模型调用</div>}
                       {row.error_detail && <div style={{ marginTop: 6, color: C.blushDeep, fontSize: 9, lineHeight: 1.45, wordBreak: 'break-word' }}>{row.error_detail}</div>}
                       <div style={{ marginTop: 5, color: C.mutedLight, fontSize: 8, wordBreak: 'break-all' }}>request {String(row.request_id || '').slice(0, 18)}…</div>
