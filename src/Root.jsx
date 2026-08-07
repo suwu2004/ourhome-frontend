@@ -16,6 +16,7 @@ import './ReadingLuZeReply.css';
 import './ReadingMobileFix.css';
 import './MobileUiPolish.css';
 import './UnifiedRoomHeaders.css';
+import './RoomHeaderFinal.css';
 import { useTheme } from './ThemeContext.jsx';
 import VaultPage from './VaultPage.jsx';
 import TheaterRuleLibrary from './TheaterRuleLibrary.jsx';
