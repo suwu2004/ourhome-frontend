@@ -24,14 +24,20 @@ function nonJsonResponseMessage(response, rawText) {
   return `${generic}：${detail}`;
 }
 
+function requestId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export async function apiFetch(url, options = {}) {
   const token = localStorage.getItem(TOKEN_KEY) || '';
+  const headers = new Headers(options.headers || undefined);
+  headers.set('Authorization', `Bearer ${token}`);
+  if (!headers.has('X-OurHome-Request-Id')) headers.set('X-OurHome-Request-Id', requestId());
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
   });
 
   const fallbackBody = response.clone();
@@ -43,6 +49,7 @@ export async function apiFetch(url, options = {}) {
       const error = new Error(nonJsonResponseMessage(response, rawText));
       error.code = 'invalid_json_response';
       error.status = response.status;
+      error.requestId = response.headers.get('X-OurHome-Request-Id') || headers.get('X-OurHome-Request-Id') || '';
       error.cause = cause;
       throw error;
     }
