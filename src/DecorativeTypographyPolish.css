@@ -1,40 +1,8 @@
 :root {
   --ourhome-script-cn: "Ma Shan Zheng", "Kaiti SC", "STKaiti", cursive;
-  --ourhome-script-latin: "Parisienne", "Snell Roundhand", cursive;
 }
 
-/* 只给长期不变、承担氛围的名字一点手写感；正文和操作文字继续用原字体。 */
-.home-title-lockup h1 {
-  font-family: var(--ourhome-script-latin);
-  font-weight: 400;
-  letter-spacing: .02em;
-}
-
-.home-scene .home-room-app strong,
-.home-scene .home-room-app--music strong {
-  font-family: var(--ourhome-script-cn);
-  font-weight: 400;
-  font-size: 13.5px;
-  letter-spacing: .07em;
-}
-
-.luze-room-header strong,
-.luze-room-tabs button {
-  font-family: var(--ourhome-script-cn);
-  font-weight: 400;
-}
-
-.luze-room-header strong {
-  font-size: 17px;
-  letter-spacing: .09em;
-}
-
-.luze-room-tabs button {
-  font-size: 13px;
-  letter-spacing: .06em;
-}
-
-/* 门口只留下那句常年不变的小留言。 */
+/* 门口只留下那句常年不变的小留言；其它标题、房间名和分区名全部沿用原字体。 */
 .luze-private-label,
 .luze-door-copy h1,
 .luze-door-intro {
@@ -50,7 +18,7 @@
   margin-top: -2px;
 }
 
-/* 门把手和门牌统一成偏冷的银色，像真正的小铁牌。 */
+/* 门把手和门牌统一成偏冷的银色。 */
 .luze-door-knob {
   width: 10px;
   height: 10px;
@@ -61,9 +29,10 @@
     0 2px 5px rgba(61, 48, 38, .16);
 }
 
+/* 银色门牌正好挂在门把手下方：门牌中心与把手中心基本对齐。 */
 .luze-knock-sign {
-  right: 2%;
-  top: 59%;
+  right: -5%;
+  top: 61%;
   min-width: 72px;
   padding: 7px 10px 6px;
   overflow: visible;
@@ -77,30 +46,30 @@
     inset 0 1px 0 rgba(255,255,255,.92),
     inset 0 -1px 0 rgba(91, 97, 105, .16),
     0 5px 10px rgba(59, 54, 48, .13);
-  font-family: var(--ourhome-script-cn);
-  font-size: 12.5px;
-  font-weight: 400;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 500;
   letter-spacing: .08em;
   line-height: 1.1;
-  transform: rotate(2.2deg);
+  transform: rotate(1.4deg);
 }
 
-/* 小链条从门把手垂下来。 */
+/* 链条从把手位置垂到门牌顶部中央。 */
 .luze-knock-sign::before {
   content: '';
   position: absolute;
-  right: 15px;
-  top: -18px;
+  left: 50%;
+  top: -22px;
   width: 2px;
-  height: 18px;
+  height: 22px;
   border-radius: 999px;
   background: repeating-linear-gradient(180deg, #8e959d 0 2px, transparent 2px 4px);
-  transform: rotate(-13deg);
+  transform: translateX(-50%) rotate(-3deg);
   transform-origin: 50% 100%;
   opacity: .88;
 }
 
-/* 两颗小铆钉，让它更像铁牌而不是按钮。 */
+/* 两颗小铆钉，让它更像铁牌而不是普通按钮。 */
 .luze-knock-sign::after {
   content: '';
   position: absolute;
@@ -115,15 +84,15 @@
 }
 
 .luze-knock-sign:hover {
-  transform: rotate(.8deg) translateY(-1px);
+  transform: rotate(.3deg) translateY(-1px);
   filter: brightness(1.02);
 }
 
 .luze-knock-sign:disabled {
-  transform: rotate(2.2deg);
+  transform: rotate(1.4deg);
 }
 
-/* 固定留言做成一张被花枝轻轻围起来的小纸片。 */
+/* 只有这句固定留言保留手写花体和小花边。 */
 .luze-door-quote {
   position: relative;
   box-sizing: border-box;
@@ -178,8 +147,8 @@
 
 @media (max-width: 520px) {
   .luze-knock-sign {
-    right: 1%;
-    min-width: 68px;
+    right: -5%;
+    min-width: 70px;
   }
 
   .luze-door-quote {
