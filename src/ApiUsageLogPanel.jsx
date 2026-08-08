@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
@@ -40,12 +41,14 @@ function purposeLabel(value) {
   if (purpose === 'context-ledger') return '隐藏账本整理';
   if (purpose === 'memory-journal') return '记忆整理';
   if (purpose === 'visible-thinking') return '可见思考补全';
+  if (purpose === 'theater') return '小剧场';
   return '';
 }
 
 export default function ApiUsageLogPanel() {
   const { theme: C } = useTheme();
   const [open, setOpen] = useState(false);
+  const [controllerTarget, setControllerTarget] = useState(null);
   const [logs, setLogs] = useState([]);
   const [summary, setSummary] = useState({ calls: 0, failed: 0, input_tokens: 0, output_tokens: 0 });
   const [loading, setLoading] = useState(false);
@@ -71,26 +74,49 @@ export default function ApiUsageLogPanel() {
     if (open) load();
   }, [open]);
 
+  useEffect(() => {
+    let frame = 0;
+    const findTarget = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const next = document.querySelector('body[data-ourhome-room="settings"] .ourhome-scroll > section:first-child');
+        setControllerTarget(current => current === next ? current : next);
+      });
+    };
+    const observer = new MutationObserver(findTarget);
+    observer.observe(document.body, { childList: true, subtree: true });
+    findTarget();
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, []);
+
   const requestCounts = useMemo(() => {
     const counts = new Map();
     logs.forEach(row => counts.set(row.request_id, (counts.get(row.request_id) || 0) + 1));
     return counts;
   }, [logs]);
 
+  const controllerButton = (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      style={{
+        width: '100%', marginTop: 10, padding: '10px 11px', display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 18px',
+        alignItems: 'center', gap: 9, textAlign: 'left', border: `1px solid ${C.borderLight}`, borderRadius: 13,
+        background: C.cream, color: C.text, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box',
+      }}
+    >
+      <span style={{ width: 32, height: 32, display: 'grid', placeItems: 'center', borderRadius: 10, background: C.honeyLight, color: C.honeyDeep, fontSize: 15 }}>↗</span>
+      <span style={{ minWidth: 0 }}>
+        <b style={{ display: 'block', fontSize: 11.5 }}>API 调用记录</b>
+        <small style={{ display: 'block', marginTop: 2, color: C.muted, fontSize: 9.5 }}>上游请求时间、模型、token 与调用用途</small>
+      </span>
+      <span style={{ color: C.honeyDeep, fontSize: 17 }}>›</span>
+    </button>
+  );
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        style={{
-          position: 'fixed', right: 16, bottom: 'max(18px, env(safe-area-inset-bottom))', zIndex: 10020,
-          border: `1px solid ${C.honeyMid}`, background: C.white, color: C.honeyDeep,
-          borderRadius: 999, padding: '9px 13px', fontFamily: 'inherit', fontSize: 11.5,
-          boxShadow: `0 8px 24px ${C.borderLight}`, cursor: 'pointer',
-        }}
-      >
-        API 调用记录
-      </button>
+      {controllerTarget && createPortal(controllerButton, controllerTarget)}
 
       {open && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10050, background: 'rgba(41,27,16,.20)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setOpen(false)}>
@@ -103,16 +129,16 @@ export default function ApiUsageLogPanel() {
               fontFamily: 'inherit',
             }}
           >
-            <header style={{ padding: 'max(14px, env(safe-area-inset-top)) 16px 12px', background: C.white, borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <strong style={{ fontSize: 15 }}>API 调用记录</strong>
-                  <small style={{ display: 'block', marginTop: 3, color: C.muted, fontSize: 9.5 }}>最近 24 小时 · 真正发出上游请求的时间 · 不保存聊天正文和密钥</small>
+            <header style={{ padding: 'max(9px, env(safe-area-inset-top)) 14px 10px', background: C.white, borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ minHeight: 52, display: 'grid', gridTemplateColumns: '40px minmax(0,1fr) 40px', alignItems: 'center', gap: 8 }}>
+                <button type="button" onClick={() => setOpen(false)} aria-label="返回设置" style={{ width: 36, height: 36, justifySelf: 'start', border: 0, borderRadius: 12, background: C.cream, color: C.honeyDeep, fontSize: 19, cursor: 'pointer', fontFamily: 'inherit' }}>←</button>
+                <div style={{ minWidth: 0, textAlign: 'center' }}>
+                  <strong style={{ display: 'block', fontSize: 15.5, letterSpacing: '.05em' }}>API 调用记录</strong>
+                  <small style={{ display: 'block', marginTop: 3, color: C.muted, fontSize: 8.5, letterSpacing: '.10em' }}>API USAGE LOG · 最近 24 小时</small>
                 </div>
-                <button type="button" onClick={load} disabled={loading} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontSize: 18, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
-                <button type="button" onClick={() => setOpen(false)} style={{ border: 0, background: 'transparent', color: C.text, fontSize: 20, cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
+                <button type="button" onClick={load} disabled={loading} aria-label="刷新调用记录" style={{ width: 36, height: 36, justifySelf: 'end', border: 0, borderRadius: 12, background: 'transparent', color: C.honeyDeep, fontSize: 20, cursor: loading ? 'default' : 'pointer', opacity: loading ? .45 : 1, fontFamily: 'Arial, sans-serif' }}>↻</button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 6, marginTop: 11 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 6, marginTop: 8 }}>
                 {[
                   ['调用', summary.calls],
                   ['失败', summary.failed],
@@ -125,12 +151,13 @@ export default function ApiUsageLogPanel() {
                   </div>
                 ))}
               </div>
+              <div style={{ marginTop: 7, textAlign: 'center', color: C.mutedLight, fontSize: 8.5 }}>真正发出上游请求的时间 · 不保存聊天正文和密钥</div>
             </header>
 
             <main style={{ flex: 1, overflowY: 'auto', padding: '10px 12px calc(20px + env(safe-area-inset-bottom))' }}>
               {loading && logs.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: C.muted, fontSize: 11 }}>正在翻调用账本…</div>}
               {error && <div style={{ padding: 11, borderRadius: 12, border: `1px solid ${C.blushDeep}`, color: C.blushDeep, background: C.white, fontSize: 10.5, lineHeight: 1.5 }}>{error}</div>}
-              {!loading && !error && logs.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: C.muted, fontSize: 11 }}>还没有调用记录。后端部署新版后，新调用会从这里开始记。</div>}
+              {!loading && !error && logs.length === 0 && <div style={{ padding: 20, textAlign: 'center', color: C.muted, fontSize: 11 }}>还没有调用记录。新调用会从这里开始记。</div>}
 
               <div style={{ display: 'grid', gap: 7 }}>
                 {logs.map(row => {

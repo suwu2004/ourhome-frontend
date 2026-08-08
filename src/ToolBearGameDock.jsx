@@ -115,13 +115,33 @@ function formatTime(value) {
   return date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+function harmonyChoiceText(run, choice) {
+  const state = run?.state || {};
+  const key = String(choice || '').toUpperCase();
+  if (key === 'A') return state.option_a || 'A';
+  if (key === 'B') return state.option_b || 'B';
+  return String(choice || '').trim();
+}
+
+function harmonySummary(run) {
+  const result = run?.result || {};
+  const mine = harmonyChoiceText(run, result.user_choice);
+  const luze = harmonyChoiceText(run, result.luze_choice);
+  if (result.matched) {
+    const shared = mine || luze;
+    return shared ? `我们都选了「${shared}」` : '想到一起了 ♡';
+  }
+  if (mine || luze) return `你选「${mine || '—'}」 · 陆泽选「${luze || '—'}」`;
+  return '这题答案不一样';
+}
+
 function summarizeRun(run) {
   const result = run?.result || {};
   const state = run?.state || {};
   if (run?.status === 'invited') return '等你接招';
   if (run?.status === 'active') return '还没下完';
   if (run?.status === 'abandoned') return '中途收起来了';
-  if (run?.game === 'harmony') return result.matched ? '想到一起了 ♡' : '这题答案不一样';
+  if (run?.game === 'harmony') return harmonySummary(run);
   if (run?.game === 'drawing') return result.guess ? `陆泽猜：${result.guess}` : '画完一张';
   if (run?.game === 'secret') return result.won ? `猜中了「${result.answer || state.answer || ''}」` : `答案「${result.answer || state.answer || ''}」`;
   if (run?.game === 'gomoku') {
@@ -165,6 +185,10 @@ function GameHistory({ game, open, onClose, theme }) {
 
   if (!open) return null;
   const meta = GAME_META[game] || GAME_META.harmony;
+  const resolvedDetail = detail || selected;
+  const drawingImage = game === 'drawing'
+    ? (resolvedDetail?.state?.image_url || resolvedDetail?.result?.image_url || '')
+    : '';
   return createPortal(
     <div className="toy-game-layer" style={{ '--tg-paper': theme.white, '--tg-cream': theme.cream, '--tg-text': theme.text, '--tg-muted': theme.muted, '--tg-line': theme.border, '--tg-honey': theme.honeyDeep }} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="toy-game-history-sheet">
@@ -176,7 +200,13 @@ function GameHistory({ game, open, onClose, theme }) {
         {selected ? (
           <div className="toy-game-history-detail">
             <h3>{selected.title || meta.title}</h3>
-            <p className="toy-game-result">{summarizeRun(selected)}</p>
+            <p className="toy-game-result">{summarizeRun(resolvedDetail)}</p>
+            {drawingImage && (
+              <figure style={{ margin: '10px 0 14px', padding: 8, border: `1px solid ${theme.border}`, borderRadius: 15, background: theme.cream }}>
+                <img src={drawingImage} alt="这一局保存的画" style={{ display: 'block', width: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: 10, background: '#fffaf1' }} />
+                <figcaption style={{ marginTop: 6, textAlign: 'center', color: theme.muted, fontSize: 9 }}>这张画已经留在云端记录里。</figcaption>
+              </figure>
+            )}
             {loading && <p className="toy-game-muted">正在翻这一页……</p>}
             {(detail?.events || []).map(event => (
               <div className="toy-game-event" key={event.id}>
@@ -290,7 +320,7 @@ function GameChat({ game, open, onClose, theme }) {
   if (!open) return null;
   return createPortal(
     <aside className="toy-game-chat" style={{ '--tg-paper': theme.white, '--tg-cream': theme.cream, '--tg-text': theme.text, '--tg-muted': theme.muted, '--tg-line': theme.border, '--tg-honey': theme.honeyDeep }}>
-      <header><div><b>边玩边聊</b><small>{meta.icon} {meta.title} · 同一个主 Chat</small></div><button type="button" onClick={onClose}>×</button></header>
+      <header><div><b>边玩边聊</b><small>{meta.icon} {meta.title} · 同一个主 Chat，会读云端游戏记录</small></div><button type="button" onClick={onClose}>×</button></header>
       <label className="toy-game-model"><span>省钱模型</span><select value={model} disabled={loadingModels} onChange={event => chooseModel(event.target.value)}>{models.length ? models.map(item => <option key={item} value={item}>{item}</option>) : <option value="">{loadingModels ? '正在挑最便宜的…' : '暂无模型'}</option>}</select></label>
       <div className="toy-game-chat-list" ref={listRef}>
         {messages.map(message => {
