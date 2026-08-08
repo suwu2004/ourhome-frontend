@@ -1,7 +1,7 @@
-/* 七个小功能按檀檀指定的顺序排：
+/* 八个小功能：保留原来的七个位置，陆泽的房间放在第三行右侧。
    第一行 一起听 / 光影相册 / 猫的金库
    第二行 时光信差 / 共读小屋 / 小剧场
-   第三行只有玩具箱，正好在共读小屋下方。 */
+   第三行 玩具熊仍在共读小屋下方，右侧是陆泽自己的房间。 */
 .home-scene .home-music-garden {
   min-height: clamp(252px, 31vh, 286px);
 }
@@ -16,7 +16,7 @@
   grid-template-areas:
     "music photos vault"
     "letters reading theater"
-    ". toybox ." !important;
+    ". toybox luze" !important;
   align-content: center !important;
   align-items: center !important;
   justify-items: center !important;
@@ -33,7 +33,8 @@
 .home-scene .home-music-garden .home-room-app--vault,
 .home-scene .home-music-garden .home-room-app--photos,
 .home-scene .home-music-garden .home-room-app--reading,
-.home-scene .home-music-garden .home-room-app--toybox {
+.home-scene .home-music-garden .home-room-app--toybox,
+.home-scene .home-music-garden .home-room-app--luze {
   position: relative !important;
   inset: auto !important;
   top: auto !important;
@@ -59,6 +60,7 @@
 .home-scene .home-music-garden .home-room-app--reading { grid-area: reading !important; }
 .home-scene .home-music-garden .home-room-app--theater { grid-area: theater !important; }
 .home-scene .home-music-garden .home-room-app--toybox { grid-area: toybox !important; }
+.home-scene .home-music-garden .home-room-app--luze { grid-area: luze !important; }
 
 .home-scene .home-music-garden .home-room-app > span,
 .home-scene .home-music-garden .home-room-app--music > span {
@@ -80,8 +82,47 @@
   transform: scale(.96) !important;
 }
 
-.home-scene .home-music-garden .home-room-app--toybox > span {
+.home-scene .home-music-garden .home-room-app--toybox > span,
+.home-scene .home-music-garden .home-room-app--luze > span {
   background: rgba(255, 250, 238, .78);
+}
+
+.home-scene .home-luze-door {
+  position: relative;
+  width: 34px !important;
+  height: 34px !important;
+  display: block !important;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-bottom-width: 3px;
+  border-radius: 10px 10px 4px 4px !important;
+  background: transparent !important;
+}
+.home-scene .home-luze-door i {
+  position: absolute;
+  inset: 5px 6px 0;
+  border: 1.5px solid currentColor;
+  border-bottom: 0;
+  border-radius: 6px 6px 1px 1px;
+}
+.home-scene .home-luze-door b {
+  position: absolute;
+  right: 7px;
+  top: 18px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.home-scene .home-room-app--luze::after {
+  content: '⌁';
+  position: absolute;
+  top: 6px;
+  right: 13px;
+  color: currentColor;
+  font-size: 11px;
+  transform: rotate(-25deg);
+  opacity: .72;
 }
 
 .home-scene .home-bear-icon {
@@ -103,7 +144,8 @@
 
   .home-scene .home-music-garden .home-room-app,
   .home-scene .home-music-garden .home-room-app--reading,
-  .home-scene .home-music-garden .home-room-app--toybox {
+  .home-scene .home-music-garden .home-room-app--toybox,
+  .home-scene .home-music-garden .home-room-app--luze {
     max-width: 82px !important;
     min-height: 60px !important;
   }
