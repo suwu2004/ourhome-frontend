@@ -46,7 +46,21 @@ function portalTargetFor(content, { key, position }) {
   return mount;
 }
 
-export function useSettingsGroupTarget({ key, title, displayTitle = '', displaySubtitle = '', position = 'end' }) {
+function polishStartEntry(mount) {
+  const entry = mount?.firstElementChild;
+  if (!entry || entry.dataset.settingsTopPolished === 'true') return;
+
+  const divider = entry.style.borderTop;
+  entry.style.marginTop = '0';
+  entry.style.paddingTop = '0';
+  entry.style.borderTop = '0';
+  entry.style.marginBottom = '14px';
+  entry.style.paddingBottom = '12px';
+  if (divider) entry.style.borderBottom = divider;
+  entry.dataset.settingsTopPolished = 'true';
+}
+
+export function useSettingsGroupTarget({ key, title, displayTitle = '', displaySubtitle = '', position = 'start' }) {
   const [target, setTarget] = useState(null);
 
   useEffect(() => {
@@ -60,7 +74,10 @@ export function useSettingsGroupTarget({ key, title, displayTitle = '', displayS
         decorateGroup(section, { displayTitle, displaySubtitle });
         const content = section?.querySelector(':scope > div:last-child') || null;
         const next = portalTargetFor(content, { key, position });
-        if (position === 'start' && next) ownedMount = next;
+        if (position === 'start' && next) {
+          ownedMount = next;
+          polishStartEntry(next);
+        }
         setTarget(current => current === next ? current : next);
       });
     };
