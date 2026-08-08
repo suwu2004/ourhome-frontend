@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
+import { useSettingsRuntimeTarget } from './useSettingsRuntimeTarget.js';
 
 function number(value) {
   const n = Number(value);
@@ -51,8 +52,8 @@ function purposeLabel(value) {
 
 export default function ApiUsageLogPanel() {
   const { theme: C } = useTheme();
+  const runtimeTarget = useSettingsRuntimeTarget(C);
   const [open, setOpen] = useState(false);
-  const [controllerTarget, setControllerTarget] = useState(null);
   const [logs, setLogs] = useState([]);
   const [summary, setSummary] = useState({ calls: 0, failed: 0, input_tokens: 0, output_tokens: 0 });
   const [loading, setLoading] = useState(false);
@@ -78,42 +79,26 @@ export default function ApiUsageLogPanel() {
     if (open) load();
   }, [open]);
 
-  useEffect(() => {
-    let frame = 0;
-    const findTarget = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const sections = Array.from(document.querySelectorAll('body[data-ourhome-room="settings"] .ourhome-scroll > section'));
-        const next = sections.find(section => String(section.textContent || '').includes('家里的控制台')) || null;
-        setControllerTarget(current => current === next ? current : next);
-      });
-    };
-    const observer = new MutationObserver(findTarget);
-    observer.observe(document.body, { childList: true, subtree: true });
-    findTarget();
-    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
-  }, []);
-
   const requestCounts = useMemo(() => {
     const counts = new Map();
     logs.forEach(row => counts.set(row.request_id, (counts.get(row.request_id) || 0) + 1));
     return counts;
   }, [logs]);
 
-  const controllerButton = (
+  const runtimeButton = (
     <button
       type="button"
       onClick={() => setOpen(true)}
       style={{
-        width: '100%', marginTop: 10, padding: '10px 11px', display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 18px',
+        order: 2, width: '100%', minHeight: 70, padding: '10px 11px', display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 18px',
         alignItems: 'center', gap: 9, textAlign: 'left', border: `1px solid ${C.borderLight}`, borderRadius: 13,
-        background: C.cream, color: C.text, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box',
+        background: `linear-gradient(145deg, ${C.cream}, ${C.white})`, color: C.text, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box',
       }}
     >
       <span style={{ width: 32, height: 32, display: 'grid', placeItems: 'center', borderRadius: 10, background: C.honeyLight, color: C.honeyDeep, fontSize: 15 }}>↗</span>
       <span style={{ minWidth: 0 }}>
         <b style={{ display: 'block', fontSize: 11.5 }}>API 调用记录</b>
-        <small style={{ display: 'block', marginTop: 2, color: C.muted, fontSize: 9.5 }}>上游请求时间、模型、token 与调用用途</small>
+        <small style={{ display: 'block', marginTop: 2, color: C.muted, fontSize: 9.5, lineHeight: 1.35 }}>模型、token、用途与实际请求时间</small>
       </span>
       <span style={{ color: C.honeyDeep, fontSize: 17 }}>›</span>
     </button>
@@ -121,7 +106,7 @@ export default function ApiUsageLogPanel() {
 
   return (
     <>
-      {controllerTarget && createPortal(controllerButton, controllerTarget)}
+      {runtimeTarget && createPortal(runtimeButton, runtimeTarget)}
 
       {open && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10050, background: 'rgba(41,27,16,.20)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setOpen(false)}>
