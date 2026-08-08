@@ -31,17 +31,53 @@ function decorateGroup(section, { displayTitle, displaySubtitle }) {
   if (displaySubtitle && subtitleNode && subtitleNode.textContent !== displaySubtitle) subtitleNode.textContent = displaySubtitle;
 }
 
-export function useSettingsGroupTarget({ key, title, displayTitle = '', displaySubtitle = '' }) {
+function portalTargetFor(content, { key, position }) {
+  if (!content || position !== 'start') return content || null;
+
+  const marker = `settings-${key}-start`;
+  let mount = content.querySelector(`:scope > [data-settings-portal="${marker}"]`);
+  if (!mount) {
+    mount = document.createElement('div');
+    mount.dataset.settingsPortal = marker;
+    content.prepend(mount);
+  } else if (content.firstElementChild !== mount) {
+    content.prepend(mount);
+  }
+  return mount;
+}
+
+function polishStartEntry(mount) {
+  const entry = mount?.firstElementChild;
+  if (!entry || entry.dataset.settingsTopPolished === 'true') return;
+
+  const divider = entry.style.borderTop;
+  entry.style.marginTop = '0';
+  entry.style.paddingTop = '0';
+  entry.style.borderTop = '0';
+  entry.style.marginBottom = '14px';
+  entry.style.paddingBottom = '12px';
+  if (divider) entry.style.borderBottom = divider;
+  entry.dataset.settingsTopPolished = 'true';
+}
+
+export function useSettingsGroupTarget({ key, title, displayTitle = '', displaySubtitle = '', position = 'start' }) {
   const [target, setTarget] = useState(null);
 
   useEffect(() => {
     let frame = 0;
+    let ownedMount = null;
+
     const findTarget = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const section = findSettingsGroup({ key, title });
         decorateGroup(section, { displayTitle, displaySubtitle });
-        const next = section?.querySelector(':scope > div:last-child') || null;
+        const content = section?.querySelector(':scope > div:last-child') || null;
+        const next = portalTargetFor(content, { key, position });
+        if (position === 'start' && next) {
+          ownedMount = next;
+          polishStartEntry(next);
+        }
         setTarget(current => current === next ? current : next);
       });
     };
@@ -53,8 +89,9 @@ export function useSettingsGroupTarget({ key, title, displayTitle = '', displayS
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
+      if (position === 'start' && ownedMount?.isConnected) ownedMount.remove();
     };
-  }, [key, title, displayTitle, displaySubtitle]);
+  }, [key, title, displayTitle, displaySubtitle, position]);
 
   return target && document.body.contains(target) ? target : null;
 }
