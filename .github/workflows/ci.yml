@@ -19,5 +19,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run test:api
       - run: npm run test:gomoku
       - run: npm run build
