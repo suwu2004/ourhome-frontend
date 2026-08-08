@@ -1,20 +1,25 @@
 import { useEffect, useState } from 'react';
 
 function findSettingsGroup({ key, title }) {
-  const root = document.querySelector('body[data-ourhome-room="settings"] .ourhome-scroll');
-  if (!root) return null;
+  const roots = Array.from(document.querySelectorAll('.ourhome-scroll'));
 
-  const tagged = root.querySelector(`:scope > section[data-settings-group-key="${key}"]`);
-  if (tagged) return tagged;
+  for (const root of roots) {
+    const tagged = root.querySelector(`section[data-settings-group-key="${key}"]`);
+    if (tagged) return tagged;
 
-  const sections = Array.from(root.querySelectorAll(':scope > section'));
-  const section = sections.find(item => {
-    const heading = item.querySelector(':scope > button strong');
-    return String(heading?.textContent || '').trim() === title;
-  }) || null;
+    const sections = Array.from(root.querySelectorAll('section'));
+    const section = sections.find(item => {
+      const heading = item.querySelector(':scope > button strong');
+      return String(heading?.textContent || '').trim() === title;
+    }) || null;
 
-  if (section) section.dataset.settingsGroupKey = key;
-  return section;
+    if (section) {
+      section.dataset.settingsGroupKey = key;
+      return section;
+    }
+  }
+
+  return null;
 }
 
 function decorateGroup(section, { displayTitle, displaySubtitle }) {
