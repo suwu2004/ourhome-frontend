@@ -6,7 +6,7 @@ import ReadingRoom from './ReadingRoom.jsx';
 import ReadingCompanionPanel from './ReadingCompanionPanel.jsx';
 import ReadingShelfLiveNote from './ReadingShelfLiveNote.jsx';
 import ToyBoxSharedRoom from './ToyBoxSharedRoom.jsx';
-import ToyBoxGomokuIntegration from './ToyBoxGomokuIntegration.jsx';
+import ToyBoxGomokuIntegrationV2 from './ToyBoxGomokuIntegrationV2.jsx';
 import ToolBearGameDock from './ToolBearGameDock.jsx';
 import ApiUsageLogPanel from './ApiUsageLogPanel.jsx';
 import LuzeAutonomySettingsPanel from './LuzeAutonomySettingsPanel.jsx';
@@ -161,7 +161,7 @@ export default function Root() {
     return (
       <>
         <ToyBoxSharedRoom onClose={goHome} />
-        <ToyBoxGomokuIntegration />
+        <ToyBoxGomokuIntegrationV2 />
         <ToolBearGameDock />
       </>
     );
