@@ -9,6 +9,7 @@ import ToyBoxSharedRoom from './ToyBoxSharedRoom.jsx';
 import ToyBoxGomokuIntegration from './ToyBoxGomokuIntegration.jsx';
 import ToolBearGameDock from './ToolBearGameDock.jsx';
 import ApiUsageLogPanel from './ApiUsageLogPanel.jsx';
+import LuzePrivateRoom from './LuzePrivateRoom.jsx';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
 import './ToyBoxBudget.css';
@@ -22,7 +23,7 @@ import { useTheme } from './ThemeContext.jsx';
 import VaultPage from './VaultPage.jsx';
 import TheaterRuleLibrary from './TheaterRuleLibrary.jsx';
 
-const roomKeys = new Set(['chat', 'theater', 'music', 'reading', 'letters', 'memories', 'calendar', 'vault', 'photos', 'settings', 'toybox']);
+const roomKeys = new Set(['chat', 'theater', 'music', 'reading', 'letters', 'memories', 'calendar', 'vault', 'photos', 'settings', 'toybox', 'luze-room']);
 
 function roomFromHash() {
   const key = window.location.hash.replace(/^#/, '');
@@ -91,6 +92,18 @@ function ToyboxHomeEntry({ onOpen }) {
   );
 }
 
+function LuzeRoomHomeEntry({ onOpen }) {
+  const target = useHomeShelfTarget();
+  if (!target) return null;
+  return createPortal(
+    <button className="home-room-app home-room-app--luze" type="button" onClick={onOpen} aria-label="去陆泽的房间敲门">
+      <span className="home-luze-door" aria-hidden="true"><i /><b /></span>
+      <strong>陆泽的房间</strong>
+    </button>,
+    target,
+  );
+}
+
 export default function Root() {
   const { refreshTheme } = useTheme();
   const [room, setRoom] = useState(roomFromHash);
@@ -125,6 +138,7 @@ export default function Root() {
   };
 
   if (room === 'vault') return <VaultPage onClose={goHome} />;
+  if (room === 'luze-room') return <LuzePrivateRoom onClose={goHome} />;
   if (room === 'toybox') {
     return (
       <>
@@ -165,6 +179,7 @@ export default function Root() {
       />
       <ReadingHomeEntry onOpen={() => openRoom('reading')} />
       <ToyboxHomeEntry onOpen={() => openRoom('toybox')} />
+      <LuzeRoomHomeEntry onOpen={() => openRoom('luze-room')} />
     </>
   );
 }
