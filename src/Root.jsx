@@ -98,7 +98,14 @@ function LuzeRoomHomeEntry({ onOpen }) {
   if (!target) return null;
   return createPortal(
     <button className="home-room-app home-room-app--luze" type="button" onClick={onOpen} aria-label="去陆泽的房间敲门">
-      <span className="home-luze-door" aria-hidden="true"><i /><b /></span>
+      <span>
+        <svg className="home-room-glyph home-luze-door-glyph" viewBox="0 0 36 36" aria-hidden="true">
+          <path d="M10 29V10.8c0-2 1.2-3.3 3.1-3.3h10c1.9 0 2.9 1.3 2.9 3.3V29" />
+          <path d="M13.7 29V12h8.6v17M7.5 29h21" />
+          <circle cx="20" cy="20.5" r="1.15" />
+          <path d="M16.1 11.2h3.8" />
+        </svg>
+      </span>
       <strong>陆泽的房间</strong>
     </button>,
     target,
