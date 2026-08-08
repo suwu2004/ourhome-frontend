@@ -76,7 +76,7 @@ function IdeaCard({ entry, index }) {
 export default function LuzePrivateRoom({ onClose }) {
   const { theme: C } = useTheme();
   const [pass, setPass] = useState(() => sessionStorage.getItem(PASS_KEY) || '');
-  const [doorMessage, setDoorMessage] = useState('门关着。这里不是 OurHome 的公共房间。');
+  const [doorMessage, setDoorMessage] = useState('');
   const [knocking, setKnocking] = useState(false);
   const [entries, setEntries] = useState([]);
   const [tab, setTab] = useState('trail');
@@ -174,14 +174,27 @@ export default function LuzePrivateRoom({ onClose }) {
           <span className="luze-header-lock" aria-hidden="true">⌁</span>
         </header>
         <main className="luze-door-stage">
-          <div className="luze-door-scene" aria-hidden="true">
-            <div className="luze-door-frame"><div className="luze-door-panel"><i /></div></div>
+          <div className="luze-door-scene">
+            <div className="luze-butterfly" aria-hidden="true"><i /><b /></div>
+            <div className="luze-door-frame">
+              <div className="luze-door-panel">
+                <i className="luze-door-knob" aria-hidden="true" />
+                <button className="luze-knock-sign" type="button" onClick={knock} disabled={knocking} aria-label="敲敲陆泽的门">
+                  {knocking ? '等一等…' : '敲敲门'}
+                </button>
+              </div>
+            </div>
+            <div className="luze-fence luze-fence--left" aria-hidden="true"><span /><span /><span /><span /></div>
+            <div className="luze-fence luze-fence--right" aria-hidden="true"><span /><span /><span /></div>
+            <div className="luze-flower-bed luze-flower-bed--left" aria-hidden="true"><span>✿</span><span>❀</span><span>✿</span><span>❁</span></div>
+            <div className="luze-flower-bed luze-flower-bed--right" aria-hidden="true"><span>❀</span><span>✿</span><span>❁</span></div>
           </div>
           <div className="luze-door-copy">
             <span className="luze-private-label">PRIVATE ROOM</span>
-            <h1>门现在关着。</h1>
-            <p>{doorMessage}</p>
-            <button type="button" onClick={knock} disabled={knocking}>{knocking ? '在等回应…' : '敲敲门'}</button>
+            <h1>陆泽的私人空间</h1>
+            <p className="luze-door-intro">想进去的话，要先敲门。</p>
+            <p className="luze-door-quote">“如果你来访我，我不在，请和我门外的花坐一会儿。”</p>
+            {doorMessage && <p className="luze-door-response">{doorMessage}</p>}
             {error && <small className="luze-room-error">{error}</small>}
           </div>
         </main>
