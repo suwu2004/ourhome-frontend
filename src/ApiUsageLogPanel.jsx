@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
-import { useSettingsRuntimeTarget } from './useSettingsRuntimeTarget.js';
+import { useSettingsGroupTarget } from './useSettingsGroupTarget.js';
 
 function number(value) {
   const n = Number(value);
@@ -52,7 +52,7 @@ function purposeLabel(value) {
 
 export default function ApiUsageLogPanel() {
   const { theme: C } = useTheme();
-  const runtimeTarget = useSettingsRuntimeTarget(C);
+  const groupTarget = useSettingsGroupTarget({ key: 'api-models', title: 'API 与模型' });
   const [open, setOpen] = useState(false);
   const [logs, setLogs] = useState([]);
   const [summary, setSummary] = useState({ calls: 0, failed: 0, input_tokens: 0, output_tokens: 0 });
@@ -85,28 +85,30 @@ export default function ApiUsageLogPanel() {
     return counts;
   }, [logs]);
 
-  const runtimeButton = (
-    <button
-      type="button"
-      onClick={() => setOpen(true)}
-      style={{
-        order: 2, width: '100%', minHeight: 70, padding: '10px 11px', display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 18px',
-        alignItems: 'center', gap: 9, textAlign: 'left', border: `1px solid ${C.borderLight}`, borderRadius: 13,
-        background: `linear-gradient(145deg, ${C.cream}, ${C.white})`, color: C.text, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box',
-      }}
-    >
-      <span style={{ width: 32, height: 32, display: 'grid', placeItems: 'center', borderRadius: 10, background: C.honeyLight, color: C.honeyDeep, fontSize: 15 }}>↗</span>
-      <span style={{ minWidth: 0 }}>
-        <b style={{ display: 'block', fontSize: 11.5 }}>API 调用记录</b>
-        <small style={{ display: 'block', marginTop: 2, color: C.muted, fontSize: 9.5, lineHeight: 1.35 }}>模型、token、用途与实际请求时间</small>
-      </span>
-      <span style={{ color: C.honeyDeep, fontSize: 17 }}>›</span>
-    </button>
+  const groupEntry = (
+    <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.borderLight}` }}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          width: '100%', minHeight: 54, padding: '9px 10px', display: 'grid', gridTemplateColumns: '32px minmax(0,1fr) 18px',
+          alignItems: 'center', gap: 9, textAlign: 'left', border: `1px solid ${C.borderLight}`, borderRadius: 12,
+          background: C.cream, color: C.text, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box',
+        }}
+      >
+        <span style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', borderRadius: 9, background: C.honeyLight, color: C.honeyDeep, fontSize: 14 }}>↗</span>
+        <span style={{ minWidth: 0 }}>
+          <b style={{ display: 'block', fontSize: 11.5 }}>API 调用记录</b>
+          <small style={{ display: 'block', marginTop: 2, color: C.muted, fontSize: 9.2, lineHeight: 1.35 }}>最近 24 小时的模型、token、用途与请求时间</small>
+        </span>
+        <span style={{ color: C.honeyDeep, fontSize: 17 }}>›</span>
+      </button>
+    </div>
   );
 
   return (
     <>
-      {runtimeTarget && createPortal(runtimeButton, runtimeTarget)}
+      {groupTarget && createPortal(groupEntry, groupTarget)}
 
       {open && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10050, background: 'rgba(41,27,16,.20)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setOpen(false)}>
