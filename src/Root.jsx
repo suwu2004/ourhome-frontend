@@ -11,6 +11,7 @@ import ToolBearGameDock from './ToolBearGameDock.jsx';
 import ApiUsageLogPanel from './ApiUsageLogPanel.jsx';
 import LuzeAutonomySettingsPanel from './LuzeAutonomySettingsPanel.jsx';
 import LuzePrivateRoom from './LuzePrivateRoom.jsx';
+import OurHomeAccessGate, { useOurHomeAccess } from './OurHomeAccessGate.jsx';
 import '@fontsource/ma-shan-zheng/chinese-simplified-400.css';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
@@ -116,6 +117,7 @@ function LuzeRoomHomeEntry({ onOpen }) {
 
 export default function Root() {
   const { refreshTheme } = useTheme();
+  const [unlocked, setUnlocked] = useOurHomeAccess();
   const [room, setRoom] = useState(roomFromHash);
   const [homeRefreshToken, setHomeRefreshToken] = useState(0);
 
@@ -130,11 +132,15 @@ export default function Root() {
   }, []);
 
   useEffect(() => {
+    if (!unlocked) {
+      delete document.body.dataset.ourhomeRoom;
+      return undefined;
+    }
     document.body.dataset.ourhomeRoom = room;
     return () => {
       if (document.body.dataset.ourhomeRoom === room) delete document.body.dataset.ourhomeRoom;
     };
-  }, [room]);
+  }, [room, unlocked]);
 
   const openRoom = key => {
     window.location.hash = key;
@@ -146,6 +152,8 @@ export default function Root() {
     setRoom('home');
     refreshTheme();
   };
+
+  if (!unlocked) return <OurHomeAccessGate onUnlocked={() => setUnlocked(true)} />;
 
   if (room === 'vault') return <VaultPage onClose={goHome} />;
   if (room === 'luze-room') return <LuzePrivateRoom onClose={goHome} />;
