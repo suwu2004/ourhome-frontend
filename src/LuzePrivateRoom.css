@@ -47,29 +47,238 @@
 .luze-door-stage {
   flex: 1;
   min-height: 0;
-  padding: 7vh 24px calc(34px + env(safe-area-inset-bottom));
+  padding: 5vh 24px calc(30px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 22px;
   overflow: auto;
 }
 
-.luze-door-scene { width: min(190px, 52vw); filter: drop-shadow(0 18px 24px rgba(83, 53, 24, .12)); }
-.luze-door-frame { aspect-ratio: .72; padding: 10px 9px 0; border-radius: 92px 92px 8px 8px; background: linear-gradient(145deg, color-mix(in srgb, var(--lr-honey) 55%, #9d7148), var(--lr-honey-deep)); }
-.luze-door-panel { position: relative; width: 100%; height: 100%; box-sizing: border-box; border: 2px solid color-mix(in srgb, var(--lr-honey-deep) 70%, #5f3a20); border-bottom: 0; border-radius: 78px 78px 3px 3px; background: linear-gradient(90deg, rgba(255,255,255,.08), transparent 22%, rgba(0,0,0,.04)), color-mix(in srgb, var(--lr-honey) 73%, #ad7950); box-shadow: inset 0 0 0 7px rgba(255,255,255,.06); }
-.luze-door-panel::before, .luze-door-panel::after { content: ''; position: absolute; left: 18%; right: 18%; border: 1px solid rgba(88, 53, 26, .24); border-radius: 30px 30px 8px 8px; }
+.luze-door-scene {
+  position: relative;
+  width: min(330px, 84vw);
+  height: min(330px, 76vw);
+  min-height: 265px;
+  filter: drop-shadow(0 18px 24px rgba(83, 53, 24, .10));
+}
+
+.luze-door-frame {
+  position: absolute;
+  z-index: 4;
+  width: min(190px, 52vw);
+  aspect-ratio: .72;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  padding: 10px 9px 0;
+  box-sizing: border-box;
+  border-radius: 92px 92px 8px 8px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lr-honey) 55%, #9d7148), var(--lr-honey-deep));
+}
+
+.luze-door-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: 2px solid color-mix(in srgb, var(--lr-honey-deep) 70%, #5f3a20);
+  border-bottom: 0;
+  border-radius: 78px 78px 3px 3px;
+  background: linear-gradient(90deg, rgba(255,255,255,.08), transparent 22%, rgba(0,0,0,.04)), color-mix(in srgb, var(--lr-honey) 73%, #ad7950);
+  box-shadow: inset 0 0 0 7px rgba(255,255,255,.06);
+}
+
+.luze-door-panel::before,
+.luze-door-panel::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  border: 1px solid rgba(88, 53, 26, .24);
+  border-radius: 30px 30px 8px 8px;
+}
 .luze-door-panel::before { top: 19%; height: 25%; }
 .luze-door-panel::after { bottom: 13%; height: 25%; border-radius: 8px; }
-.luze-door-panel i { position: absolute; right: 14%; top: 52%; width: 8px; height: 8px; border-radius: 50%; background: #f3d69f; box-shadow: 0 0 0 2px rgba(91,55,24,.22); }
+
+.luze-door-knob {
+  position: absolute;
+  z-index: 3;
+  right: 12%;
+  top: 52%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f3d69f;
+  box-shadow: 0 0 0 2px rgba(91,55,24,.22), 0 2px 4px rgba(70,42,20,.18);
+}
+
+.luze-knock-sign {
+  position: absolute;
+  z-index: 4;
+  right: 20%;
+  top: 58%;
+  min-width: 64px;
+  padding: 6px 8px 5px;
+  border: 1px solid rgba(91,55,24,.28);
+  border-radius: 4px;
+  color: color-mix(in srgb, var(--lr-text) 82%, #6c4528);
+  background: color-mix(in srgb, var(--lr-cream) 86%, #f6e2b5);
+  box-shadow: 0 4px 8px rgba(70,42,20,.11);
+  font: inherit;
+  font-size: 9.5px;
+  letter-spacing: .08em;
+  line-height: 1.1;
+  cursor: pointer;
+  transform: rotate(-2deg);
+}
+.luze-knock-sign::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -11px;
+  width: 1px;
+  height: 10px;
+  background: rgba(91,55,24,.32);
+}
+.luze-knock-sign::after {
+  content: '';
+  position: absolute;
+  left: calc(50% - 2px);
+  top: -13px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #efd49a;
+  box-shadow: 0 0 0 1px rgba(91,55,24,.25);
+}
+.luze-knock-sign:hover { transform: rotate(0deg) translateY(-1px); }
+.luze-knock-sign:disabled { opacity: .58; cursor: default; transform: rotate(-2deg); }
+
+.luze-fence {
+  position: absolute;
+  z-index: 2;
+  bottom: 16px;
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  height: 62px;
+  padding-bottom: 7px;
+}
+.luze-fence::before,
+.luze-fence::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lr-honey) 68%, #d7c399);
+  box-shadow: inset 0 -1px 0 rgba(92,62,32,.12);
+}
+.luze-fence::before { bottom: 18px; transform: rotate(-1deg); }
+.luze-fence::after { bottom: 37px; transform: rotate(1deg); }
+.luze-fence span {
+  position: relative;
+  z-index: 1;
+  width: 13px;
+  height: 52px;
+  border-radius: 7px 7px 2px 2px;
+  background: linear-gradient(90deg, #f4e8cf, color-mix(in srgb, var(--lr-honey-light) 62%, #e7d4ac));
+  border: 1px solid rgba(102,74,45,.13);
+}
+.luze-fence span::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: -5px;
+  height: 11px;
+  background: inherit;
+  border-left: inherit;
+  border-top: inherit;
+  transform: rotate(45deg);
+  border-radius: 2px 0 0 0;
+}
+.luze-fence--left { left: 7px; transform: rotate(-2deg); }
+.luze-fence--right { right: 9px; transform: rotate(2deg); }
+
+.luze-flower-bed {
+  position: absolute;
+  z-index: 3;
+  bottom: 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  color: color-mix(in srgb, var(--lr-honey-deep) 62%, #b86b71);
+  text-shadow: 0 1px 0 rgba(255,255,255,.8);
+}
+.luze-flower-bed span { display: inline-block; transform-origin: 50% 100%; animation: luzeFlowerSway 4.8s ease-in-out infinite alternate; }
+.luze-flower-bed span:nth-child(2) { color: #c88793; font-size: 17px; animation-delay: -.9s; }
+.luze-flower-bed span:nth-child(3) { color: #d8a963; font-size: 14px; animation-delay: -1.8s; }
+.luze-flower-bed span:nth-child(4) { color: #a8a86f; font-size: 15px; animation-delay: -2.6s; }
+.luze-flower-bed--left { left: 22px; }
+.luze-flower-bed--right { right: 25px; }
+
+.luze-butterfly {
+  position: absolute;
+  z-index: 6;
+  left: 25px;
+  top: 58px;
+  width: 24px;
+  height: 17px;
+  animation: luzeButterflyFlight 8.5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.luze-butterfly::after {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 5px;
+  width: 3px;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lr-honey-deep) 72%, #5d4934);
+}
+.luze-butterfly i,
+.luze-butterfly b {
+  position: absolute;
+  top: 2px;
+  width: 11px;
+  height: 13px;
+  border-radius: 70% 45% 68% 45%;
+  background: linear-gradient(145deg, #f3d9a2, color-mix(in srgb, var(--lr-honey) 72%, #dc9b8d));
+  box-shadow: inset 0 0 0 1px rgba(109,75,42,.12);
+  transform-origin: 100% 60%;
+  animation: luzeButterflyWing .42s ease-in-out infinite alternate;
+}
+.luze-butterfly i { left: 1px; transform: rotate(18deg); }
+.luze-butterfly b { right: 1px; transform-origin: 0 60%; transform: rotate(-18deg) scaleX(-1); animation-delay: -.18s; }
+
+@keyframes luzeButterflyWing {
+  from { scale: .72 1; opacity: .72; }
+  to { scale: 1 1; opacity: 1; }
+}
+@keyframes luzeButterflyFlight {
+  0% { transform: translate(0, 8px) rotate(-7deg); }
+  25% { transform: translate(45px, -18px) rotate(6deg); }
+  53% { transform: translate(96px, 4px) rotate(-3deg); }
+  78% { transform: translate(155px, -22px) rotate(7deg); }
+  100% { transform: translate(225px, 2px) rotate(-5deg); }
+}
+@keyframes luzeFlowerSway {
+  from { transform: rotate(-3deg); }
+  to { transform: rotate(4deg); }
+}
 
 .luze-door-copy { width: min(390px, 100%); text-align: center; }
 .luze-private-label { display: inline-block; color: var(--lr-honey-deep); font-size: 8.5px; letter-spacing: .28em; }
-.luze-door-copy h1 { margin: 10px 0 7px; font-size: 23px; font-weight: 650; letter-spacing: .04em; }
-.luze-door-copy p { min-height: 42px; margin: 0 auto 18px; max-width: 320px; color: var(--lr-muted); font-size: 12px; line-height: 1.75; }
-.luze-door-copy > button { min-width: 122px; padding: 10px 18px; border: 1px solid var(--lr-honey); border-radius: 999px; background: var(--lr-honey); color: var(--lr-white); font: inherit; font-size: 12px; cursor: pointer; box-shadow: 0 8px 18px color-mix(in srgb, var(--lr-honey) 22%, transparent); }
-.luze-door-copy > button:disabled { opacity: .55; cursor: default; }
+.luze-door-copy h1 { margin: 9px 0 5px; font-size: 22px; font-weight: 650; letter-spacing: .04em; }
+.luze-door-copy p { margin-left: auto; margin-right: auto; max-width: 330px; }
+.luze-door-intro { margin-top: 0; margin-bottom: 8px; color: var(--lr-muted); font-size: 11.5px; line-height: 1.7; }
+.luze-door-quote { margin-top: 0; margin-bottom: 9px; color: color-mix(in srgb, var(--lr-muted) 86%, var(--lr-honey-deep)); font-size: 10.5px; line-height: 1.75; font-style: italic; }
+.luze-door-response { margin-top: 10px; margin-bottom: 0; padding: 8px 11px; border: 1px dashed var(--lr-border); border-radius: 12px; background: color-mix(in srgb, var(--lr-white) 76%, transparent); color: var(--lr-text); font-size: 10.5px; line-height: 1.65; }
 
 .luze-room-error { display: block; margin-top: 10px; color: #a25959; font-size: 10px; line-height: 1.5; }
 .luze-room-error--card { margin: 0 0 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, #a25959 35%, var(--lr-border)); border-radius: 12px; background: var(--lr-white); }
@@ -126,9 +335,22 @@
 .luze-idea-card small { color: var(--lr-muted); font-size: 8px; }
 
 @media (max-width: 520px) {
-  .luze-door-stage { padding-left: 20px; padding-right: 20px; gap: 24px; }
+  .luze-door-stage { padding-left: 18px; padding-right: 18px; gap: 18px; }
+  .luze-door-scene { width: min(312px, 88vw); height: min(310px, 82vw); min-height: 250px; }
+  .luze-fence--left { left: 2px; }
+  .luze-fence--right { right: 3px; }
+  .luze-flower-bed--left { left: 14px; }
+  .luze-flower-bed--right { right: 16px; }
   .luze-room-scroll { padding-left: 13px; padding-right: 13px; }
   .luze-note-card { padding: 15px 14px 12px; }
   .luze-idea-grid { grid-template-columns: 1fr; gap: 10px; }
   .luze-idea-card, .luze-idea-card--1, .luze-idea-card--2 { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .luze-butterfly,
+  .luze-butterfly i,
+  .luze-butterfly b,
+  .luze-flower-bed span { animation: none !important; }
+  .luze-butterfly { transform: translate(122px, -8px) rotate(3deg); }
 }
