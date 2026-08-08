@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
-import { useSettingsRuntimeTarget } from './useSettingsRuntimeTarget.js';
+import { useSettingsGroupTarget } from './useSettingsGroupTarget.js';
 
 function Toggle({ value, onChange, theme, disabled = false }) {
   return (
@@ -40,7 +40,12 @@ function clock(value) {
 
 export default function LuzeAutonomySettingsPanel() {
   const { theme: C } = useTheme();
-  const runtimeTarget = useSettingsRuntimeTarget(C);
+  const groupTarget = useSettingsGroupTarget({
+    key: 'luze-affairs',
+    title: '陆泽邮箱',
+    displayTitle: '陆泽的事务',
+    displaySubtitle: '邮箱、自主性与他的个人设置',
+  });
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -89,20 +94,23 @@ export default function LuzeAutonomySettingsPanel() {
     if (open && !settings) load();
   }, [load, open, settings]);
 
-  const runtimeButton = (
-    <button type="button" onClick={() => setOpen(true)} style={{ order: 1, width: '100%', minHeight: 70, padding: '10px 11px', display: 'grid', gridTemplateColumns: '34px minmax(0,1fr) 18px', alignItems: 'center', gap: 9, textAlign: 'left', border: `1px solid ${C.borderLight}`, borderRadius: 13, background: `linear-gradient(145deg, ${C.honeyLight}, ${C.white})`, color: C.text, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
-      <span style={{ width: 32, height: 32, display: 'grid', placeItems: 'center', borderRadius: 10, background: C.white, color: C.honeyDeep, border: `1px solid ${C.borderLight}`, fontSize: 16 }}>⌁</span>
-      <span style={{ minWidth: 0 }}>
-        <b style={{ display: 'block', fontSize: 11.5 }}>陆泽自主性</b>
-        <small style={{ display: 'block', marginTop: 2, color: C.muted, fontSize: 9.5, lineHeight: 1.35 }}>学习、房间调用与每日行动预算</small>
-      </span>
-      <span style={{ color: C.honeyDeep, fontSize: 17 }}>›</span>
-    </button>
+  const groupEntry = (
+    <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.borderLight}` }}>
+      <div style={{ marginBottom: 8, color: C.mutedLight, fontSize: 8.5, letterSpacing: '.12em' }}>LU ZE · AUTONOMY</div>
+      <button type="button" onClick={() => setOpen(true)} style={{ width: '100%', minHeight: 56, padding: '9px 10px', display: 'grid', gridTemplateColumns: '32px minmax(0,1fr) 18px', alignItems: 'center', gap: 9, textAlign: 'left', border: `1px solid ${C.borderLight}`, borderRadius: 12, background: `linear-gradient(145deg, ${C.honeyLight}, ${C.white})`, color: C.text, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
+        <span style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', borderRadius: 9, background: C.white, color: C.honeyDeep, border: `1px solid ${C.borderLight}`, fontSize: 15 }}>⌁</span>
+        <span style={{ minWidth: 0 }}>
+          <b style={{ display: 'block', fontSize: 11.5 }}>陆泽自主性</b>
+          <small style={{ display: 'block', marginTop: 2, color: C.muted, fontSize: 9.2, lineHeight: 1.35 }}>自主学习、自己的房间与每日行动预算</small>
+        </span>
+        <span style={{ color: C.honeyDeep, fontSize: 17 }}>›</span>
+      </button>
+    </div>
   );
 
   return (
     <>
-      {runtimeTarget && createPortal(runtimeButton, runtimeTarget)}
+      {groupTarget && createPortal(groupEntry, groupTarget)}
       {open && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10060, background: 'rgba(41,27,16,.20)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setOpen(false)}>
           <section onClick={event => event.stopPropagation()} style={{ width: 'min(520px,100vw)', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: C.cream, color: C.text, borderLeft: `1px solid ${C.border}`, boxShadow: '-12px 0 36px rgba(60,38,17,.10)', fontFamily: 'inherit' }}>
