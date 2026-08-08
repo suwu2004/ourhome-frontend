@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test:api": "node --test scripts/api-fetch-regression.test.mjs",
     "test:gomoku": "node --test scripts/gomoku-regression.test.mjs"
   },
   "dependencies": {
