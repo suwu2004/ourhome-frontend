@@ -1,4 +1,4 @@
-const configuredBackend = import.meta.env.VITE_BACKEND_URL?.trim();
+const configuredBackend = import.meta.env?.VITE_BACKEND_URL?.trim();
 
 export const BACKEND = (configuredBackend || '/api').replace(/\/$/, '');
 export const TOKEN_KEY = 'ourhome_token';
