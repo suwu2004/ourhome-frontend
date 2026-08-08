@@ -27,6 +27,14 @@ function nonJsonResponseMessage(response, rawText) {
   return `${generic}：${detail}`;
 }
 
+function responseErrorMessage(response, data) {
+  const raw = data?.error?.message
+    || data?.error
+    || data?.message
+    || `读取失败（HTTP ${response.status || '未知'}）`;
+  return typeof raw === 'string' ? raw : `读取失败（HTTP ${response.status || '未知'}）`;
+}
+
 function requestId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -90,8 +98,9 @@ export async function apiFetch(url, options = {}) {
 
   const fallbackBody = response.clone();
   const safeJson = async () => {
+    let data;
     try {
-      return await response.json();
+      data = await response.json();
     } catch (cause) {
       const rawText = await fallbackBody.text().catch(() => '');
       const error = new Error(nonJsonResponseMessage(response, rawText));
@@ -101,6 +110,20 @@ export async function apiFetch(url, options = {}) {
       error.cause = cause;
       throw error;
     }
+
+    // Existing read callers often map “not an array” to an empty list. A failed GET
+    // must never masquerade as a real empty cloud response, otherwise a brief 5xx can
+    // visually erase sessions/messages or make startup create a needless new session.
+    if (requestMethod(options) === 'GET' && !response.ok) {
+      const error = new Error(responseErrorMessage(response, data));
+      error.code = data?.code || data?.error?.type || 'read_request_failed';
+      error.status = response.status;
+      error.requestId = response.headers.get('X-OurHome-Request-Id') || headers.get('X-OurHome-Request-Id') || '';
+      error.data = data;
+      throw error;
+    }
+
+    return data;
   };
 
   return new Proxy(response, {
