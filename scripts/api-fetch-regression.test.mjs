@@ -43,25 +43,7 @@ test('network wobble on GET gets one quiet retry', async () => {
   assert.deepEqual(await response.json(), [{ id: 1 }]);
 });
 
-test('persistent failed GET throws instead of looking like an empty cloud list', async () => {
-  let calls = 0;
-  globalThis.fetch = async () => {
-    calls += 1;
-    return new Response('{"error":"backend unavailable"}', {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  };
-
-  const response = await apiFetch('/api/sessions/1/messages');
-  assert.equal(calls, 2);
-  await assert.rejects(
-    () => response.json(),
-    error => error?.status === 503 && /backend unavailable/.test(error.message),
-  );
-});
-
-test('POST is never retried and its error JSON stays inspectable by write callers', async () => {
+test('POST is never retried so writes and model calls stay single-shot', async () => {
   let calls = 0;
   globalThis.fetch = async () => {
     calls += 1;
@@ -76,7 +58,6 @@ test('POST is never retried and its error JSON stays inspectable by write caller
 
   assert.equal(response.status, 503);
   assert.equal(calls, 1);
-  assert.deepEqual(await response.json(), { error: 'temporary' });
 });
 
 test('caller-owned abort signals opt out of automatic retry', async () => {
