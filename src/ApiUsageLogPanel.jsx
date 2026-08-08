@@ -42,6 +42,10 @@ function purposeLabel(value) {
   if (purpose === 'memory-journal') return '记忆整理';
   if (purpose === 'visible-thinking') return '可见思考补全';
   if (purpose === 'theater') return '小剧场';
+  if (purpose === 'luze-learning-plan') return '自主学习 · 选题';
+  if (purpose === 'luze-learning-synthesis') return '自主学习 · 消化';
+  if (purpose === 'luze-learning-deep') return '自主学习 · 深挖';
+  if (purpose === 'luze-private-consent') return '陆泽房间 · 敲门';
   return '';
 }
 
