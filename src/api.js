@@ -40,6 +40,11 @@ export async function apiFetch(url, options = {}) {
     headers,
   });
 
+  if (response.status === 401 && token) {
+    localStorage.removeItem(TOKEN_KEY);
+    window.dispatchEvent(new Event('ourhome-auth-changed'));
+  }
+
   const fallbackBody = response.clone();
   const safeJson = async () => {
     try {
