@@ -79,7 +79,8 @@ export default function ApiUsageLogPanel() {
     const findTarget = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const next = document.querySelector('body[data-ourhome-room="settings"] .ourhome-scroll > section:first-child');
+        const sections = Array.from(document.querySelectorAll('body[data-ourhome-room="settings"] .ourhome-scroll > section'));
+        const next = sections.find(section => String(section.textContent || '').includes('家里的控制台')) || null;
         setControllerTarget(current => current === next ? current : next);
       });
     };
