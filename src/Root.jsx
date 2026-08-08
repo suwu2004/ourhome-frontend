@@ -9,6 +9,7 @@ import ToyBoxSharedRoom from './ToyBoxSharedRoom.jsx';
 import ToyBoxGomokuIntegration from './ToyBoxGomokuIntegration.jsx';
 import ToolBearGameDock from './ToolBearGameDock.jsx';
 import ApiUsageLogPanel from './ApiUsageLogPanel.jsx';
+import LuzeAutonomySettingsPanel from './LuzeAutonomySettingsPanel.jsx';
 import LuzePrivateRoom from './LuzePrivateRoom.jsx';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
@@ -162,7 +163,12 @@ export default function Root() {
       <>
         <App key={room} initialView={room} onHome={goHome} />
         {room === 'theater' && <TheaterRuleLibrary />}
-        {room === 'settings' && <ApiUsageLogPanel />}
+        {room === 'settings' && (
+          <>
+            <ApiUsageLogPanel />
+            <LuzeAutonomySettingsPanel />
+          </>
+        )}
       </>
     );
   }
