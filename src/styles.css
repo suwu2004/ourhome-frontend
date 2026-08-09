@@ -430,7 +430,7 @@ html[data-native-app="true"] body[data-ourhome-room="theater"] header.ourhome-sa
 html[data-native-app="true"] body[data-ourhome-room="letters"] header.ourhome-safe-top > span:nth-child(2),
 html[data-native-app="true"] body[data-ourhome-room="memories"] header.ourhome-safe-top > span:nth-child(2),
 html[data-native-app="true"] body[data-ourhome-room="settings"] header.ourhome-safe-top > span:nth-child(2) {
-  top: calc(var(--ourhome-status-bar-inset, 24px) + 27px) !important;
+  top: calc(var(--ourhome-status-bar-inset, 24px) + 33px) !important;
 }
 
 .search-match {

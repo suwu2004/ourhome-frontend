@@ -603,8 +603,13 @@ export default function App({ initialView = 'chat', onHome }) {
       setAvailableModels(nextModels);
       return nextModels;
     } catch (error) {
-      setModelsError(error?.message || '模型拉取失败');
+      const fallbackModels = normalizeModelOptions([], preferredModel);
       setAvailableModels(current => normalizeModelOptions(current, preferredModel));
+      // Some compatible API sites can chat normally but deliberately omit
+      // GET /models. Keep their configured model usable without leaving a red
+      // global error after a successful profile switch; manual model pulls in
+      // the API profile editor still surface the provider's exact error.
+      setModelsError(fallbackModels.length ? '' : (error?.message || '模型拉取失败'));
       return [];
     } finally {
       setModelsLoading(false);
