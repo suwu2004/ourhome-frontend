@@ -411,6 +411,28 @@ textarea { display: block; margin: 0; }
 .ourhome-safe-bottom { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
 .ourhome-scroll { overscroll-behavior: contain; scrollbar-width: thin; }
 
+/* Android 15/16 can force edge-to-edge even when the native status-bar plugin
+   asks for a non-overlay layout. These five shared headers use absolute title
+   centering, so both their box and title center must include the native inset. */
+html[data-native-app="true"] body:is(
+  [data-ourhome-room="photos"],
+  [data-ourhome-room="letters"],
+  [data-ourhome-room="theater"],
+  [data-ourhome-room="memories"],
+  [data-ourhome-room="settings"]
+) header.ourhome-safe-top {
+  min-height: calc(var(--ourhome-room-nav-height, 54px) + var(--ourhome-status-bar-inset, 24px)) !important;
+  padding-top: max(12px, env(safe-area-inset-top), var(--ourhome-status-bar-inset, 24px)) !important;
+}
+
+html[data-native-app="true"] body[data-ourhome-room="photos"] header.ourhome-safe-top > div,
+html[data-native-app="true"] body[data-ourhome-room="theater"] header.ourhome-safe-top > div,
+html[data-native-app="true"] body[data-ourhome-room="letters"] header.ourhome-safe-top > span:nth-child(2),
+html[data-native-app="true"] body[data-ourhome-room="memories"] header.ourhome-safe-top > span:nth-child(2),
+html[data-native-app="true"] body[data-ourhome-room="settings"] header.ourhome-safe-top > span:nth-child(2) {
+  top: calc(var(--ourhome-status-bar-inset, 24px) + 27px) !important;
+}
+
 .search-match {
   border-radius: 4px;
   background: #ffe08a;
