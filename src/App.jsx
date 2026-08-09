@@ -636,7 +636,12 @@ export default function App({ initialView = 'chat', onHome }) {
       setFontStyle(data.font_style);
       applyAppFont(data.font_style);
     }
-    setSystemPromptInput(String(data?.system_prompt || ''));
+    // A privacy-safe stale settings cache deliberately omits the persona.  Do
+    // not turn an omitted private field into an empty prompt while the cloud is
+    // recovering; a later fresh settings response will replace it normally.
+    if (Object.prototype.hasOwnProperty.call(data || {}, 'system_prompt')) {
+      setSystemPromptInput(String(data.system_prompt || ''));
+    }
     if (typeof data?.daily_journal_enabled === 'boolean') setDailyJournalEnabled(data.daily_journal_enabled);
     if (data?.daily_journal_time) setDailyJournalTime(String(data.daily_journal_time).slice(0, 5));
     const preferredModel = data?.selected_model || '';
