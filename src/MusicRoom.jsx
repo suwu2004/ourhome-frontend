@@ -79,7 +79,6 @@ function formatTime(seconds) {
 
 export function MusicRoom({ visible, theme, leaveRoom }) {
   const C = theme;
-  const fileInputRef = useRef(null);
   const backgroundInputRef = useRef(null);
   const lyricsScrollRef = useRef(null);
   const lyricLineRefs = useRef([]);
@@ -101,12 +100,10 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     seekTo,
     toggleShuffle,
   } = useMusicPlayer();
-  const [draft, setDraft] = useState(emptyTrack);
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [backgroundUploading, setBackgroundUploading] = useState(false);
   const [lyricsLoadingId, setLyricsLoadingId] = useState(null);
   const [tab, setTab] = useState('listen');
@@ -158,15 +155,6 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     } finally {
       setSaving(false);
     }
-  };
-
-  const saveTrack = async () => {
-    if (!draft.title.trim() && !draft.audio_url.trim() && !draft.source_url.trim()) {
-      setError('至少写歌名，或者上传一段音频。');
-      return;
-    }
-    const saved = await saveTrackPayload(draft);
-    if (saved) setDraft(emptyTrack);
   };
 
   const addSearchResult = async track => {
@@ -257,33 +245,6 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
     }
   };
 
-  const uploadAudio = async file => {
-    if (!file) return;
-    if (!file.type.startsWith('audio/')) {
-      setError('这个文件不像音频，换一首歌试试。');
-      return;
-    }
-    setUploading(true);
-    setError('');
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const response = await apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || '音频没有上传成功');
-      setDraft(current => ({
-        ...current,
-        audio_url: data.url,
-        title: current.title || data.name?.replace(/\.[^.]+$/, '') || '',
-      }));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
   const uploadBackground = async file => {
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -350,7 +311,6 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
             ['search', '🔎 搜索'],
             ['qqmusic', 'QQ 音乐'],
             ['library', '💿 歌单'],
-            ['upload', '⬆ 上传'],
           ].map(([key, label]) => (
             <button
               type="button"
@@ -376,7 +336,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                   <div style={{ minWidth: 0 }}>
                     <div style={{ color: C.mutedLight, fontSize: 10.5, letterSpacing: '.18em', marginBottom: 4 }}>NOW LISTENING</div>
                     <div style={{ color: C.text, fontSize: 24, fontWeight: 800, lineHeight: 1.22, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeTrack?.title || '还没有选歌'}</div>
-                    <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeTrack?.artist || '先去搜索或上传一首歌'}</div>
+                    <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeTrack?.artist || '先从 QQ 音乐收藏一首歌'}</div>
                     <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 8 }}>{playModeMeta.label}</div>
                   </div>
                   <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
@@ -430,7 +390,6 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                   <button type="button" onClick={() => setTab('search')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>去搜索</button>
-                  <button type="button" onClick={() => setTab('upload')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>上传音频</button>
                   <button type="button" onClick={() => setTab('qqmusic')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>从 QQ 音乐收藏</button>
                 </div>
               </div>
@@ -440,7 +399,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
           {tab === 'search' && (
             <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
               <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>搜索区</div>
-              <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.6, margin: '-3px 0 9px' }}>搜索到的是官方试听片段，通常只有 30 秒；想听完整音频，可以到“上传”里放自己的音乐文件。</div>
+              <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.6, margin: '-3px 0 9px' }}>搜索区只用于试听与找歌；想保留完整歌曲，请从 QQ 音乐收藏。</div>
               <form onSubmit={searchMusic} style={{ display: 'flex', gap: 8 }}>
                 <input value={query} onChange={event => setQuery(event.target.value)} placeholder="输入歌名、歌手，比如周杰伦 晴天" style={{ ...inputStyle(C), flex: 1, minWidth: 0 }} />
                 <button type="submit" disabled={searching} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '0 15px', fontFamily: 'inherit', cursor: searching ? 'default' : 'pointer', opacity: searching ? .65 : 1 }}>{searching ? '搜着' : '搜索'}</button>
@@ -493,7 +452,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                 <b style={{ color: C.text }}>我们喜欢的音乐</b>
                 <span style={{ color: C.mutedLight, fontSize: 11 }}>{tracks.length} 首</span>
               </div>
-              {!tracks.length && <div style={{ color: C.muted, fontSize: 13, padding: '18px 0', textAlign: 'center' }}>还没有歌。去“搜索”找一首，或者去“上传”放进唱片机。</div>}
+              {!tracks.length && <div style={{ color: C.muted, fontSize: 13, padding: '18px 0', textAlign: 'center' }}>还没有歌。去 QQ 音乐复制分享链接，放进我们的共同歌单。</div>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {tracks.map(track => (
                   <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${String(activeTrack?.id) === String(track.id) ? C.honeyMid : C.borderLight}`, background: String(activeTrack?.id) === String(track.id) ? C.honeyLight : C.surface, borderRadius: 13, padding: '10px 11px' }}>
@@ -512,24 +471,6 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
             </section>
           )}
 
-          {tab === 'upload' && (
-            <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
-              <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>手动收藏 / 上传音频</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 9 }}>
-                <input value={draft.title} onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} placeholder="歌名" style={inputStyle(C)} />
-                <input value={draft.artist} onChange={event => setDraft(current => ({ ...current, artist: event.target.value }))} placeholder="歌手" style={inputStyle(C)} />
-                <input value={draft.album} onChange={event => setDraft(current => ({ ...current, album: event.target.value }))} placeholder="专辑，可不填" style={inputStyle(C)} />
-              </div>
-              <input value={draft.audio_url} onChange={event => setDraft(current => ({ ...current, audio_url: event.target.value }))} placeholder="可直接播放的音频链接，上传后自动填入" style={{ ...inputStyle(C), width: '100%', marginTop: 9 }} />
-              <input value={draft.cover_url} onChange={event => setDraft(current => ({ ...current, cover_url: event.target.value }))} placeholder="封面 / 背景图链接，可不填" style={{ ...inputStyle(C), width: '100%', marginTop: 9 }} />
-              <textarea value={draft.note} onChange={event => setDraft(current => ({ ...current, note: event.target.value }))} placeholder="备注或想显示在唱片机上的一句话……" rows={2} style={{ ...inputStyle(C), width: '100%', resize: 'vertical', marginTop: 9, borderRadius: 12 }} />
-              <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
-                <input ref={fileInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={event => uploadAudio(event.target.files?.[0])} />
-                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} style={softButtonStyle(C)}>{uploading ? '上传中' : '上传音频'}</button>
-                <button type="button" onClick={saveTrack} disabled={saving} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '9px 15px', fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer', opacity: saving ? .65 : 1 }}>{saving ? '保存中' : '加入歌单'}</button>
-              </div>
-            </section>
-          )}
         </section>
       </main>
     </div>

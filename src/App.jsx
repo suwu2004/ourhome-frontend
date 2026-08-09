@@ -34,6 +34,13 @@ function normalizeModelOptions(models, preferredModel = '') {
   return [...new Set([preferredModel, ...list].map(model => String(model || '').trim()).filter(Boolean))];
 }
 
+function normalizeCalendarDayColors(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter(([date, color]) => (
+    /^\d{4}-\d{2}-\d{2}$/.test(date) && /^#[0-9a-f]{6}$/i.test(String(color || ''))
+  )).map(([date, color]) => [date, String(color).toUpperCase()]));
+}
+
 function newestFirst(items) {
   return [...items].sort((left, right) => {
     const timeDifference = Date.parse(right?.created_at || '') - Date.parse(left?.created_at || '');
@@ -220,8 +227,10 @@ export default function App({ initialView = 'chat', onHome }) {
   }, [sessionId]);
 
   useEffect(() => {
-    if (view === 'settings') preloadFontOptions().catch(console.error);
-  }, [view]);
+    if (view !== 'settings') return;
+    preloadFontOptions().catch(console.error);
+    refreshTheme({ refreshAssets: true }).catch(console.error);
+  }, [refreshTheme, view]);
 
   useEffect(() => {
     if (view === 'memories') setMemoryGroupsResetKey(key => key + 1);
@@ -229,8 +238,34 @@ export default function App({ initialView = 'chat', onHome }) {
   }, [view]);
   const [calendarTab, setCalendarTab] = useState('calendar');
   const [dayColors, setDayColors] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('ourhome_day_colors') || '{}'); } catch { return {}; }
+    try { return normalizeCalendarDayColors(JSON.parse(localStorage.getItem('ourhome_day_colors') || '{}')); } catch { return {}; }
   });
+  const dayColorsCloudReadyRef = useRef(false);
+  const dayColorsSaveTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (locked || !sharedSettings) return;
+    const cloudColors = normalizeCalendarDayColors(sharedSettings.calendar_day_colors);
+    setDayColors(current => {
+      const merged = { ...cloudColors, ...normalizeCalendarDayColors(current) };
+      localStorage.setItem('ourhome_day_colors', JSON.stringify(merged));
+      return merged;
+    });
+    dayColorsCloudReadyRef.current = true;
+  }, [locked, sharedSettings]);
+
+  useEffect(() => {
+    if (locked || !dayColorsCloudReadyRef.current) return undefined;
+    clearTimeout(dayColorsSaveTimerRef.current);
+    dayColorsSaveTimerRef.current = setTimeout(() => {
+      apiFetch(`${BACKEND}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calendar_day_colors: normalizeCalendarDayColors(dayColors) }),
+      }).catch(console.error);
+    }, 350);
+    return () => clearTimeout(dayColorsSaveTimerRef.current);
+  }, [dayColors, locked]);
   const [colorPickerDate, setColorPickerDate] = useState(null);
   const setDayColor = (dateStr, color) => {
     setDayColors(prev => {
@@ -595,7 +630,7 @@ export default function App({ initialView = 'chat', onHome }) {
       setFontStyle(data.font_style);
       applyAppFont(data.font_style);
     }
-    if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
+    setSystemPromptInput(String(data?.system_prompt || ''));
     if (typeof data?.daily_journal_enabled === 'boolean') setDailyJournalEnabled(data.daily_journal_enabled);
     if (data?.daily_journal_time) setDailyJournalTime(String(data.daily_journal_time).slice(0, 5));
     const preferredModel = data?.selected_model || '';

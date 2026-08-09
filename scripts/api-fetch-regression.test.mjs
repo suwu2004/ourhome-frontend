@@ -163,6 +163,7 @@ test('cached settings keep only visual home fields and never retain private prom
   globalThis.fetch = async () => new Response(JSON.stringify({
     dark_mode: true,
     home_bg_day_image_url: 'https://img.test/day.webp',
+    calendar_day_colors: { '2026-08-09': '#E9A0B6' },
     system_prompt: 'private persona',
     selected_model: 'private-model',
   }), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -174,6 +175,7 @@ test('cached settings keep only visual home fields and never retain private prom
   assert.deepEqual(JSON.parse(cached.body), {
     dark_mode: true,
     home_bg_day_image_url: 'https://img.test/day.webp',
+    calendar_day_colors: { '2026-08-09': '#E9A0B6' },
   });
 });
 

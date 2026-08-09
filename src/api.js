@@ -19,6 +19,7 @@ const SAFE_SETTINGS_CACHE_KEYS = new Set([
   'bg_image_url', 'bg_color', 'home_bg_day_image_url', 'home_bg_night_image_url',
   'home_memo_bg_image_url', 'whisper_bg_image_url', 'whisper_bg_color',
   'my_bubble_color', 'partner_bubble_color',
+  'calendar_day_colors',
 ]);
 
 function compactResponseText(value, limit = 260) {
