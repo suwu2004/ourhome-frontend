@@ -1,7 +1,7 @@
 {
   "name": "ourhome-frontend",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -14,7 +14,7 @@
     "test:gomoku": "node --test scripts/gomoku-regression.test.mjs",
     "test:storage": "node --test scripts/storage-egress-regression.test.mjs",
     "test:offline": "node --test scripts/offline-shell-regression.test.mjs",
-    "test:app": "node --test scripts/app-shell-regression.test.mjs",
+    "test:app": "node --test scripts/app-shell-regression.test.mjs scripts/settings-music-regression.test.mjs",
     "android:sync": "npm run build -- --mode android && cap sync android",
     "android:open": "cap open android",
     "android:apk": "npm run android:sync && node scripts/build-android.mjs"
