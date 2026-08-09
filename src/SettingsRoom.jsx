@@ -22,13 +22,9 @@ function BackgroundImageOption({ label, description, image, busy, onUpload, onRe
   );
 }
 
-function SettingStatusCard({ theme, label, value, detail }) {
+function SettingsSectionLabel({ children, theme }) {
   return (
-    <div style={{ minWidth: 0, padding: '10px 9px', borderRadius: 13, border: `1px solid ${theme.borderLight}`, background: theme.cream }}>
-      <div style={{ color: theme.mutedLight, fontSize: 9, letterSpacing: '.12em' }}>{label}</div>
-      <div style={{ marginTop: 5, color: theme.text, fontSize: 12.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
-      <div style={{ marginTop: 3, color: theme.muted, fontSize: 9.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{detail}</div>
-    </div>
+    <div style={{ margin: '19px 4px 8px', color: theme.mutedLight, fontSize: 9.5, fontWeight: 700, letterSpacing: '.18em' }}>{children}</div>
   );
 }
 
@@ -59,29 +55,22 @@ export function SettingsRoom(props) {
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>⚙ 设置</span>
         </header>
         <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingLeft: 18, paddingRight: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
-          <section style={{ marginBottom: 12, padding: 14, borderRadius: 18, background: `linear-gradient(145deg, ${C.white}, ${C.surface})`, border: `1px solid ${C.border}`, boxShadow: `0 8px 22px ${C.borderLight}88` }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+          <section className="settings-console-card" style={{ marginBottom: 14, padding: 14, borderRadius: 18, background: `linear-gradient(145deg, ${C.white}, ${C.surface})`, border: `1px solid ${C.border}`, boxShadow: `0 8px 22px ${C.borderLight}88` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <div>
                 <div style={{ color: C.text, fontSize: 16, fontWeight: 700, letterSpacing: '.05em' }}>家里的控制台</div>
-                <div style={{ marginTop: 4, color: C.muted, fontSize: 10.5, lineHeight: 1.55 }}>外观、模型、通知、联网和备份都放在这里。</div>
+                <AppInstallSettings compact />
               </div>
               <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
                 <button type="button" onClick={() => setSettingsGroupsOpenSignal(current => ({ key: current.key + 1, open: true }))} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '6px 10px', fontSize: 10.5, cursor: 'pointer', fontFamily: 'inherit' }}>展开全部</button>
                 <button type="button" onClick={() => setSettingsGroupsOpenSignal(current => ({ key: current.key + 1, open: false }))} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.cream, color: C.muted, padding: '6px 10px', fontSize: 10.5, cursor: 'pointer', fontFamily: 'inherit' }}>收起</button>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-              <SettingStatusCard theme={C} label="外观" value={darkMode ? '夜间' : '日间'} detail={FONT_STYLES[fontStyle]?.label || '默认字体'} />
-              <SettingStatusCard theme={C} label="模型" value={selectedModel || '未选择'} detail={modelsLoading ? '拉取中' : modelsError || '当前线路'} />
-              <SettingStatusCard theme={C} label="通知" value={notifStatus === 'granted' ? '已开启' : notifStatus === 'denied' ? '已拒绝' : '未开启'} detail={dailyJournalEnabled ? `收尾 ${dailyJournalTime}` : '自动收尾关'} />
-            </div>
           </section>
 
-          <SettingsGroup theme={C} title="安装与设备" subtitle="vivo 手机、华为平板与 Android App" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
-            <AppInstallSettings />
-          </SettingsGroup>
+          <SettingsSectionLabel theme={C}>常用设置</SettingsSectionLabel>
 
-          <SettingsGroup theme={C} title="主题与外观" subtitle="昼夜、字体、天气和主页背景" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+          <SettingsGroup theme={C} icon="◐" title="外观与主页" subtitle={`${darkMode ? '夜间' : '日间'} · ${FONT_STYLES[fontStyle]?.label || '默认字体'} · 背景与天气`} resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
             <span style={{ fontSize: 13, color: C.text }}>{darkMode ? "🌙 夜间模式" : "☀️ 日间模式"}</span>
             <button type="button" role="switch" aria-checked={darkMode} aria-label="切换日间与夜间模式" onClick={toggleDarkMode} style={{ width: 44, height: 24, padding: 0, border: 0, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
@@ -143,7 +132,7 @@ export function SettingsRoom(props) {
           <div style={{ marginTop: 7, color: homeBgError ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>{homeBgError || '主页背景跟随昼夜切换，便签纸单独保存；三套都会在云端同步。'}</div>
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="每日收尾" subtitle="定时补写幸福日记与心情日历" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+          <SettingsGroup theme={C} icon="♡" title="日常与通知" subtitle={`${dailyJournalEnabled ? `每天 ${dailyJournalTime} 收尾` : '自动收尾已关闭'} · ${notifStatus === 'granted' ? '通知已开启' : '通知未开启'}`} resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>每天的幸福收尾</div>
           <div style={{ padding: 12, marginBottom: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -182,7 +171,7 @@ export function SettingsRoom(props) {
           </div>
           </SettingsGroup>
 
-          <SettingsGroup theme={C} title="聊天装扮" subtitle="头像、聊天墙面和气泡颜色" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+          <SettingsGroup theme={C} icon="✿" title="聊天与身份" subtitle="头像、聊天墙面、悄悄话与气泡颜色" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
           <div style={{ display: "flex", gap: 20, marginBottom: 18 }}>
             <div style={{ textAlign: "center" }}>
@@ -232,9 +221,10 @@ export function SettingsRoom(props) {
           </div>
           </SettingsGroup>
 
+          <SettingsSectionLabel theme={C}>连接与智能</SettingsSectionLabel>
           {view === 'settings' && (
             <>
-              <SettingsGroup theme={C} title="API 与模型" subtitle="保存、切换站点并拉取全部模型" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+              <SettingsGroup theme={C} icon="AI" title="API 与模型" subtitle={selectedModel ? `当前：${selectedModel}` : '保存、切换站点并拉取全部模型'} resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
               <ApiProfilesSettings
                 apiFetch={apiFetch}
                 backend={BACKEND}
@@ -251,17 +241,18 @@ export function SettingsRoom(props) {
               />
               </SettingsGroup>
 
-              <SettingsGroup theme={C} title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+              <SettingsGroup theme={C} icon="✉" title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
                 <AgentMailSettings apiFetch={apiFetch} backend={BACKEND} theme={C} />
               </SettingsGroup>
 
-              <SettingsGroup theme={C} title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+              <SettingsGroup theme={C} icon="⌁" title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
                 <IntegrationSettings apiFetch={apiFetch} backend={BACKEND} theme={C} embedded />
               </SettingsGroup>
             </>
           )}
 
-          <SettingsGroup theme={C} title="数据与导出" subtitle="聊天存档、全量备份和迁移准备" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+          <SettingsSectionLabel theme={C}>数据管理</SettingsSectionLabel>
+          <SettingsGroup theme={C} icon="⇩" title="备份与导出" subtitle="聊天存档、全量备份和迁移准备" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
             <div style={{ display: 'grid', gap: 10 }}>
               <button type="button" onClick={exportChatArchive} disabled={settingsExportState.busy} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: settingsExportState.busy ? "default" : "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit", opacity: settingsExportState.busy ? .62 : 1 }}>导出聊天记录 HTML</button>
               <button type="button" onClick={exportFullBackup} disabled={settingsExportState.busy} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1px solid ${C.honeyMid}`, color: C.white, borderRadius: 12, fontSize: 13.5, cursor: settingsExportState.busy ? "default" : "pointer", background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, letterSpacing: ".05em", fontFamily: "inherit", opacity: settingsExportState.busy ? .62 : 1 }}>{settingsExportState.busy ? '整理中…' : '下载完整备份 JSON'}</button>

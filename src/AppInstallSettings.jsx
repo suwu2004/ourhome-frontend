@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { promptAppInstall, subscribeInstallState } from './appInstall.js';
 
-export default function AppInstallSettings() {
+export default function AppInstallSettings({ compact = false }) {
   const [state, setState] = useState({ native: false, installed: false, promptAvailable: false });
   const [notice, setNotice] = useState('');
   useEffect(() => subscribeInstallState(setState), []);
@@ -14,6 +14,17 @@ export default function AppInstallSettings() {
   };
 
   const status = state.native ? 'Android App' : state.installed ? '已安装到桌面' : '网页版';
+  if (compact) {
+    return (
+      <div className="app-device-summary">
+        <span>当前形态：{status}</span>
+        {!state.native && !state.installed && (
+          <button type="button" onClick={install}>{state.promptAvailable ? '安装' : '安装方法'}</button>
+        )}
+        {notice && <small role="status">{notice}</small>}
+      </div>
+    );
+  }
   return (
     <div className="app-install-settings">
       <div><strong>当前形态</strong><span>{status}</span></div>
