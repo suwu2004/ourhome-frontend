@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { LIGHT_THEME } from './theme.js';
 import { HighlightedText, Stars } from './ChatDecorations.jsx';
+import { ViewportChatImage } from './ViewportChatImage.jsx';
 
 function messageDateKey(date) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
@@ -124,7 +125,7 @@ export function ChatRoom(props) {
                   <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} theme={C} />
                   <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6 }}>
                     {m.image && (
-                      <img src={m.image} alt="" loading="lazy" decoding="async" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, display: "block" }} />
+                      <ViewportChatImage src={m.image} rootRef={listRef} borderColor={isMe ? "#F5CABB" : C.border} />
                     )}
                     {m.file && (
                       <a href={m.file.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 14, background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, textDecoration: "none", color: C.text, maxWidth: "100%" }}>
