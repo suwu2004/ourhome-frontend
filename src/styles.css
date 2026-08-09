@@ -2038,7 +2038,15 @@ textarea { display: block; margin: 0; }
 .app-install-settings p { color: var(--home-muted, #8d7461); font-size: 10.5px; line-height: 1.65; }
 .app-install-settings button { min-height: 42px; border: 0; border-radius: 13px; color: #fff; background: linear-gradient(145deg, #dda13b, #b97820); font: inherit; cursor: pointer; }
 .app-install-settings small { color: #b97820; font-size: 10px; }
+.app-device-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 5px; color: var(--home-muted, #8d7461); font-size: 10.5px; line-height: 1.45; }
+.app-device-summary button { padding: 2px 7px; border: 1px solid rgba(185, 120, 32, .24); border-radius: 999px; color: #a86d1d; background: rgba(255, 244, 201, .58); font: inherit; cursor: pointer; }
+.app-device-summary small { flex-basis: 100%; color: #b97820; font-size: 9px; }
 html[data-native-app="true"] body { overscroll-behavior: none; }
+@media (max-width: 520px) {
+  .settings-console-card > div { align-items: flex-start !important; }
+  .settings-console-card > div > div:last-child { gap: 5px !important; }
+  .settings-console-card > div > div:last-child button { padding: 5px 8px !important; font-size: 9.5px !important; }
+}
 @media (min-width: 800px) and (orientation: landscape) {
   html[data-native-app="true"] .ourhome-scroll { padding-left: max(26px, env(safe-area-inset-left)); padding-right: max(26px, env(safe-area-inset-right)); }
   html[data-native-app="true"] .home-room-shelf { max-width: 860px; margin-inline: auto; }

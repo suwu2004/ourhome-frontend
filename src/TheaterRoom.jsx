@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
+import './TheaterShelfPolish.css';
 
 const emptySettings = {
   worldbook_text: '',
@@ -645,39 +646,26 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             还没有小剧本。点这里创建第一本书。
           </button>
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))', gap: 14 }}>
+        <div className="theater-book-shelf">
           {books.map((book, index) => (
-            <div key={book.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div key={book.id} className={`theater-book-volume theater-book-volume--${index % 4}`}>
               <button
                 type="button"
                 onClick={() => openBook(book.id)}
-                style={{
-                  minHeight: 188,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 12,
-                  background: `linear-gradient(135deg, ${index % 3 === 0 ? C.honeyLight : index % 3 === 1 ? C.blush : C.surface}, ${C.white})`,
-                  color: C.text,
-                  boxShadow: `0 12px 24px ${C.borderLight}88`,
-                  padding: 14,
-                  textAlign: 'left',
-                  fontFamily: 'inherit',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}
+                className="theater-book-cover"
               >
-                <span>
-                  <span style={{ display: 'block', color: C.honeyDeep, fontSize: 10, letterSpacing: '.16em', marginBottom: 8 }}>BOOK {String(index + 1).padStart(2, '0')}</span>
-                  <b style={{ display: 'block', fontSize: 17, lineHeight: 1.35 }}>{book.title || '未命名小剧本'}</b>
+                <span className="theater-book-ornament" aria-hidden="true">✦</span>
+                <span className="theater-book-title">
+                  <small>OUR LITTLE THEATER · {String(index + 1).padStart(2, '0')}</small>
+                  <b>{book.title || '未命名小剧本'}</b>
+                  <i aria-hidden="true" />
                 </span>
-                <span style={{ color: C.muted, fontSize: 11, lineHeight: 1.6 }}>
-                  {book.message_count ? `${book.message_count} 条互动` : '设定待填写'}
-                  <br />
-                  {book.last_message_at ? formatDate(book.last_message_at) : formatDate(book.created_at)}
+                <span className="theater-book-meta">
+                  <b>{book.message_count ? `${book.message_count} 条互动` : '等待开场'}</b>
+                  <small>{book.last_message_at ? formatDate(book.last_message_at) : formatDate(book.created_at)}</small>
                 </span>
               </button>
-              <button type="button" onClick={() => deleteBook(book)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>删除</button>
+              <button className="theater-book-delete" type="button" onClick={() => deleteBook(book)}>移出书架</button>
             </div>
           ))}
         </div>
