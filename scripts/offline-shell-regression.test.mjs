@@ -25,3 +25,12 @@ test('offline shell caches navigation and built static assets only', () => {
   assert.match(worker, /caches\.match\('\/'\)/);
   assert.match(worker, /url\.origin !== self\.location\.origin/);
 });
+
+test('offline updates prune obsolete bundles and wait for the user before activation', () => {
+  assert.match(worker, /CACHE_NAME = `\$\{CACHE_PREFIX\}v2`/);
+  assert.match(worker, /pruneOldBuiltAssets/);
+  assert.match(worker, /SKIP_WAITING/);
+  assert.doesNotMatch(worker, /await self\.skipWaiting\(\)/);
+  assert.match(registration, /ourhome-update-ready/);
+  assert.match(main, /OfflineUpdateNotice/);
+});

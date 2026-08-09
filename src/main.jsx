@@ -8,6 +8,7 @@ import { ThemeProvider } from './ThemeContext.jsx'
 import { installMessageModelLabels } from './messageModelLabels.js'
 import CloudSyncBadge from './CloudSyncBadge.jsx'
 import { registerOfflineShell } from './offlineShell.js'
+import OfflineUpdateNotice from './OfflineUpdateNotice.jsx'
 
 applyAppFont(getSavedFont(), { persist: false })
 installMessageModelLabels()
@@ -35,6 +36,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <MusicPlayerProvider>
       <Root />
       <CloudSyncBadge />
+      <OfflineUpdateNotice />
     </MusicPlayerProvider>
   </ThemeProvider>,
 )

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BACKEND, TOKEN_KEY } from './api.js';
+import { BACKEND, TOKEN_KEY, clearOurHomePrivateCache } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
 
 export function useOurHomeAccess() {
@@ -37,6 +37,7 @@ export default function OurHomeAccessGate({ onUnlocked }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.token) throw new Error(data.error || '密码不对，再试试');
+      clearOurHomePrivateCache();
       localStorage.setItem(TOKEN_KEY, data.token);
       window.dispatchEvent(new Event('ourhome-auth-changed'));
       setPassword('');

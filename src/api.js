@@ -13,6 +13,13 @@ const CLOUD_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const staleCloudReads = new Map();
 let activeBackend = BACKEND;
 
+const SAFE_SETTINGS_CACHE_KEYS = new Set([
+  'dark_mode', 'my_avatar_url', 'partner_avatar_url',
+  'bg_image_url', 'bg_color', 'home_bg_day_image_url', 'home_bg_night_image_url',
+  'home_memo_bg_image_url', 'whisper_bg_image_url', 'whisper_bg_color',
+  'my_bubble_color', 'partner_bubble_color',
+]);
+
 function compactResponseText(value, limit = 260) {
   return String(value || '')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -118,6 +125,28 @@ function cacheKey(path) {
   return `${CLOUD_CACHE_PREFIX}${path}`;
 }
 
+function safeCachedBody(path, body) {
+  if (!/(?:^|\/api)\/settings\/?(?:\?.*)?$/.test(path)) return body;
+  try {
+    const parsed = JSON.parse(body);
+    const safe = Object.fromEntries(Object.entries(parsed || {}).filter(([key]) => SAFE_SETTINGS_CACHE_KEYS.has(key)));
+    return JSON.stringify(safe);
+  } catch {
+    return '{}';
+  }
+}
+
+export function clearOurHomePrivateCache() {
+  staleCloudReads.clear();
+  if (typeof localStorage !== 'undefined') {
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (key?.startsWith(CLOUD_CACHE_PREFIX)) localStorage.removeItem(key);
+    }
+  }
+  emitCloudSyncState();
+}
+
 function emitCloudSyncState() {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
   const entries = [...staleCloudReads.entries()];
@@ -167,7 +196,7 @@ function readCloudCache(path) {
 async function rememberCloudRead(path, response) {
   if (!path || !response?.ok || response.headers.get('X-OurHome-Cache') === 'stale' || typeof localStorage === 'undefined') return;
   try {
-    const body = await response.clone().text();
+    const body = safeCachedBody(path, await response.clone().text());
     localStorage.setItem(cacheKey(path), JSON.stringify({
       savedAt: Date.now(),
       contentType: response.headers.get('Content-Type') || 'application/json',
@@ -269,6 +298,7 @@ export async function apiFetch(url, options = {}) {
 
   if (response.status === 401 && token) {
     localStorage.removeItem(TOKEN_KEY);
+    clearOurHomePrivateCache();
     window.dispatchEvent(new Event('ourhome-auth-changed'));
   }
 
