@@ -582,13 +582,14 @@ textarea { display: block; margin: 0; }
   position: relative;
   z-index: 1;
   width: min(100%, 520px);
+  box-sizing: border-box;
   height: 100%;
   min-height: 0;
   margin: 0 auto;
   padding: max(17px, env(safe-area-inset-top)) 17px max(11px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-rows: auto auto auto minmax(188px, 1fr) auto;
-  gap: clamp(10px, 1.45vh, 14px);
+  grid-template-rows: auto auto auto minmax(132px, 1fr) auto;
+  gap: clamp(11px, 1.6vh, 16px);
 }
 
 .home-hero {
@@ -853,6 +854,7 @@ textarea { display: block; margin: 0; }
   min-height: 136px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
 }
 
 .home-note-card {
@@ -978,38 +980,167 @@ textarea { display: block; margin: 0; }
   vertical-align: middle;
 }
 
+.home-living-grid {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  align-content: space-between;
+  padding-bottom: clamp(14px, 2.4vh, 24px);
+}
+
+.home-music-garden {
+  min-height: clamp(246px, 34vh, 318px);
+  align-content: center;
+  isolation: isolate;
+}
+
+.home-bubble-field {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.home-bubble-field span {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--home-card-solid) 78%, transparent), color-mix(in srgb, var(--home-lemon) 42%, transparent));
+  border: 1px solid color-mix(in srgb, var(--home-card-solid) 60%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--home-card-solid) 72%, transparent);
+  opacity: 0.46;
+  animation: home-bubble-drift 10s ease-in-out infinite;
+}
+
+.home-bubble-field span:nth-child(1) { top: 10%; left: 10%; }
+.home-bubble-field span:nth-child(2) { top: 16%; right: 18%; width: 4px; height: 4px; animation-delay: -1.5s; }
+.home-bubble-field span:nth-child(3) { top: 39%; left: 24%; width: 3px; height: 3px; animation-delay: -3s; }
+.home-bubble-field span:nth-child(4) { top: 48%; right: 9%; width: 6px; height: 6px; animation-delay: -4.6s; }
+.home-bubble-field span:nth-child(5) { bottom: 19%; left: 53%; width: 4px; height: 4px; animation-delay: -6.2s; }
+.home-bubble-field span:nth-child(6) { bottom: 11%; right: 28%; width: 3px; height: 3px; animation-delay: -7.5s; }
+.home-bubble-field span:nth-child(7) { top: 62%; left: 13%; width: 4px; height: 4px; animation-delay: -2.4s; }
+.home-bubble-field span:nth-child(8) { top: 30%; right: 37%; width: 3px; height: 3px; animation-delay: -5.1s; }
+.home-bubble-field span:nth-child(9) { bottom: 32%; left: 72%; width: 5px; height: 5px; animation-delay: -8.4s; }
+.home-bubble-field span:nth-child(10) { top: 7%; left: 43%; width: 3px; height: 3px; animation-delay: -6.9s; }
+
+@keyframes home-bubble-drift {
+  50% { transform: translate(8px, -10px); opacity: 0.7; }
+}
+
 /* 小房间改成可继续扩展的图标架，给主页留出呼吸。 */
 .home-room-shelf {
   min-height: 0;
   width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  justify-items: center;
   justify-content: center;
-  gap: clamp(44px, 13vw, 70px);
-  padding: 0 8px clamp(22px, 4.5vh, 50px);
+  gap: 7px;
+  padding: 0;
+}
+
+.home-music-garden .home-room-shelf {
+  position: absolute;
+  z-index: 3;
+  inset: 4px 10px 18px;
+  display: block;
+  pointer-events: none;
+}
+
+.home-music-garden .home-room-app {
+  position: absolute;
+  width: 68px;
+  min-height: 0;
+  pointer-events: auto;
+  animation: home-room-float 6.8s ease-in-out infinite;
+}
+
+.home-music-garden .home-room-app--music { top: 104px; left: 47%; width: 68px; margin-left: -34px; animation-delay: -.7s; }
+.home-music-garden .home-room-app--letters { top: 20px; left: 12%; animation-delay: -2.1s; }
+.home-music-garden .home-room-app--theater { top: 44px; right: 9%; animation-delay: -3.4s; }
+.home-music-garden .home-room-app--vault { top: 158px; left: 22%; animation-delay: -1.6s; }
+.home-music-garden .home-room-app--photos { top: 176px; right: 16%; animation-delay: -4.2s; }
+
+.home-music-garden .home-room-app > span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--home-card-solid) 54%, transparent);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--home-shadow) 45%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.home-music-garden .home-room-app--music > span {
+  width: 38px;
+  height: 38px;
+  color: var(--home-honey-deep);
+  background: color-mix(in srgb, var(--home-card-solid) 48%, transparent);
+  border: 1px solid color-mix(in srgb, var(--home-honey) 38%, transparent);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 23px;
+  line-height: 1;
+  text-shadow: 0 1px 6px var(--home-card-solid);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--home-shadow) 34%, transparent);
+}
+
+.home-music-garden.is-playing .home-room-app--music > span {
+  animation: home-music-note-pulse 1.9s ease-in-out infinite;
+}
+
+.home-music-garden .home-room-app strong {
+  margin-top: 2px;
+  padding: 1px 5px 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--home-card-solid) 42%, transparent);
+  box-shadow: 0 3px 9px color-mix(in srgb, var(--home-shadow) 24%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.home-music-garden .home-room-app--music strong {
+  color: var(--home-honey-deep);
+  font-weight: 580;
+  letter-spacing: 0.06em;
+}
+
+@keyframes home-room-float {
+  50% { transform: translate(5px, -8px) rotate(1.5deg); }
+}
+
+@keyframes home-music-note-pulse {
+  50% { transform: scale(1.04) rotate(-4deg); box-shadow: 0 8px 20px color-mix(in srgb, var(--home-shadow) 38%, transparent); }
 }
 
 .home-room-app {
-  width: clamp(82px, 23vw, 102px);
+  width: 100%;
+  min-height: clamp(55px, 14vw, 66px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
+  gap: 5px;
   cursor: pointer;
   background: transparent;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .home-room-app > span {
-  width: clamp(62px, 17vw, 72px);
-  height: clamp(62px, 17vw, 72px);
+  width: clamp(32px, 9.2vw, 40px);
+  height: clamp(32px, 9.2vw, 40px);
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: color-mix(in srgb, var(--home-card-solid) 89%, var(--home-butter));
-  border: 1px solid var(--home-edge);
-  border-radius: 21px;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--home-shadow) 76%, transparent), inset 0 1px rgba(255, 255, 255, 0.35);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .home-room-app strong {
@@ -1021,8 +1152,8 @@ textarea { display: block; margin: 0; }
 }
 
 .home-room-glyph {
-  width: 34px;
-  height: 34px;
+  width: 27px;
+  height: 27px;
   fill: none;
   stroke: var(--home-honey-deep);
   stroke-width: 1.6;
@@ -1040,15 +1171,16 @@ textarea { display: block; margin: 0; }
 .home-dock {
   position: relative;
   z-index: 10;
-  height: clamp(70px, 18vw, 82px);
+  align-self: end;
+  height: clamp(58px, 15vw, 68px);
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   align-items: center;
   padding: 5px 8px;
   background: var(--home-dock);
   border: 1px solid var(--home-edge);
-  border-radius: 26px;
-  box-shadow: 0 13px 32px var(--home-shadow), inset 0 1px rgba(255, 255, 255, 0.28);
+  border-radius: 22px;
+  box-shadow: 0 9px 23px var(--home-shadow), inset 0 1px rgba(255, 255, 255, 0.28);
   backdrop-filter: blur(17px);
 }
 
@@ -1077,8 +1209,8 @@ textarea { display: block; margin: 0; }
 }
 
 .home-dock > button > svg {
-  width: clamp(25px, 7vw, 31px);
-  height: clamp(25px, 7vw, 31px);
+  width: clamp(22px, 6vw, 27px);
+  height: clamp(22px, 6vw, 27px);
   fill: none;
   stroke: currentColor;
   stroke-width: 1.35;
@@ -1090,7 +1222,7 @@ textarea { display: block; margin: 0; }
 
 .home-chat-button > span:last-child {
   position: absolute;
-  top: calc(50% + 23px);
+  top: calc(50% + 18px);
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(10px, 2.8vw, 13px);
   letter-spacing: 0.05em;
@@ -1100,10 +1232,10 @@ textarea { display: block; margin: 0; }
   position: absolute;
   top: 50%;
   left: 50%;
-  width: clamp(54px, 15vw, 66px);
-  height: clamp(54px, 15vw, 66px);
+  width: clamp(46px, 12.8vw, 54px);
+  height: clamp(46px, 12.8vw, 54px);
   overflow: hidden;
-  border: 4px solid var(--home-card-solid);
+  border: 3px solid var(--home-card-solid);
   border-radius: 50%;
   background: linear-gradient(135deg, var(--home-blush), var(--home-honey));
   box-shadow: 0 7px 20px var(--home-shadow), 0 0 0 1px var(--home-edge);
@@ -1493,7 +1625,7 @@ textarea { display: block; margin: 0; }
   .home-layout {
     padding-top: max(10px, env(safe-area-inset-top));
     gap: 7px;
-    grid-template-rows: auto auto auto minmax(92px, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(116px, 1fr) auto;
   }
   .home-hero h1 { font-size: clamp(33px, 9.5vw, 41px); }
   .home-anniversary { margin-top: 4px; }
@@ -1503,27 +1635,54 @@ textarea { display: block; margin: 0; }
   .home-time-marker { bottom: 13px; }
   .home-timeline-window::before { bottom: 17px; }
   .home-moving-scale { bottom: -1px; }
-  .home-quick-grid, .home-note-card { min-height: 96px; }
+  .home-quick-grid { min-height: 104px; gap: 7px; }
+  .home-note-card { min-height: 104px; }
   .home-note-card { padding-top: 13px; padding-bottom: 10px; }
+  .home-living-grid { gap: 6px; padding-bottom: 10px; }
+  .home-music-garden { min-height: 212px; }
+  .home-music-garden .home-room-shelf { inset: 6px 8px 14px; }
+  .home-music-garden .home-room-app { width: 61px; }
+  .home-music-garden .home-room-app--music { top: 82px; left: 47%; width: 64px; margin-left: -32px; }
+  .home-music-garden .home-room-app--letters { top: 12px; left: 9%; }
+  .home-music-garden .home-room-app--theater { top: 34px; right: 7%; }
+  .home-music-garden .home-room-app--vault { top: 126px; left: 22%; }
+  .home-music-garden .home-room-app--photos { top: 140px; right: 16%; }
+  .home-music-garden .home-room-app > span { width: 30px; height: 30px; }
+  .home-music-garden .home-room-app--music > span { width: 34px; height: 34px; font-size: 21px; }
+  .home-music-garden .home-room-app strong { font-size: 9px; }
   .home-note-copy { margin-top: 5px; gap: 2px; }
-  .home-room-shelf { padding: 2px 8px 8px; }
-  .home-room-app { gap: 4px; }
-  .home-room-app > span { width: 52px; height: 52px; border-radius: 16px; }
-  .home-room-glyph { width: 28px; height: 28px; }
-  .home-dock { height: 64px; }
-  .home-couple-avatar { width: 51px; height: 51px; }
-  .home-chat-button > span:last-child { top: calc(50% + 20px); }
+  .home-room-shelf { padding: 0; gap: 7px; }
+  .home-room-app { min-height: 52px; gap: 3px; }
+  .home-room-app > span { width: 30px; height: 30px; border-radius: 0; }
+  .home-room-glyph { width: 24px; height: 24px; }
+  .home-dock { height: 56px; }
+  .home-couple-avatar { width: 45px; height: 45px; border-width: 3px; }
+  .home-chat-button > span:last-child { top: calc(50% + 17px); }
 }
 
 @media (min-height: 800px) {
-  .home-layout { gap: clamp(11px, 1.5vh, 15px); }
-  .home-room-shelf { padding-bottom: clamp(34px, 5.5vh, 66px); }
+  .home-layout { gap: clamp(12px, 1.65vh, 18px); }
+  .home-living-grid { padding-bottom: clamp(18px, 2.8vh, 30px); }
 }
 
 @media (max-width: 350px) {
   .home-layout { padding-right: 12px; padding-left: 12px; }
   .home-quick-grid { grid-template-columns: minmax(0, 1fr); }
   .home-note-card { padding-right: 48px; padding-left: 16px; }
+  .home-living-grid { grid-template-columns: minmax(0, 1fr); }
+  .home-music-garden { min-height: 206px; }
+  .home-music-garden .home-room-shelf { inset: 6px 6px 12px; }
+  .home-music-garden .home-room-app { width: 56px; }
+  .home-music-garden .home-room-app--music { top: 80px; left: 47%; width: 60px; margin-left: -30px; }
+  .home-music-garden .home-room-app--letters { top: 12px; left: 6%; }
+  .home-music-garden .home-room-app--theater { top: 34px; right: 5%; }
+  .home-music-garden .home-room-app--vault { top: 120px; left: 19%; }
+  .home-music-garden .home-room-app--photos { top: 136px; right: 12%; }
+  .home-music-garden .home-room-app--music > span { width: 34px; height: 34px; font-size: 21px; }
+  .home-room-shelf { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .home-room-app { min-height: 50px; border-radius: 0; }
+  .home-room-app > span { width: 30px; height: 30px; }
+  .home-room-app strong { font-size: 9px; }
 }
 
 @media (min-width: 600px) {
@@ -1849,4 +2008,38 @@ textarea { display: block; margin: 0; }
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+/* Room-level loading and recovery keep one broken lazy room from blanking the whole home. */
+.room-loading-shell,
+.room-recovery-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 24px;
+  color: var(--home-text, #4f3a2d);
+  background: var(--home-cream, #fff9ef);
+  font-size: 12px;
+  letter-spacing: .12em;
+}
+.room-recovery-card { width: min(320px, 86vw); padding: 24px; text-align: center; border: 1px solid rgba(181, 132, 70, .22); border-radius: 20px; background: rgba(255, 255, 255, .78); box-shadow: 0 12px 38px rgba(107, 72, 38, .10); }
+.room-recovery-card span,
+.room-recovery-card strong { display: block; }
+.room-recovery-card strong { margin-top: 8px; font-size: 15px; letter-spacing: .04em; }
+.room-recovery-card div { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+.room-recovery-card button { padding: 9px 15px; border: 1px solid rgba(181, 132, 70, .34); border-radius: 999px; color: inherit; background: #fffaf1; font: inherit; cursor: pointer; }
+.offline-update-notice { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 10000; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100vw - 28px); padding: 9px 10px 9px 14px; border: 1px solid rgba(181, 132, 70, .26); border-radius: 999px; color: #5b412e; background: rgba(255, 250, 241, .96); box-shadow: 0 8px 26px rgba(92, 61, 34, .16); backdrop-filter: blur(12px); font-size: 11px; }
+.offline-update-notice button { border: 0; color: inherit; background: transparent; font: inherit; cursor: pointer; }
+.offline-update-notice button:first-of-type { padding: 6px 10px; border-radius: 999px; color: #fff; background: #c98a2a; }
+.offline-update-notice button:last-of-type { padding: 2px 5px; font-size: 16px; opacity: .62; }
+.app-install-settings { display: grid; gap: 10px; color: var(--home-text, #4f3a2d); }
+.app-install-settings > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .68); }
+.app-install-settings > div span { color: #b97820; font-size: 11px; }
+.app-install-settings p { color: var(--home-muted, #8d7461); font-size: 10.5px; line-height: 1.65; }
+.app-install-settings button { min-height: 42px; border: 0; border-radius: 13px; color: #fff; background: linear-gradient(145deg, #dda13b, #b97820); font: inherit; cursor: pointer; }
+.app-install-settings small { color: #b97820; font-size: 10px; }
+html[data-native-app="true"] body { overscroll-behavior: none; }
+@media (min-width: 800px) and (orientation: landscape) {
+  html[data-native-app="true"] .ourhome-scroll { padding-left: max(26px, env(safe-area-inset-left)); padding-right: max(26px, env(safe-area-inset-right)); }
+  html[data-native-app="true"] .home-room-shelf { max-width: 860px; margin-inline: auto; }
 }

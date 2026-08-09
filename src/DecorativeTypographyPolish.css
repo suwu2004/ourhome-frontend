@@ -1,0 +1,159 @@
+:root {
+  --ourhome-script-cn: "Ma Shan Zheng", "Kaiti SC", "STKaiti", cursive;
+}
+
+/* 门口只留下那句常年不变的小留言；其它标题、房间名和分区名全部沿用原字体。 */
+.luze-private-label,
+.luze-door-copy h1,
+.luze-door-intro {
+  display: none !important;
+}
+
+.luze-door-stage {
+  gap: 11px;
+}
+
+.luze-door-copy {
+  width: min(400px, 100%);
+  margin-top: -2px;
+}
+
+/* 门把手和门牌统一成偏冷的银色。 */
+.luze-door-knob {
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(145deg, #fbfcfd 0%, #c7cdd4 44%, #8e969f 100%);
+  box-shadow:
+    0 0 0 2px rgba(94, 99, 106, .20),
+    inset 1px 1px 1px rgba(255,255,255,.82),
+    0 2px 5px rgba(61, 48, 38, .16);
+}
+
+/* 银色门牌正好挂在门把手下方：门牌中心与把手中心基本对齐。 */
+.luze-knock-sign {
+  right: -5%;
+  top: 61%;
+  min-width: 72px;
+  padding: 7px 10px 6px;
+  overflow: visible;
+  border: 1px solid rgba(112, 119, 128, .68);
+  border-radius: 6px;
+  color: #5e646c;
+  background:
+    linear-gradient(110deg, rgba(255,255,255,.92), transparent 27%, rgba(255,255,255,.44) 51%, transparent 72%),
+    linear-gradient(180deg, #f6f7f8 0%, #d9dde2 48%, #bfc5cc 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.92),
+    inset 0 -1px 0 rgba(91, 97, 105, .16),
+    0 5px 10px rgba(59, 54, 48, .13);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  line-height: 1.1;
+  transform: rotate(1.4deg);
+}
+
+/* 链条从把手位置垂到门牌顶部中央。 */
+.luze-knock-sign::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -22px;
+  width: 2px;
+  height: 22px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(180deg, #8e959d 0 2px, transparent 2px 4px);
+  transform: translateX(-50%) rotate(-3deg);
+  transform-origin: 50% 100%;
+  opacity: .88;
+}
+
+/* 两颗小铆钉，让它更像铁牌而不是普通按钮。 */
+.luze-knock-sign::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #8f969e;
+  box-shadow: 55px 0 0 #8f969e;
+  opacity: .78;
+}
+
+.luze-knock-sign:hover {
+  transform: rotate(.3deg) translateY(-1px);
+  filter: brightness(1.02);
+}
+
+.luze-knock-sign:disabled {
+  transform: rotate(1.4deg);
+}
+
+/* 只有这句固定留言保留手写花体和小花边。 */
+.luze-door-quote {
+  position: relative;
+  box-sizing: border-box;
+  max-width: 330px !important;
+  margin: 4px auto 10px !important;
+  padding: 15px 24px 14px;
+  color: color-mix(in srgb, var(--lr-text) 62%, var(--lr-honey-deep));
+  background:
+    radial-gradient(circle at 13px 12px, color-mix(in srgb, #d59aaa 72%, transparent) 0 2px, transparent 2.5px),
+    radial-gradient(circle at calc(100% - 15px) calc(100% - 13px), color-mix(in srgb, #d8b06d 72%, transparent) 0 2px, transparent 2.5px),
+    color-mix(in srgb, var(--lr-white) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lr-honey) 42%, var(--lr-border));
+  border-radius: 19px 12px 19px 12px;
+  box-shadow: 0 7px 18px rgba(88, 61, 36, .055);
+  font-family: var(--ourhome-script-cn);
+  font-size: 15px !important;
+  font-style: normal !important;
+  font-weight: 400;
+  letter-spacing: .055em;
+  line-height: 1.85 !important;
+}
+
+.luze-door-quote::before,
+.luze-door-quote::after {
+  position: absolute;
+  color: color-mix(in srgb, var(--lr-honey-deep) 52%, #c98596);
+  font-family: Georgia, serif;
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-shadow: 0 1px 0 rgba(255,255,255,.72);
+  pointer-events: none;
+}
+
+.luze-door-quote::before {
+  content: '❀  ·  ✿';
+  left: 18px;
+  top: -8px;
+  transform: rotate(-3deg);
+}
+
+.luze-door-quote::after {
+  content: '✿  ·  ❀';
+  right: 14px;
+  bottom: -8px;
+  transform: rotate(3deg);
+}
+
+.luze-door-response {
+  max-width: 330px;
+  margin-top: 13px;
+}
+
+@media (max-width: 520px) {
+  .luze-knock-sign {
+    right: -5%;
+    min-width: 70px;
+  }
+
+  .luze-door-quote {
+    max-width: min(314px, 88vw) !important;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}

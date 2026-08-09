@@ -27,6 +27,7 @@ self.addEventListener('push', (event) => {
     badge: '/icon-192.png',
     tag: 'ourhome-notification',
     renotify: true,
+    data: data.data || {},
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -34,11 +35,20 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const data = event.notification.data || {};
+  const params = new URLSearchParams();
+  if (data.session_id) params.set('notification_session', data.session_id);
+  if (data.message_id) params.set('notification_message', data.message_id);
+  const targetUrl = params.toString() ? `/?${params.toString()}#chat` : '/#chat';
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsArr) => {
       const existing = clientsArr.find((c) => 'focus' in c);
-      if (existing) return existing.focus();
-      if (self.clients.openWindow) return self.clients.openWindow('/');
+      if (existing) {
+        existing.postMessage({ type: 'ourhome-notification-click', ...data });
+        return existing.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
     })
   );
 });

@@ -1,0 +1,86 @@
+.toybox-shared-room { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+.toybox-shared-header { position: relative; z-index: 3; }
+.toybox-log-button { width: 38px; height: 38px; border: 1px solid var(--toy-line); border-radius: 14px; background: var(--toy-paper); color: var(--toy-ink); font-size: 24px; line-height: 1; display: grid; place-items: center; box-shadow: 0 8px 20px rgba(98,65,29,.07); }
+
+.toy-budget-panel { max-width: 760px; margin: -8px auto 16px; border: 1px solid var(--toy-line); border-radius: 22px; background: rgba(255,251,241,.8); padding: 13px 14px; display: grid; grid-template-columns: 1fr minmax(145px, 44%); gap: 8px 12px; align-items: center; box-shadow: 0 12px 28px rgba(104,70,32,.05); }
+.toybox-room--night .toy-budget-panel { background: var(--toy-paper); }
+.toy-budget-panel div { min-width: 0; }
+.toy-budget-panel small { display: block; color: var(--toy-soft-ink); font-size: 10px; letter-spacing: .05em; }
+.toy-budget-panel b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; margin-top: 3px; font-weight: 600; }
+.toy-budget-panel select { width: 100%; min-width: 0; border: 1px solid var(--toy-line); border-radius: 12px; background: var(--toy-paper-strong); color: var(--toy-ink); padding: 8px 9px; font: inherit; font-size: 11px; }
+.toy-budget-panel p { grid-column: 1 / -1; margin: 1px 0 0; color: var(--toy-soft-ink); font-size: 10px; line-height: 1.55; }
+.toy-budget-panel em { grid-column: 1 / -1; color: #a45e4e; font-size: 10px; font-style: normal; }
+
+.toy-invite-banner { max-width: 760px; margin: 0 auto 15px; border: 1px solid rgba(211,154,72,.34); border-radius: 22px; padding: 13px 14px; background: linear-gradient(135deg, rgba(255,248,229,.96), rgba(249,226,198,.9)); display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center; box-shadow: 0 14px 34px rgba(149,91,36,.09); animation: toyInviteIn .28s ease-out; }
+.toybox-room--night .toy-invite-banner { background: rgba(70,51,38,.92); }
+.toy-invite-banner > span { font-size: 27px; }
+.toy-invite-banner small { display: block; color: var(--toy-soft-ink); font-size: 10px; }
+.toy-invite-banner b { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; }
+.toy-invite-banner button { border: 0; border-radius: 999px; padding: 9px 13px; background: #a56f2b; color: #fff9ec; font: inherit; font-size: 11px; white-space: nowrap; }
+@keyframes toyInviteIn { from { transform: translateY(-6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.toybox-game-grid--three { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.toybox-game-grid--three .toybox-game-card { min-height: 170px; }
+
+.toybox-floating-actions { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 20; display: flex; gap: 8px; }
+.toybox-floating-actions button { min-width: 58px; height: 48px; border: 1px solid var(--toy-line); border-radius: 18px; background: var(--toy-paper); color: var(--toy-ink); box-shadow: 0 12px 30px rgba(77,51,25,.14); font: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; font-size: 16px; }
+.toybox-floating-actions button span { font-size: 9px; color: var(--toy-soft-ink); margin-top: -1px; }
+.toybox-floating-actions button.is-chat { background: #a46e2c; color: #fff9eb; border-color: transparent; }
+.toybox-floating-actions button.is-chat span { color: rgba(255,249,235,.84); }
+
+.toy-social-layer { position: fixed; inset: 0; z-index: 60; background: rgba(64,44,27,.18); backdrop-filter: blur(4px); display: flex; align-items: flex-end; justify-content: center; }
+.toy-history-sheet { width: min(760px, 100%); height: min(78dvh, 760px); background: var(--toy-paper-strong); color: var(--toy-ink); border-radius: 28px 28px 0 0; border: 1px solid var(--toy-line); border-bottom: 0; box-shadow: 0 -18px 60px rgba(62,40,20,.18); overflow: hidden; display: flex; flex-direction: column; }
+.toy-history-sheet > header { padding: 18px 18px 13px; border-bottom: 1px solid var(--toy-line); display: flex; justify-content: space-between; align-items: center; }
+.toy-history-sheet header small { display: block; color: var(--toy-soft-ink); font-size: 9px; letter-spacing: .2em; }
+.toy-history-sheet header h2 { margin: 3px 0 0; font-size: 21px; font-weight: 500; }
+.toy-history-sheet header button { width: 38px; height: 38px; border: 1px solid var(--toy-line); border-radius: 50%; background: transparent; color: var(--toy-ink); font-size: 23px; }
+.toy-history-list, .toy-history-detail { flex: 1; overflow-y: auto; padding: 14px 16px calc(26px + env(safe-area-inset-bottom)); }
+.toy-history-card { width: 100%; border: 1px solid var(--toy-line); border-radius: 18px; background: var(--toy-paper); color: var(--toy-ink); padding: 12px; margin-bottom: 10px; display: grid; grid-template-columns: 38px 1fr 18px; gap: 10px; align-items: center; text-align: left; font: inherit; }
+.toy-history-card > span { font-size: 25px; }
+.toy-history-card b { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toy-history-card small { display: block; color: var(--toy-soft-ink); font-size: 9px; margin-top: 2px; }
+.toy-history-card p { margin: 5px 0 0; font-size: 11px; color: var(--toy-soft-ink); }
+.toy-history-card i { font-style: normal; font-size: 24px; color: var(--toy-soft-ink); }
+.toy-history-empty, .toy-history-muted { text-align: center; color: var(--toy-soft-ink); font-size: 12px; padding: 40px 15px; line-height: 1.8; }
+.toy-history-back { border: 0; background: transparent; color: var(--toy-soft-ink); font: inherit; font-size: 11px; padding: 0 0 12px; }
+.toy-history-hero { display: flex; align-items: center; gap: 12px; border: 1px solid var(--toy-line); border-radius: 20px; padding: 15px; background: var(--toy-paper); }
+.toy-history-hero > span { font-size: 30px; }
+.toy-history-hero b { display: block; font-size: 15px; }
+.toy-history-hero small { display: block; margin-top: 3px; color: var(--toy-soft-ink); font-size: 10px; }
+.toy-history-result { margin: 12px 2px 15px; font-size: 13px; }
+.toy-event-line { display: grid; grid-template-columns: 30px 1fr; gap: 9px; margin: 9px 0; align-items: start; }
+.toy-event-line > span { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--toy-line); display: grid; place-items: center; font-size: 11px; }
+.toy-event-line div { border-left: 1px solid var(--toy-line); padding-left: 10px; min-height: 28px; }
+.toy-event-line b { font-size: 10px; color: var(--toy-soft-ink); font-weight: 500; }
+.toy-event-line p { margin: 3px 0 0; font-size: 12px; line-height: 1.5; }
+
+.toy-chat-dock { --dock-cream:#fff8eb; --dock-white:#fff; --dock-text:#5e402a; --dock-muted:#9d7e63; --dock-border:#eadbc5; --dock-honey:#fff0ca; position: fixed; z-index: 55; right: 12px; top: 12px; bottom: 12px; width: min(390px, calc(100vw - 24px)); border: 1px solid var(--dock-border); border-radius: 24px; background: var(--dock-cream); color: var(--dock-text); box-shadow: 0 20px 70px rgba(53,37,25,.22); overflow: hidden; display: flex; flex-direction: column; }
+.toy-chat-dock > header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 13px 14px; background: var(--dock-white); border-bottom: 1px solid var(--dock-border); }
+.toy-chat-dock header small { display: block; font-size: 8px; letter-spacing: .14em; color: var(--dock-muted); }
+.toy-chat-dock header b { display: block; font-size: 13px; margin-top: 2px; }
+.toy-chat-dock header button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--dock-border); background: transparent; color: var(--dock-text); font-size: 20px; }
+.toy-chat-messages { flex: 1; overflow-y: auto; padding: 13px 12px; }
+.toy-chat-line { display: flex; gap: 6px; margin: 9px 0; align-items: flex-end; }
+.toy-chat-line.is-mine { flex-direction: row-reverse; }
+.toy-chat-line > span { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; font-size: 10px; background: var(--dock-honey); border: 1px solid var(--dock-border); }
+.toy-chat-line p { margin: 0; max-width: 76%; border-radius: 16px 16px 16px 4px; padding: 9px 11px; background: var(--dock-white); border: 1px solid var(--dock-border); font-size: 12.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+.toy-chat-line.is-mine p { border-radius: 16px 16px 4px 16px; background: #fae5df; }
+.toy-chat-error { padding: 5px 13px; color: #aa5b4c; font-size: 10px; }
+.toy-chat-form { flex-shrink: 0; padding: 9px 10px calc(9px + env(safe-area-inset-bottom)); background: var(--dock-white); border-top: 1px solid var(--dock-border); display: grid; grid-template-columns: 1fr 38px; gap: 7px; align-items: end; }
+.toy-chat-form textarea { resize: none; min-height: 38px; max-height: 90px; border: 1px solid var(--dock-border); border-radius: 15px; background: var(--dock-cream); color: var(--dock-text); padding: 9px 11px; outline: 0; font: inherit; font-size: 12px; }
+.toy-chat-form button { width: 38px; height: 38px; border: 0; border-radius: 50%; background: #a46e2c; color: #fff9ec; font-size: 18px; }
+.toy-chat-form button:disabled { opacity: .45; }
+
+@media (max-width: 720px) {
+  .toybox-game-grid--three { grid-template-columns: 1fr; }
+  .toybox-game-grid--three .toybox-game-card { min-height: 126px; display: grid; grid-template-columns: 48px 1fr; grid-template-rows: auto auto auto; column-gap: 10px; align-items: center; }
+  .toybox-game-grid--three .toybox-game-card > span { grid-row: 1 / 4; margin: 0; font-size: 31px; }
+  .toybox-game-grid--three .toybox-game-card strong, .toybox-game-grid--three .toybox-game-card small, .toybox-game-grid--three .toybox-game-card i { grid-column: 2; }
+  .toybox-game-grid--three .toybox-game-card small { min-height: 0; }
+  .toy-budget-panel { grid-template-columns: 1fr; }
+  .toy-budget-panel select, .toy-budget-panel p, .toy-budget-panel em { grid-column: 1; }
+  .toy-chat-dock { left: 8px; right: 8px; top: auto; bottom: 0; width: auto; height: 58dvh; border-radius: 24px 24px 0 0; border-bottom: 0; }
+  .toy-history-sheet { height: 80dvh; }
+  .toy-invite-banner { grid-template-columns: 34px 1fr; }
+  .toy-invite-banner button { grid-column: 2; justify-self: start; }
+}

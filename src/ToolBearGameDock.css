@@ -1,0 +1,231 @@
+.toy-game-actions {
+  position: fixed;
+  z-index: 62;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(15px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-family: var(--app-font, inherit);
+}
+
+.toy-game-actions button {
+  width: 58px;
+  min-height: 50px;
+  border: 1px solid rgba(171, 123, 61, .22);
+  border-radius: 18px;
+  background: rgba(255, 251, 242, .94);
+  color: #8b6338;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  font-family: inherit;
+  font-size: 17px;
+  box-shadow: 0 9px 25px rgba(72, 45, 20, .12);
+  backdrop-filter: blur(11px);
+  cursor: pointer;
+}
+
+.toy-game-actions button span {
+  display: block;
+  font-size: 9px;
+}
+
+.toy-game-actions button.is-chat {
+  background: #bb761d;
+  color: #fffaf0;
+  border-color: transparent;
+}
+
+.toy-game-layer {
+  position: fixed;
+  z-index: 75;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px 12px max(10px, env(safe-area-inset-bottom));
+  background: rgba(55, 37, 23, .26);
+  backdrop-filter: blur(7px);
+  font-family: var(--app-font, inherit);
+}
+
+.toy-game-history-sheet {
+  width: min(100%, 620px);
+  max-height: min(78dvh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--tg-line);
+  border-radius: 24px;
+  background: var(--tg-paper);
+  color: var(--tg-text);
+  box-shadow: 0 24px 70px rgba(43, 28, 16, .26);
+}
+
+.toy-game-history-sheet > header {
+  flex: 0 0 auto;
+  min-height: 58px;
+  padding: 10px 13px;
+  display: grid;
+  grid-template-columns: 38px 1fr 38px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--tg-line);
+}
+
+.toy-game-history-sheet > header button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--tg-cream);
+  color: var(--tg-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.toy-game-history-sheet > header div {
+  text-align: center;
+  min-width: 0;
+}
+
+.toy-game-history-sheet > header b {
+  display: block;
+  font-size: 15px;
+}
+
+.toy-game-history-sheet > header small {
+  display: block;
+  margin-top: 2px;
+  color: var(--tg-muted);
+  font-size: 8.5px;
+  letter-spacing: .08em;
+}
+
+.toy-game-history-sheet > header > span {
+  justify-self: end;
+  font-size: 20px;
+}
+
+.toy-game-history-list,
+.toy-game-history-detail {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.toy-game-history-list > button {
+  width: 100%;
+  min-height: 72px;
+  margin-bottom: 8px;
+  padding: 10px 11px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--tg-line);
+  border-radius: 16px;
+  background: var(--tg-cream);
+  color: var(--tg-text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toy-game-history-list > button > span { font-size: 20px; }
+.toy-game-history-list > button > div { min-width: 0; }
+.toy-game-history-list > button b { display: block; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toy-game-history-list > button small { display: block; margin-top: 2px; color: var(--tg-muted); font-size: 8.5px; }
+.toy-game-history-list > button p { margin: 5px 0 0; color: var(--tg-muted); font-size: 9.5px; }
+.toy-game-history-list > button > i { color: var(--tg-muted); font-style: normal; font-size: 17px; }
+
+.toy-game-history-detail h3 { margin: 0; font-size: 17px; }
+.toy-game-result { margin: 8px 0 14px; color: var(--tg-honey); font-size: 12px; }
+.toy-game-event { display: grid; grid-template-columns: 28px 1fr; gap: 8px; margin-top: 9px; padding: 9px; border-radius: 13px; background: var(--tg-cream); }
+.toy-game-event > i { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--tg-paper); color: var(--tg-honey); font-style: normal; font-size: 9px; }
+.toy-game-event b { font-size: 10px; }
+.toy-game-event p { margin: 3px 0 0; color: var(--tg-muted); font-size: 10px; line-height: 1.55; }
+.toy-game-empty, .toy-game-muted { padding: 28px 8px; text-align: center; color: var(--tg-muted); font-size: 11px; }
+.toy-game-error { margin: 7px 0; color: #ac5c50; font-size: 10px; }
+
+.toy-game-chat {
+  position: fixed;
+  z-index: 78;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(15px + env(safe-area-inset-bottom));
+  width: min(420px, calc(100vw - 24px));
+  height: min(68dvh, 620px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--tg-line);
+  border-radius: 23px;
+  background: var(--tg-paper);
+  color: var(--tg-text);
+  box-shadow: 0 24px 70px rgba(43, 28, 16, .24);
+  font-family: var(--app-font, inherit);
+}
+
+.toy-game-chat > header {
+  min-height: 57px;
+  padding: 10px 12px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--tg-line);
+}
+
+.toy-game-chat > header b { display: block; font-size: 14px; }
+.toy-game-chat > header small { display: block; margin-top: 2px; color: var(--tg-muted); font-size: 8.5px; }
+.toy-game-chat > header button { width: 32px; height: 32px; border: 0; border-radius: 11px; background: var(--tg-cream); color: var(--tg-muted); font: inherit; font-size: 18px; cursor: pointer; }
+
+.toy-game-model {
+  flex: 0 0 auto;
+  padding: 8px 11px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--tg-line);
+  background: var(--tg-cream);
+}
+
+.toy-game-model span { color: var(--tg-muted); font-size: 9px; white-space: nowrap; }
+.toy-game-model select { width: 100%; min-width: 0; height: 32px; border: 1px solid var(--tg-line); border-radius: 10px; background: var(--tg-paper); color: var(--tg-text); padding: 0 8px; font: inherit; font-size: 9.5px; text-overflow: ellipsis; }
+
+.toy-game-chat-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.toy-game-chat-line { display: flex; align-items: flex-end; gap: 6px; }
+.toy-game-chat-line.is-mine { flex-direction: row-reverse; }
+.toy-game-chat-line > i { flex: 0 0 auto; width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; background: var(--tg-cream); color: var(--tg-honey); font-style: normal; font-size: 8px; }
+.toy-game-chat-line p { max-width: 78%; margin: 0; padding: 8px 10px; border: 1px solid var(--tg-line); border-radius: 14px 14px 14px 4px; background: var(--tg-cream); font-size: 11px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.toy-game-chat-line.is-mine p { border-radius: 14px 14px 4px 14px; background: color-mix(in srgb, var(--tg-cream) 80%, #f2d1cc); }
+
+.toy-game-chat > form { flex: 0 0 auto; padding: 9px; display: flex; align-items: flex-end; gap: 7px; border-top: 1px solid var(--tg-line); }
+.toy-game-chat > form textarea { flex: 1; min-height: 35px; max-height: 96px; resize: none; border: 1px solid var(--tg-line); border-radius: 14px; background: var(--tg-cream); color: var(--tg-text); padding: 8px 10px; outline: none; font: inherit; font-size: 11px; line-height: 1.5; }
+.toy-game-chat > form button { width: 35px; height: 35px; border: 0; border-radius: 50%; background: var(--tg-honey); color: #fff; font: inherit; cursor: pointer; }
+.toy-game-chat > form button:disabled { opacity: .42; cursor: default; }
+.toy-game-chat > .toy-game-error { margin: 0; padding: 6px 11px; }
+
+@media (max-width: 600px) {
+  .toy-game-chat {
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: auto;
+    height: min(64dvh, 570px);
+    border-radius: 22px;
+  }
+  .toy-game-layer { padding-left: 8px; padding-right: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .toy-game-history-sheet { border-radius: 22px; max-height: 76dvh; }
+}

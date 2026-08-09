@@ -1,0 +1,140 @@
+/* 八个小功能：保留原来的七个位置，陆泽的房间放在第三行右侧。
+   第一行 一起听 / 光影相册 / 猫的金库
+   第二行 时光信差 / 共读小屋 / 小剧场
+   第三行 玩具熊仍在共读小屋下方，右侧是陆泽自己的房间。 */
+.home-scene .home-music-garden {
+  min-height: clamp(252px, 31vh, 286px);
+}
+
+.home-scene .home-music-garden .home-room-shelf {
+  position: absolute !important;
+  z-index: 3;
+  inset: 8px 10px 12px !important;
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(3, 68px) !important;
+  grid-template-areas:
+    "music photos vault"
+    "letters reading theater"
+    ". toybox luze" !important;
+  align-content: center !important;
+  align-items: center !important;
+  justify-items: center !important;
+  column-gap: clamp(10px, 3vw, 20px) !important;
+  row-gap: 10px !important;
+  padding: 0 !important;
+  pointer-events: none;
+}
+
+.home-scene .home-music-garden .home-room-app,
+.home-scene .home-music-garden .home-room-app--music,
+.home-scene .home-music-garden .home-room-app--letters,
+.home-scene .home-music-garden .home-room-app--theater,
+.home-scene .home-music-garden .home-room-app--vault,
+.home-scene .home-music-garden .home-room-app--photos,
+.home-scene .home-music-garden .home-room-app--reading,
+.home-scene .home-music-garden .home-room-app--toybox,
+.home-scene .home-music-garden .home-room-app--luze {
+  position: relative !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: 100% !important;
+  max-width: 92px !important;
+  min-height: 64px !important;
+  margin: 0 !important;
+  align-self: center !important;
+  justify-self: center !important;
+  pointer-events: auto;
+  animation: none !important;
+  transform: none !important;
+  will-change: auto;
+}
+
+.home-scene .home-music-garden .home-room-app--music { grid-area: music !important; }
+.home-scene .home-music-garden .home-room-app--photos { grid-area: photos !important; }
+.home-scene .home-music-garden .home-room-app--vault { grid-area: vault !important; }
+.home-scene .home-music-garden .home-room-app--letters { grid-area: letters !important; }
+.home-scene .home-music-garden .home-room-app--reading { grid-area: reading !important; }
+.home-scene .home-music-garden .home-room-app--theater { grid-area: theater !important; }
+.home-scene .home-music-garden .home-room-app--toybox { grid-area: toybox !important; }
+.home-scene .home-music-garden .home-room-app--luze { grid-area: luze !important; }
+
+.home-scene .home-music-garden .home-room-app > span,
+.home-scene .home-music-garden .home-room-app--music > span {
+  animation: none !important;
+  transform: none !important;
+}
+
+.home-scene .home-music-garden .home-room-app strong {
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.home-scene .home-music-garden .home-room-app:hover {
+  transform: none !important;
+}
+
+.home-scene .home-music-garden .home-room-app:active {
+  transform: scale(.96) !important;
+}
+
+.home-scene .home-music-garden .home-room-app--toybox > span {
+  background: rgba(255, 250, 238, .78);
+}
+
+/* 陆泽的房间跟共读小屋使用同一套浅色图标卡，不再单独放一扇深色实门。 */
+.home-scene .home-music-garden .home-room-app--luze > span {
+  color: color-mix(in srgb, var(--home-honey-deep) 70%, var(--home-blush));
+  background: color-mix(in srgb, var(--home-card-solid) 54%, transparent);
+  border: 1px solid color-mix(in srgb, var(--home-honey) 27%, transparent);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--home-shadow) 30%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.home-scene .home-music-garden .home-room-app--luze strong {
+  color: color-mix(in srgb, var(--home-honey-deep) 78%, var(--home-ink));
+}
+
+.home-scene .home-luze-door-glyph {
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.home-scene .home-room-app--luze::after {
+  content: none;
+}
+
+.home-scene .home-bear-icon {
+  width: 34px;
+  height: 34px;
+}
+
+@media (max-width: 380px) {
+  .home-scene .home-music-garden {
+    min-height: 238px;
+  }
+
+  .home-scene .home-music-garden .home-room-shelf {
+    inset: 6px 4px 10px !important;
+    grid-template-rows: repeat(3, 64px) !important;
+    column-gap: 4px !important;
+    row-gap: 8px !important;
+  }
+
+  .home-scene .home-music-garden .home-room-app,
+  .home-scene .home-music-garden .home-room-app--reading,
+  .home-scene .home-music-garden .home-room-app--toybox,
+  .home-scene .home-music-garden .home-room-app--luze {
+    max-width: 82px !important;
+    min-height: 60px !important;
+  }
+}
