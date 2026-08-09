@@ -1,13 +1,17 @@
 const configuredBackend = import.meta.env?.VITE_BACKEND_URL?.trim();
+const configuredDirectBackend = import.meta.env?.VITE_DIRECT_BACKEND_URL?.trim();
 
 export const BACKEND = (configuredBackend || '/api').replace(/\/$/, '');
+export const DIRECT_BACKEND = (configuredDirectBackend || 'https://ourhome-backend.onrender.com').replace(/\/$/, '');
 export const TOKEN_KEY = 'ourhome_token';
 
 const RETRYABLE_READ_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const ROUTE_FALLBACK_STATUS = new Set([502, 504]);
 const READ_RETRY_DELAY_MS = 280;
 const CLOUD_CACHE_PREFIX = 'ourhome_cloud_read:';
 const CLOUD_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const staleCloudReads = new Map();
+let activeBackend = BACKEND;
 
 function compactResponseText(value, limit = 260) {
   return String(value || '')
@@ -53,6 +57,53 @@ function parsedUrl(value) {
   } catch {
     return null;
   }
+}
+
+function isLogicalBackendUrl(value) {
+  const text = String(value || '');
+  return text === BACKEND || text.startsWith(`${BACKEND}/`);
+}
+
+function backendUrl(value, base = activeBackend) {
+  const text = String(value || '');
+  if (!isLogicalBackendUrl(text) || base === BACKEND) return text;
+  return `${base}${text.slice(BACKEND.length)}`;
+}
+
+function alternateBackendBase() {
+  return activeBackend === DIRECT_BACKEND ? BACKEND : DIRECT_BACKEND;
+}
+
+function mayTryAlternateRead(value, options = {}) {
+  return BACKEND === '/api'
+    && DIRECT_BACKEND
+    && DIRECT_BACKEND !== BACKEND
+    && mayRetryRead(options)
+    && isLogicalBackendUrl(value);
+}
+
+function emitApiRoute(reason = '') {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
+  window.dispatchEvent(new CustomEvent('ourhome-api-route', {
+    detail: {
+      mode: activeBackend === BACKEND ? 'same-origin' : 'direct-backend',
+      backend: activeBackend,
+      reason,
+    },
+  }));
+}
+
+function useBackend(base, reason) {
+  if (!base || base === activeBackend) return;
+  activeBackend = base;
+  emitApiRoute(reason);
+}
+
+export function getApiRouteState() {
+  return {
+    mode: activeBackend === BACKEND ? 'same-origin' : 'direct-backend',
+    backend: activeBackend,
+  };
 }
 
 function cacheableCloudRead(value, options = {}) {
@@ -157,6 +208,19 @@ async function fetchWithSafeReadRetry(url, options, headers) {
   throw lastError || new Error('读取请求没有完成');
 }
 
+async function fetchAlternateRead(logicalUrl, options, headers) {
+  const alternateBase = alternateBackendBase();
+  const alternateUrl = backendUrl(logicalUrl, alternateBase);
+  const response = await fetch(alternateUrl, {
+    ...options,
+    headers,
+  });
+  if (!ROUTE_FALLBACK_STATUS.has(response.status)) {
+    useBackend(alternateBase, 'safe-read-fallback');
+  }
+  return response;
+}
+
 export async function apiFetch(url, options = {}) {
   const token = localStorage.getItem(TOKEN_KEY) || '';
   const headers = new Headers(options.headers || undefined);
@@ -164,15 +228,36 @@ export async function apiFetch(url, options = {}) {
   if (!headers.has('X-OurHome-Request-Id')) headers.set('X-OurHome-Request-Id', requestId());
 
   const cloudPath = cacheableCloudRead(url, options);
+  const requestUrl = backendUrl(url);
   let response;
+  let primaryError = null;
   try {
     // Only idempotent reads get one quiet retry. Writes, Chat sends and model calls
     // remain strictly single-shot so a network wobble can never duplicate data or cost.
-    response = await fetchWithSafeReadRetry(url, options, headers);
+    response = await fetchWithSafeReadRetry(requestUrl, options, headers);
   } catch (error) {
+    primaryError = error;
+  }
+
+  // If the same-origin Vercel relay itself is unreachable, one idempotent GET may
+  // probe the direct Render route. A successful alternate read pins the rest of
+  // this page session to that route. POST/PATCH/DELETE never enter this branch.
+  if (mayTryAlternateRead(url, options) && (primaryError || ROUTE_FALLBACK_STATUS.has(response?.status))) {
+    try {
+      const alternateResponse = await fetchAlternateRead(url, options, headers);
+      if (!ROUTE_FALLBACK_STATUS.has(alternateResponse.status) || primaryError) {
+        response = alternateResponse;
+        primaryError = null;
+      }
+    } catch {
+      // Keep the original relay failure below; the alternate route is only a safe read probe.
+    }
+  }
+
+  if (!response) {
     const cached = cloudPath ? readCloudCache(cloudPath) : null;
     if (cached) response = cached;
-    else throw error;
+    else throw primaryError || new Error('网络请求没有完成');
   }
 
   // Home-facing configuration is tiny and safe to show from the last successful
