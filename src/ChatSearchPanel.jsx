@@ -1,3 +1,5 @@
+import { HighlightedText } from './ChatDecorations.jsx';
+
 export function ChatSearchPanel({
   open,
   theme: C,
@@ -13,7 +15,6 @@ export function ChatSearchPanel({
   onSearch,
   onLoadMore,
   onJump,
-  HighlightedText,
 }) {
   const semanticLabel = meta?.semanticAvailable ? '语义搜索' : '关键词搜索';
 
@@ -43,7 +44,8 @@ export function ChatSearchPanel({
           transform: open ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(.96)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
-          transition: 'all .22s ease',
+          transition: 'transform .22s ease, opacity .18s ease',
+          willChange: 'transform, opacity',
           background: C.surface,
           borderRadius: 18,
           border: `1px solid ${C.border}`,

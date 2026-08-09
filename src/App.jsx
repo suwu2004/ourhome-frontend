@@ -1,32 +1,32 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import ApiProfilesSettings from './ApiProfilesSettings.jsx';
-import IntegrationSettings from './IntegrationSettings.jsx';
-import { AgentMailRoom } from './AgentMailRoom.jsx';
-import { AgentMailSettings } from './AgentMailSettings.jsx';
 import { ChatSearchPanel } from './ChatSearchPanel.jsx';
+import { ChatRoom } from './ChatRoom.jsx';
+import { ChatDrawer } from './ChatDrawer.jsx';
+import { Stars } from './ChatDecorations.jsx';
+import { MessageActionSheet } from './MessageActionSheet.jsx';
+import { CalendarRoom } from './CalendarRoom.jsx';
+import { LettersRoom } from './LettersRoom.jsx';
 import { MemoryRoom } from './MemoryRoom.jsx';
-import { SettingsGroup } from './SettingsGroup.jsx';
+import { MusicRoom } from './MusicRoom.jsx';
+import { PhotoMemoryRoom } from './PhotoMemoryRoom.jsx';
+import { SettingsRoom } from './SettingsRoom.jsx';
+import { TheaterRoom } from './TheaterRoom.jsx';
 import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
 import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
-import { LIGHT_THEME } from './theme.js';
 import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
 import { MILESTONE_KINDS, milestoneDisplay } from './milestoneDates.js';
 
 const SESSION_KEY = "ourhome_session_id";
 const MAX_BACKGROUND_IMAGE_BYTES = 6 * 1024 * 1024;
+const SESSION_TOKEN_SOFT_LIMIT = 250_000;
+const SESSION_TOKEN_HARD_LIMIT = 290_000;
 const EMPTY_FAVORITE_DRAFT = {
   title: '',
   content: '',
-  category: '秘密抽屉',
+  category: '收藏',
   note: '',
   is_pinned: false,
-};
-const EMPTY_MEMORY_EVENT_DRAFT = {
-  title: '',
-  summary: '',
-  event_type: 'note',
-  event_date: '',
 };
 
 function normalizeModelOptions(models, preferredModel = '') {
@@ -64,13 +64,20 @@ function formatMsgTime(date) {
   return `${hh}:${mi}`;
 }
 
-function messageDateKey(date) {
-  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
-  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+function mapDbMessage(m) {
+  return {
+    id: m.id,
+    role: m.role === "user" ? "me" : "ai",
+    text: m.content,
+    image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
+    file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
+    thinking: m.reasoning_content || null,
+    inputTokens: m.input_tokens || 0,
+    outputTokens: m.output_tokens || 0,
+    thinkingOpen: false,
+    createdAt: m.created_at,
+    time: formatMsgTime(m.created_at),
+  };
 }
 
 function shanghaiDateKey(value) {
@@ -84,12 +91,6 @@ function shanghaiDateKey(value) {
   }).formatToParts(date);
   const lookup = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${lookup.year}-${lookup.month}-${lookup.day}`;
-}
-
-function formatMsgDate(date) {
-  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
-  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 }
 
 function createRequestError(data, fallback) {
@@ -118,142 +119,6 @@ function friendlyGenerationError(error, retryAction = '再试一次') {
   return error?.message || '连接好像有点问题，请再试一次。';
 }
 
-function compactUsageNumber(value) {
-  const amount = Number(value) || 0;
-  if (amount >= 10000) return `${(amount / 10000).toFixed(amount >= 100000 ? 0 : 1)}万`;
-  if (amount >= 1000) return `${(amount / 1000).toFixed(amount >= 10000 ? 0 : 1)}k`;
-  return String(amount);
-}
-
-function Stars({ theme = LIGHT_THEME }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
-      <div style={{ flex: 1, height: 1, background: `linear-gradient(to right, transparent, ${theme.border})` }} />
-      <span style={{ fontSize: 9, color: theme.muted, letterSpacing: 7, userSelect: "none" }}>✦ ✦ ✦</span>
-      <div style={{ flex: 1, height: 1, background: `linear-gradient(to left, transparent, ${theme.border})` }} />
-    </div>
-  );
-}
-
-function MysteryBox({ x, y = 0, category, color, ribbon, mark = '', theme, onOpen }) {
-  const [phase, setPhase] = useState('closed');
-  const handleClick = () => {
-    if (phase !== 'closed') return;
-    setPhase('shake');
-    setTimeout(() => setPhase('open'), 320);
-    setTimeout(() => onOpen(category), 760);
-  };
-  const lidStyle = {
-    transform: phase === 'open' ? 'translateY(-66px) rotate(-32deg)' : phase === 'shake' ? 'rotate(-4deg)' : 'rotate(0deg)',
-    opacity: phase === 'open' ? 0 : 1,
-    transformOrigin: '0px 90px',
-    transition: phase === 'open' ? 'transform .42s cubic-bezier(.3,.6,.4,1), opacity .42s ease .15s' : 'transform .11s ease-in-out',
-  };
-  const bodyStyle = {
-    transform: phase === 'shake' ? 'rotate(3deg)' : 'rotate(0deg)',
-    transformOrigin: '0px 168px',
-    transition: 'transform .11s ease-in-out',
-  };
-  return (
-    <g
-      transform={`translate(${x}, ${y})`}
-      onClick={handleClick}
-      role="button"
-      tabIndex="0"
-      aria-label={`打开${category}`}
-      onKeyDown={event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          handleClick();
-        }
-      }}
-      style={{ cursor: phase === 'closed' ? 'pointer' : 'default', outline: 'none' }}
-    >
-      <ellipse cx="0" cy="172" rx="58" ry="9" fill="rgba(46,31,18,.12)" />
-      {phase === 'open' && (
-        <>
-          <circle cx="0" cy="95" r="42" fill={theme.honeyLight} opacity="0.55" />
-          {["✦", "✧", "✦", "✧", "✦"].map((s, i) => {
-            const ang = (i / 5) * Math.PI * 2 - Math.PI / 2;
-            return <text key={i} x={Math.cos(ang) * 50} y={95 + Math.sin(ang) * 46} fontSize="14" fill={theme.honeyDeep} textAnchor="middle" opacity="0.9">{s}</text>;
-          })}
-        </>
-      )}
-      <rect x="-50" y="90" width="100" height="78" rx="10" fill={color} stroke={theme.honeyDeep} strokeWidth="2.5" style={bodyStyle} />
-      <rect x="-50" y="122" width="100" height="12" fill="rgba(0,0,0,.08)" style={bodyStyle} />
-      <rect x="-9" y="90" width="18" height="78" fill={ribbon} style={bodyStyle} />
-      {mark && <text x="0" y="146" textAnchor="middle" fontSize="17" fill={theme.honeyDeep} fontFamily="inherit" style={bodyStyle}>{mark}</text>}
-      <g style={lidStyle}>
-        <rect x="-56" y="74" width="112" height="22" rx="7" fill={color} stroke={theme.honeyDeep} strokeWidth="2.5" />
-        <rect x="-9" y="74" width="18" height="22" fill={ribbon} />
-        <path d="M -9,74 Q -18,58 -9,46 Q -3,58 -9,74" fill={ribbon} />
-        <path d="M 9,74 Q 18,58 9,46 Q 3,58 9,74" fill={ribbon} />
-        <circle cx="0" cy="58" r="8" fill={ribbon} />
-      </g>
-      <text x="0" y="200" textAnchor="middle" fontSize="13.5" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit">{category}</text>
-    </g>
-  );
-}
-
-function CabinScene({ theme, onPick }) {
-  return (
-    <svg viewBox="0 0 360 420" style={{ width: "100%", maxWidth: 360 }} aria-label="时光信差的三个礼物盒">
-      <text x="180" y="26" textAnchor="middle" fontSize="13" fontWeight="700" fill={theme.honeyDeep} fontFamily="inherit" letterSpacing="2">时光信差</text>
-      <MysteryBox x={92} category="悄悄话" color={theme.blush} ribbon={theme.blushDeep} theme={theme} onOpen={onPick} />
-      <MysteryBox x={268} category="幸福日记" color={theme.honeyLight} ribbon={theme.honey} theme={theme} onOpen={onPick} />
-      <MysteryBox x={180} y={190} category="陆泽邮箱" color={theme.surface} ribbon={theme.honeyDeep} mark="✉" theme={theme} onOpen={onPick} />
-    </svg>
-  );
-}
-
-function Avatar({ isMe, src, theme = LIGHT_THEME }) {
-  return (
-    <div style={{
-      width: 30, height: 30, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: 12, fontWeight: 700, color: theme.white,
-      background: isMe ? `linear-gradient(150deg, #F2AFA2, ${theme.blushDeep})` : `linear-gradient(150deg, #E8B45A, ${theme.honeyDeep})`,
-      boxShadow: `0 2px 6px ${isMe ? "rgba(232,144,122,.3)" : "rgba(185,122,31,.25)"}`,
-    }}>
-      {src ? <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (isMe ? "檀" : "泽")}
-    </div>
-  );
-}
-
-function HighlightedText({ text, query }) {
-  const value = String(text || '');
-  const keyword = String(query || '').trim();
-  if (!keyword) return value;
-  const parts = [];
-  const lower = value.toLocaleLowerCase('zh-CN');
-  const needle = keyword.toLocaleLowerCase('zh-CN');
-  let cursor = 0;
-  let index = lower.indexOf(needle);
-  while (index !== -1) {
-    if (index > cursor) parts.push(value.slice(cursor, index));
-    parts.push(<mark className="search-match" key={`${index}-${parts.length}`}>{value.slice(index, index + keyword.length)}</mark>);
-    cursor = index + keyword.length;
-    index = lower.indexOf(needle, cursor);
-  }
-  if (cursor < value.length) parts.push(value.slice(cursor));
-  return parts.length ? parts : value;
-}
-
-function BackgroundImageOption({ label, description, image, busy, onUpload, onReset, theme, wide = false }) {
-  const inputRef = useRef(null);
-  return (
-    <div style={{ minWidth: 0, padding: 10, gridColumn: wide ? '1 / -1' : undefined, background: theme.cream, border: `1px solid ${theme.borderLight}`, borderRadius: 13 }}>
-      <button type="button" onClick={() => inputRef.current?.click()} style={{ width: '100%', height: 78, padding: 0, overflow: 'hidden', display: 'grid', placeItems: 'center', color: theme.honeyDeep, background: image ? 'transparent' : `linear-gradient(145deg, ${theme.honeyLight}, ${theme.white})`, border: `1px dashed ${theme.honeyMid}`, borderRadius: 10, cursor: 'pointer' }}>
-        {busy ? <span style={{ fontSize: 10 }}>上传中…</span> : image ? <img src={image} alt={`${label}背景预览`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 20, fontWeight: 300 }}>＋</span>}
-      </button>
-      <input ref={inputRef} type="file" accept="image/*" hidden onChange={event => { onUpload(event.target.files?.[0]); event.target.value = ''; }} />
-      <strong style={{ display: 'block', marginTop: 7, color: theme.text, fontSize: 11.5 }}>{label}</strong>
-      <span style={{ display: 'block', marginTop: 2, color: theme.muted, fontSize: 9, lineHeight: 1.35 }}>{description}</span>
-      {image && <button type="button" onClick={onReset} style={{ marginTop: 6, padding: 0, color: theme.honeyDeep, background: 'transparent', border: 0, cursor: 'pointer', fontSize: 9.5 }}>恢复默认</button>}
-    </div>
-  );
-}
-
 export default function App({ initialView = 'chat', onHome }) {
   const { darkMode, theme: C, toggleDarkMode, refreshTheme } = useTheme();
   const [stage, setStage] = useState("home");
@@ -277,21 +142,24 @@ export default function App({ initialView = 'chat', onHome }) {
   const [pendingSearchJump, setPendingSearchJump] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const sessionIdRef = useRef(null);
+  const [sessionSummary, setSessionSummary] = useState(null);
+  const [sessionSummaryLoading, setSessionSummaryLoading] = useState(false);
+  const [sessionSummaryError, setSessionSummaryError] = useState('');
   const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
+  const selectedModelRef = useRef("claude-sonnet-4-6");
+  const modelSelectionVersionRef = useRef(0);
+  const modelSaveQueueRef = useRef(Promise.resolve());
+  const [modelSaveState, setModelSaveState] = useState('idle');
+  const [lastUsedModel, setLastUsedModel] = useState('');
+  const [lastRequestedModel, setLastRequestedModel] = useState('');
   const [hasHistory, setHasHistory] = useState(false);
   const [ready, setReady] = useState(false);
   const [memories, setMemories] = useState([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
-  const [memoryLog, setMemoryLog] = useState({ todaySummary: null, events: [], openMarks: [] });
   const [favorites, setFavorites] = useState([]);
   const [favoriteDraft, setFavoriteDraft] = useState(EMPTY_FAVORITE_DRAFT);
   const [savingFavorite, setSavingFavorite] = useState(false);
   const [favoriteError, setFavoriteError] = useState("");
-  const [memoryEventDraft, setMemoryEventDraft] = useState(EMPTY_MEMORY_EVENT_DRAFT);
-  const [editingMemoryEventId, setEditingMemoryEventId] = useState(null);
-  const [editingMemoryEventDraft, setEditingMemoryEventDraft] = useState(EMPTY_MEMORY_EVENT_DRAFT);
-  const [savingMemoryEvent, setSavingMemoryEvent] = useState(false);
-  const [memoryEventError, setMemoryEventError] = useState("");
   const [newMemory, setNewMemory] = useState("");
   const [editingMemoryId, setEditingMemoryId] = useState(null);
   const [editingMemoryText, setEditingMemoryText] = useState("");
@@ -322,6 +190,11 @@ export default function App({ initialView = 'chat', onHome }) {
       totalOutputTokens: msgs.reduce((sum, message) => sum + (message.outputTokens || 0), 0),
     };
   }, [msgs]);
+  const sessionTokenPressure = chatUsage.currentContextTokens >= SESSION_TOKEN_HARD_LIMIT
+    ? 'hard'
+    : chatUsage.currentContextTokens >= SESSION_TOKEN_SOFT_LIMIT
+      ? 'soft'
+      : 'normal';
   const [fontStyle, setFontStyle] = useState(getSavedFont);
   const [weatherCityInput, setWeatherCityInput] = useState(getHomeWeatherCity);
   const [weatherCitySaved, setWeatherCitySaved] = useState(false);
@@ -333,10 +206,13 @@ export default function App({ initialView = 'chat', onHome }) {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState('');
   const [temperatureInput, setTemperatureInput] = useState(0.8);
+  const [minReplyCharsInput, setMinReplyCharsInput] = useState(80);
   const [savingPersona, setSavingPersona] = useState(false);
   const [view, setView] = useState(initialView);
   const [memoryGroupsResetKey, setMemoryGroupsResetKey] = useState(0);
   const [settingsGroupsResetKey, setSettingsGroupsResetKey] = useState(0);
+  const [settingsGroupsOpenSignal, setSettingsGroupsOpenSignal] = useState({ key: 0, open: false });
+  const [settingsExportState, setSettingsExportState] = useState({ busy: false, error: '', notice: '' });
 
   useEffect(() => {
     sessionIdRef.current = sessionId;
@@ -401,38 +277,6 @@ export default function App({ initialView = 'chat', onHome }) {
   }, [letters]);
   const [newLetterText, setNewLetterText] = useState("");
 
-  const PAPER_STYLES = {
-    kraft: {
-      label: "牛皮纸",
-      swatch: "#C9A876",
-      background: "radial-gradient(ellipse at 20% 30%, rgba(255,255,255,.08), transparent 60%), radial-gradient(ellipse at 80% 70%, rgba(0,0,0,.06), transparent 60%), #CDAD7E",
-      border: "1px solid #A6824F",
-      color: "#3E2D14",
-    },
-    lined: {
-      label: "横线本",
-      swatch: "#FBF6E8",
-      background: "repeating-linear-gradient(0deg, transparent 0px, transparent 27px, #BFD4E0 27px, #BFD4E0 28px), #FBF6E8",
-      border: "1px solid #E3D9B8",
-      color: "#3A3220",
-      extraBorderLeft: "3px solid #E7A7A0",
-    },
-    floral: {
-      label: "复古花边",
-      swatch: "#FBEAE3",
-      background: "linear-gradient(135deg, #FBEAE3 0%, #F7DCD2 100%)",
-      border: "3px dashed #E8B79A",
-      color: "#5A3424",
-    },
-    parchment: {
-      label: "羊皮卷",
-      swatch: "#E9D9AE",
-      background: "radial-gradient(ellipse at center, #F1E4BE 0%, #DDC68C 75%, #C5AA68 100%)",
-      border: "1px solid #B6995E",
-      color: "#4A3815",
-    },
-  };
-  const PAPER_STYLE_KEYS = Object.keys(PAPER_STYLES);
   const [newLetterTitle, setNewLetterTitle] = useState("");
   const [revealedIds, setRevealedIds] = useState(() => new Set());
   const [openLetterId, setOpenLetterId] = useState(null);
@@ -445,6 +289,23 @@ export default function App({ initialView = 'chat', onHome }) {
   const partnerAvatarInputRef = useRef(null);
   const [sessions, setSessions] = useState([]);
   const listRef = useRef(null);
+  const chatStickToBottomRef = useRef(true);
+  const chatScrollFrameRef = useRef(0);
+  const chatEnterScrollFrameRef = useRef(0);
+
+  const scrollChatToBottomNow = useCallback(() => {
+    chatStickToBottomRef.current = true;
+    cancelAnimationFrame(chatEnterScrollFrameRef.current);
+    chatEnterScrollFrameRef.current = requestAnimationFrame(() => {
+      const list = listRef.current;
+      if (!list) return;
+      list.scrollTop = list.scrollHeight;
+      chatEnterScrollFrameRef.current = requestAnimationFrame(() => {
+        const settledList = listRef.current;
+        if (settledList) settledList.scrollTop = settledList.scrollHeight;
+      });
+    });
+  }, []);
 
   const handleLogin = () => {
     if (!pwInput.trim()) return;
@@ -477,29 +338,87 @@ export default function App({ initialView = 'chat', onHome }) {
   };
 
   const loadMessagesFor = (id) => {
-    return apiFetch(`${BACKEND}/sessions/${id}/messages`)
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped = data.map(m => ({
-            id: m.id,
-            role: m.role === "user" ? "me" : "ai",
-            text: m.content,
-            image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
-            file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
-            thinking: m.reasoning_content || null,
-            inputTokens: m.input_tokens || 0,
-            outputTokens: m.output_tokens || 0,
-            thinkingOpen: false,
-            createdAt: m.created_at,
-            time: formatMsgTime(m.created_at),
-          }));
-          setMsgs(mapped);
-          setVisible(mapped.length);
-          setHasHistory(true);
-        }
+    setSessionSummaryError('');
+    return Promise.all([
+      apiFetch(`${BACKEND}/sessions/${id}/messages`).then(r => r.json()),
+      apiFetch(`${BACKEND}/sessions/${id}/summary`).then(r => r.json()).catch(() => null),
+    ])
+      .then(([data, summary]) => {
+        const mapped = (Array.isArray(data) ? data : []).map(mapDbMessage);
+        setMsgs(mapped);
+        setVisible(mapped.length);
+        setHasHistory(mapped.length > 0);
+        setSessionSummary(summary && summary.id ? summary : null);
+        scrollChatToBottomNow();
       });
   };
+
+  const generateCurrentSessionSummary = async () => {
+    if (!sessionId || sessionSummaryLoading) return;
+    setSessionSummaryLoading(true);
+    setSessionSummaryError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/sessions/${sessionId}/summary`, { method: 'POST' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '窗口简介没有生成成功');
+      setSessionSummary(data);
+      setTokenUsageOpen(true);
+    } catch (error) {
+      setSessionSummaryError(error.message || '窗口简介没有生成成功');
+    } finally {
+      setSessionSummaryLoading(false);
+    }
+  };
+
+  const openChatNotification = useCallback(({ session_id, sessionId: camelSessionId, message_id, messageId: camelMessageId } = {}) => {
+    const targetSessionId = session_id || camelSessionId || sessionIdRef.current;
+    const targetMessageId = message_id || camelMessageId || null;
+    setStage("home");
+    setView('chat');
+    if (!targetSessionId) return;
+    sessionIdRef.current = targetSessionId;
+    setSessionId(targetSessionId);
+    localStorage.setItem(SESSION_KEY, targetSessionId);
+    loadMessagesFor(targetSessionId)
+      .then(() => {
+        if (targetMessageId) {
+          setScrollToMsgId(targetMessageId);
+          setHighlightMsgId(targetMessageId);
+          setHighlightQuery('');
+          window.setTimeout(() => setHighlightMsgId(current => current === targetMessageId ? null : current), 2400);
+        }
+      })
+      .catch(console.error);
+    apiFetch(`${BACKEND}/sessions`)
+      .then(r => r.json())
+      .then(data => setSessions(Array.isArray(data) ? data : []))
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (locked) return undefined;
+    const handleServiceWorkerMessage = (event) => {
+      const payload = event.data || {};
+      if (payload.type !== 'ourhome-notification-click') return;
+      openChatNotification(payload);
+    };
+    navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage);
+  }, [locked, openChatNotification]);
+
+  useEffect(() => {
+    if (locked) return;
+    const params = new URLSearchParams(window.location.search);
+    const sessionParam = params.get('notification_session');
+    const messageParam = params.get('notification_message');
+    if (!sessionParam && !messageParam) return;
+    openChatNotification({ session_id: sessionParam, message_id: messageParam });
+    params.delete('notification_session');
+    params.delete('notification_message');
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash || '#chat'}`;
+    window.history.replaceState(null, '', nextUrl);
+  }, [locked, openChatNotification]);
 
   useEffect(() => {
     apiFetch(`${BACKEND}/sessions`)
@@ -540,25 +459,45 @@ export default function App({ initialView = 'chat', onHome }) {
   }, [stage, ready, hasHistory]);
 
   useEffect(() => {
+    if (stage !== "home" || view !== "chat" || !ready || scrollToMsgId) return;
+    scrollChatToBottomNow();
+  }, [ready, scrollChatToBottomNow, scrollToMsgId, sessionId, stage, view]);
+
+  useEffect(() => {
     if (scrollToMsgId) {
       const el = document.getElementById(`msg-${scrollToMsgId}`);
       if (el) {
+        chatStickToBottomRef.current = false;
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         setScrollToMsgId(null);
         return;
       }
     }
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    const list = listRef.current;
+    if (!list || !chatStickToBottomRef.current) return undefined;
+    cancelAnimationFrame(chatScrollFrameRef.current);
+    chatScrollFrameRef.current = requestAnimationFrame(() => {
+      list.scrollTo({ top: list.scrollHeight, behavior: thinking ? "auto" : "smooth" });
+    });
+    return () => cancelAnimationFrame(chatScrollFrameRef.current);
   }, [visible, thinking, scrollToMsgId]);
+
+  const handleChatScroll = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    chatStickToBottomRef.current = list.scrollHeight - list.scrollTop - list.clientHeight < 120;
+  }, []);
 
   useEffect(() => {
     if (!pendingSearchJump || !msgs.some(message => message.id === pendingSearchJump.id)) return;
+    chatStickToBottomRef.current = false;
     setVisible(msgs.length);
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
       secondFrame = requestAnimationFrame(() => {
         const element = document.getElementById(`msg-${pendingSearchJump.id}`);
         if (!element) return;
+        chatStickToBottomRef.current = false;
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setHighlightMsgId(pendingSearchJump.id);
         setHighlightQuery(pendingSearchJump.query);
@@ -571,14 +510,51 @@ export default function App({ initialView = 'chat', onHome }) {
     };
   }, [msgs, pendingSearchJump]);
 
-  const chooseModel = useCallback((model) => {
-    setSelectedModel(model);
-    apiFetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selected_model: model }),
-    }).catch(console.error);
+  const applySelectedModel = useCallback((model) => {
+    const nextModel = String(model || '').trim();
+    if (!nextModel) return 0;
+    const selectionVersion = ++modelSelectionVersionRef.current;
+    selectedModelRef.current = nextModel;
+    setSelectedModel(nextModel);
+    setLastRequestedModel('');
+    setLastUsedModel('');
+    return selectionVersion;
   }, []);
+
+  const chooseModel = useCallback((model) => {
+    const nextModel = String(model || '').trim();
+    if (!nextModel) return Promise.resolve(null);
+    const selectionVersion = applySelectedModel(nextModel);
+    setModelSaveState('saving');
+    setModelsError('');
+
+    const saveSelection = async () => {
+      const response = await apiFetch(`${BACKEND}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selected_model: nextModel }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || '模型选择没有保存成功');
+      if (data?.selected_model && data.selected_model !== nextModel) {
+        throw new Error(`站点保存成了“${data.selected_model}”，不是刚选的“${nextModel}”`);
+      }
+      if (modelSelectionVersionRef.current === selectionVersion) setModelSaveState('saved');
+      return data;
+    };
+
+    const queued = modelSaveQueueRef.current.catch(() => null).then(saveSelection);
+    const handled = queued.catch(error => {
+      console.error(error);
+      if (modelSelectionVersionRef.current === selectionVersion) {
+        setModelSaveState('error');
+        setModelsError(error?.message || '模型选择没有保存成功');
+      }
+      return null;
+    });
+    modelSaveQueueRef.current = handled;
+    return handled;
+  }, [applySelectedModel]);
 
   const loadActiveModels = useCallback(async (preferredModel = '') => {
     setModelsLoading(true);
@@ -601,6 +577,7 @@ export default function App({ initialView = 'chat', onHome }) {
 
   useEffect(() => {
     if (locked) return;
+    const selectionVersionAtLoad = modelSelectionVersionRef.current;
     apiFetch(`${BACKEND}/settings`)
       .then(r => r.json())
       .then(data => {
@@ -623,10 +600,16 @@ export default function App({ initialView = 'chat', onHome }) {
         if (typeof data?.daily_journal_enabled === 'boolean') setDailyJournalEnabled(data.daily_journal_enabled);
         if (data?.daily_journal_time) setDailyJournalTime(String(data.daily_journal_time).slice(0, 5));
         const preferredModel = data?.selected_model || '';
-        if (preferredModel) setSelectedModel(preferredModel);
+        const modelChangedWhileLoading = modelSelectionVersionRef.current !== selectionVersionAtLoad;
+        if (preferredModel && !modelChangedWhileLoading) {
+          selectedModelRef.current = preferredModel;
+          setSelectedModel(preferredModel);
+        }
         if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
-        return loadActiveModels(preferredModel).then(models => {
-          if (!preferredModel && models[0]) chooseModel(models[0]);
+        if (typeof data?.min_reply_chars === 'number') setMinReplyCharsInput(data.min_reply_chars);
+        const activeModel = modelChangedWhileLoading ? selectedModelRef.current : preferredModel;
+        return loadActiveModels(activeModel).then(models => {
+          if (!activeModel && models[0]) chooseModel(models[0]);
         });
       })
       .catch(console.error);
@@ -672,10 +655,52 @@ export default function App({ initialView = 'chat', onHome }) {
     apiFetch(`${BACKEND}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ system_prompt: systemPromptInput, temperature: Number(temperatureInput) }),
+      body: JSON.stringify({
+        system_prompt: systemPromptInput,
+        temperature: Number(temperatureInput),
+        min_reply_chars: Number(minReplyCharsInput),
+      }),
     })
       .then(() => setSavingPersona(false))
       .catch(err => { console.error(err); setSavingPersona(false); });
+  };
+
+  const downloadBlob = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportChatArchive = async () => {
+    setSettingsExportState({ busy: true, error: '', notice: '' });
+    try {
+      const response = await apiFetch(`${BACKEND}/export`);
+      if (!response.ok) throw new Error('聊天记录没有导出成功');
+      downloadBlob(await response.blob(), 'ourhome-export.html');
+      setSettingsExportState({ busy: false, error: '', notice: '聊天记录已经开始下载。' });
+    } catch (error) {
+      setSettingsExportState({ busy: false, error: error.message || '聊天记录没有导出成功', notice: '' });
+    }
+  };
+
+  const exportFullBackup = async () => {
+    setSettingsExportState({ busy: true, error: '', notice: '' });
+    try {
+      const response = await apiFetch(`${BACKEND}/backup`);
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok) {
+        const data = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
+        throw new Error(data?.error || '完整备份没有导出成功');
+      }
+      const stamp = new Date().toISOString().slice(0, 10);
+      downloadBlob(await response.blob(), `ourhome-backup-${stamp}.json`);
+      setSettingsExportState({ busy: false, error: '', notice: '完整备份已经开始下载。' });
+    } catch (error) {
+      setSettingsExportState({ busy: false, error: error.message || '完整备份没有导出成功', notice: '' });
+    }
   };
 
   const openLetters = () => {
@@ -902,7 +927,10 @@ export default function App({ initialView = 'chat', onHome }) {
       .catch(err => { console.error(err); setAiMoodWriting(false); });
   };
 
-  const backToChat = () => setView('chat');
+  const backToChat = () => {
+    scrollChatToBottomNow();
+    setView('chat');
+  };
   const leaveRoom = () => onHome ? onHome() : backToChat();
   const backToCabin = () => { setLettersCategory(null); setLetters([]); setOpenLetterId(null); };
 
@@ -1227,28 +1255,18 @@ export default function App({ initialView = 'chat', onHome }) {
     setRollbackUndo(null);
     setMessageActionError("");
     setTokenUsageOpen(false);
+    chatStickToBottomRef.current = true;
     sessionIdRef.current = id;
     setSessionId(id);
     localStorage.setItem(SESSION_KEY, id);
     apiFetch(`${BACKEND}/sessions/${id}/messages`)
       .then(r => r.json())
       .then(data => {
-        const mapped = (Array.isArray(data) ? data : []).map(m => ({
-          id: m.id,
-          role: m.role === "user" ? "me" : "ai",
-          text: m.content,
-          image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
-          file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
-          thinking: m.reasoning_content || null,
-          inputTokens: m.input_tokens || 0,
-          outputTokens: m.output_tokens || 0,
-          thinkingOpen: false,
-          createdAt: m.created_at,
-          time: formatMsgTime(m.created_at),
-        }));
+        const mapped = (Array.isArray(data) ? data : []).map(mapDbMessage);
         setMsgs(mapped);
         setVisible(mapped.length);
-        setHasHistory(true);
+        setHasHistory(mapped.length > 0);
+        scrollChatToBottomNow();
       })
       .catch(console.error);
     setDrawerOpen(false);
@@ -1390,15 +1408,18 @@ export default function App({ initialView = 'chat', onHome }) {
     setThinking(true);
     setRollbackUndo(null);
 
+    const requestModel = selectedModelRef.current || selectedModel;
     try {
       const response = await apiFetch(`${BACKEND}/messages/${id}/edit-and-regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newText, model: selectedModel })
+        body: JSON.stringify({ content: newText, model: requestModel })
       });
       const data = await response.json();
       if (!response.ok) throw createRequestError(data, "重新发送失败");
       if (sessionIdRef.current !== editingSessionId) return;
+      setLastRequestedModel(data.requestedModel || requestModel);
+      setLastUsedModel(data.model || requestModel);
 
       const replyCreatedAt = data.createdAt || new Date().toISOString();
       const index = msgs.findIndex(message => message.id === id);
@@ -1508,16 +1529,10 @@ export default function App({ initialView = 'chat', onHome }) {
     setMemoriesLoading(true);
     Promise.all([
       apiFetch(`${BACKEND}/memories`).then(r => r.json()),
-      apiFetch(`${BACKEND}/memory-log?days=5`).then(r => r.json()),
       apiFetch(`${BACKEND}/memory-favorites`).then(r => r.json()),
     ])
-      .then(([memoryData, logData, favoriteData]) => {
+      .then(([memoryData, favoriteData]) => {
         setMemories(Array.isArray(memoryData) ? memoryData : []);
-        setMemoryLog({
-          todaySummary: logData?.todaySummary || null,
-          events: Array.isArray(logData?.events) ? logData.events : [],
-          openMarks: Array.isArray(logData?.openMarks) ? logData.openMarks : [],
-        });
         setFavorites(Array.isArray(favoriteData) ? favoriteData : []);
         setMemoriesLoading(false);
       })
@@ -1584,89 +1599,6 @@ export default function App({ initialView = 'chat', onHome }) {
       .catch(console.error);
   };
 
-  const saveManualMemoryEvent = async () => {
-    if (savingMemoryEvent) return;
-    const title = memoryEventDraft.title.trim();
-    const summary = memoryEventDraft.summary.trim();
-    if (!title || !summary) {
-      setMemoryEventError("标题和内容都要写一点。");
-      return;
-    }
-    setSavingMemoryEvent(true);
-    setMemoryEventError("");
-    try {
-      const response = await apiFetch(`${BACKEND}/memory-events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          summary,
-          event_type: memoryEventDraft.event_type,
-          event_date: memoryEventDraft.event_date || undefined,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || '补年表失败');
-      setMemoryLog(log => ({ ...log, events: [data, ...log.events] }));
-      setMemoryEventDraft(EMPTY_MEMORY_EVENT_DRAFT);
-    } catch (error) {
-      setMemoryEventError(error.message || '补年表失败');
-    } finally {
-      setSavingMemoryEvent(false);
-    }
-  };
-
-  const startEditMemoryEvent = (event) => {
-    setEditingMemoryEventId(event.id);
-    setEditingMemoryEventDraft({
-      title: event.title || '',
-      summary: event.summary || '',
-      event_type: event.event_type || 'note',
-      event_date: event.event_date || '',
-    });
-  };
-
-  const cancelEditMemoryEvent = () => {
-    setEditingMemoryEventId(null);
-    setEditingMemoryEventDraft(EMPTY_MEMORY_EVENT_DRAFT);
-  };
-
-  const saveEditMemoryEvent = async () => {
-    if (!editingMemoryEventId) return;
-    const title = editingMemoryEventDraft.title.trim();
-    const summary = editingMemoryEventDraft.summary.trim();
-    if (!title || !summary) {
-      setMemoryEventError("标题和内容都要写一点。");
-      return;
-    }
-    try {
-      const response = await apiFetch(`${BACKEND}/memory-events/${editingMemoryEventId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, summary, event_type: editingMemoryEventDraft.event_type, event_date: editingMemoryEventDraft.event_date || undefined }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || '修改年表失败');
-      setMemoryLog(log => ({ ...log, events: log.events.map(event => event.id === data.id ? data : event) }));
-      cancelEditMemoryEvent();
-    } catch (error) {
-      setMemoryEventError(error.message || '修改年表失败');
-    }
-  };
-
-  const deleteMemoryEvent = async (id) => {
-    if (!window.confirm("删掉这条年表记录吗？")) return;
-    try {
-      const response = await apiFetch(`${BACKEND}/memory-events/${id}`, { method: 'DELETE' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || '删除年表失败');
-      setMemoryLog(log => ({ ...log, events: log.events.filter(event => event.id !== id) }));
-      if (editingMemoryEventId === id) cancelEditMemoryEvent();
-    } catch (error) {
-      setMemoryEventError(error.message || '删除年表失败');
-    }
-  };
-
   const orderFavorites = (items) => [...items].sort((left, right) => {
     if (Boolean(left.is_pinned) !== Boolean(right.is_pinned)) return left.is_pinned ? -1 : 1;
     const rightTime = Date.parse(right.created_at || '') || 0;
@@ -1693,7 +1625,7 @@ export default function App({ initialView = 'chat', onHome }) {
           source: 'manual',
           title: title || content.slice(0, 28),
           content,
-          category: favoriteDraft.category.trim() || '秘密抽屉',
+          category: favoriteDraft.category.trim() || '收藏',
           note: favoriteDraft.note.trim() || null,
           is_pinned: favoriteDraft.is_pinned,
         }),
@@ -1907,19 +1839,23 @@ export default function App({ initialView = 'chat', onHome }) {
     if (!sessionId || regenerating || thinking || messageActionLoading) return;
     const regeneratingSessionId = sessionId;
     const shouldAppendReply = msgs[msgs.length - 1]?.role !== 'ai';
+    chatStickToBottomRef.current = true;
     setRegenerating(true);
     setThinking(true);
     setMessageActionError("");
     setRollbackUndo(null);
+    const requestModel = selectedModelRef.current || selectedModel;
     try {
       const response = await apiFetch(`${BACKEND}/chat/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, model: selectedModel }),
+        body: JSON.stringify({ session_id: sessionId, model: requestModel }),
       });
       const data = await response.json();
       if (!response.ok) throw createRequestError(data, "重新生成失败");
       if (sessionIdRef.current !== regeneratingSessionId) return;
+      setLastRequestedModel(data.requestedModel || requestModel);
+      setLastUsedModel(data.model || requestModel);
 
       const replyCreatedAt = data.createdAt || new Date().toISOString();
       setMsgs(current => {
@@ -1955,11 +1891,13 @@ export default function App({ initialView = 'chat', onHome }) {
     }
     if ((!input.trim() && !pendingFile) || !sessionId || thinking || messageActionLoading) return;
     const txt = input.trim();
+    const requestModel = selectedModelRef.current || selectedModel;
     const sendingSessionId = sessionId;
     const fileToSend = pendingFile;
     const isImg = fileToSend && fileToSend.type && fileToSend.type.startsWith('image/');
     const userCreatedAt = new Date().toISOString();
     const temporaryUserId = `temp-user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    chatStickToBottomRef.current = true;
     setMsgs(ms => [...ms, { id: temporaryUserId, role: "me", text: txt, image: isImg ? fileToSend.url : null, file: (fileToSend && !isImg) ? { url: fileToSend.url, name: fileToSend.name } : null, createdAt: userCreatedAt, time: formatMsgTime(userCreatedAt) }]);
     setVisible(v => v + 1);
     setInput("");
@@ -1971,7 +1909,7 @@ export default function App({ initialView = 'chat', onHome }) {
       const res = await apiFetch(`${BACKEND}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, message: txt, model: selectedModel, attachment_url: fileToSend?.url || undefined, attachment_type: fileToSend?.type || undefined, attachment_name: fileToSend?.name || undefined })
+        body: JSON.stringify({ session_id: sessionId, message: txt, model: requestModel, attachment_url: fileToSend?.url || undefined, attachment_type: fileToSend?.type || undefined, attachment_name: fileToSend?.name || undefined })
       });
       const data = await res.json();
       if (sessionIdRef.current !== sendingSessionId) return;
@@ -1987,6 +1925,8 @@ export default function App({ initialView = 'chat', onHome }) {
         }
         throw createRequestError(data, "发送失败");
       }
+      setLastRequestedModel(data.requestedModel || requestModel);
+      setLastUsedModel(data.model || requestModel);
       const replyCreatedAt = data.assistantMessage?.createdAt || data.createdAt || new Date().toISOString();
       const persistedUserCreatedAt = data.userMessage?.createdAt || userCreatedAt;
       setMsgs(ms => [
@@ -2073,655 +2013,183 @@ export default function App({ initialView = 'chat', onHome }) {
         <div style={{ fontSize: 11, color: C.muted, letterSpacing: ".42em" }}>{stage === "door" ? "轻 轻 推 开" : "门 开 了 …"}</div>
       </div>
 
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "chat") ? 1 : 0, pointerEvents: (stage === "home" && view === "chat") ? "auto" : "none", transition: "opacity .4s ease" }}>
-        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, flexShrink: 0 }}>
-          <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 10 }}>
-            <div style={{ display: 'flex', gap: 5 }}>
-              <button onClick={leaveRoom} aria-label="回到主页" style={{ fontSize: 18, color: C.honeyDeep, background: 'transparent', border: 0, padding: 4, width: 30, height: 30, cursor: 'pointer' }}>←</button>
-              <button onClick={() => setDrawerOpen(true)} style={{ fontSize: 11.5, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, padding: "5px 8px", cursor: "pointer", letterSpacing: ".03em", fontWeight: 500 }}>对话</button>
-            </div>
-            <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", textAlign: "center" }}>
-              <div style={{ fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>陆泽</div>
-              <div style={{ fontSize: 10, color: thinking ? C.honey : C.muted, letterSpacing: ".18em", marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                <div style={{ width: 5, height: 5, borderRadius: "50%", background: thinking ? C.honey : C.mutedLight, boxShadow: thinking ? `0 0 5px ${C.honey}` : "none", transition: "all .3s" }} />
-                <span>{thinking ? "想你中…" : "miss you"}</span>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
-            </div>
-          </div>
-          <Stars theme={C} />
-        </header>
+      <ChatRoom
+        stage={stage}
+        view={view}
+        C={C}
+        leaveRoom={leaveRoom}
+        setDrawerOpen={setDrawerOpen}
+        setSearchOpen={setSearchOpen}
+        setSearchQuery={setSearchQuery}
+        setLastSearchQuery={setLastSearchQuery}
+        setSearchResults={setSearchResults}
+        setSearchMeta={setSearchMeta}
+        setSearchScope={setSearchScope}
+        thinking={thinking}
+        listRef={listRef}
+        onListScroll={handleChatScroll}
+        bgImage={bgImage}
+        bgColor={bgColor}
+        ready={ready}
+        msgs={msgs}
+        visible={visible}
+        highlightMsgId={highlightMsgId}
+        highlightQuery={highlightQuery}
+        myAvatar={myAvatar}
+        partnerAvatar={partnerAvatar}
+        myBubbleColor={myBubbleColor}
+        partnerBubbleColor={partnerBubbleColor}
+        toggleThinking={toggleThinking}
+        openMessageActions={openMessageActions}
+        messageActionLoading={messageActionLoading}
+        regenerateLast={regenerateLast}
+        regenerating={regenerating}
+        editingMessage={editingMessage}
+        cancelEditMsg={cancelEditMsg}
+        rollbackUndo={rollbackUndo}
+        undoRollback={undoRollback}
+        sessionTokenPressure={sessionTokenPressure}
+        generateCurrentSessionSummary={generateCurrentSessionSummary}
+        sessionSummaryLoading={sessionSummaryLoading}
+        sessionSummary={sessionSummary}
+        messageActionError={messageActionError}
+        sessionSummaryError={sessionSummaryError}
+        tokenUsageOpen={tokenUsageOpen}
+        setTokenUsageOpen={setTokenUsageOpen}
+        chatUsage={chatUsage}
+        sessionId={sessionId}
+        pendingFile={pendingFile}
+        imageUploading={imageUploading}
+        setPendingFile={setPendingFile}
+        chatImageInputRef={chatImageInputRef}
+        pickFile={pickFile}
+        chatInputRef={chatInputRef}
+        input={input}
+        setInput={setInput}
+        send={send}
+        selectedModel={selectedModel}
+        chooseModel={chooseModel}
+        availableModels={availableModels}
+        loadActiveModels={loadActiveModels}
+        modelsLoading={modelsLoading}
+        modelsError={modelsError}
+        modelSaveState={modelSaveState}
+        lastUsedModel={lastUsedModel}
+        lastRequestedModel={lastRequestedModel}
+      />
 
-        <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "16px 14px 8px", background: bgImage ? `url(${bgImage}) center/cover no-repeat` : (bgColor || "#FDFAF5") }}>
-          {!ready && (
-            <div style={{ textAlign: "center", fontSize: 11, color: C.muted, letterSpacing: ".15em", padding: "30px 0" }}>正在开门…</div>
-          )}
-          {msgs.map((m, idx) => {
-            const isMe = m.role === "me";
-            const isLast = idx === visible - 1;
-            const dateKey = messageDateKey(m.createdAt);
-            const previousDateKey = idx > 0 ? messageDateKey(msgs[idx - 1].createdAt) : '';
-            const showDateDivider = Boolean(dateKey && dateKey !== previousDateKey);
-            return (
-              <div key={m.id}>
-                {showDateDivider && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: idx === 0 ? '2px 8px 18px' : '10px 8px 18px' }}>
-                    <span style={{ flex: 1, height: 1, background: C.border }} />
-                    <span style={{ color: C.muted, fontSize: 10.5, letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{formatMsgDate(m.createdAt)}</span>
-                    <span style={{ flex: 1, height: 1, background: C.border }} />
-                  </div>
-                )}
-                <div id={`msg-${m.id}`} style={{ display: "flex", marginBottom: 14, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 6, background: highlightMsgId === m.id ? C.honeyLight : "transparent", borderRadius: 14, padding: highlightMsgId === m.id ? "6px 4px" : "0px", transition: "background .6s ease" }}>
-                  <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} theme={C} />
-                  <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6 }}>
-                    {m.image && (
-                      <img src={m.image} alt="" style={{ maxWidth: "100%", borderRadius: 14, border: `1px solid ${isMe ? "#F5CABB" : C.border}`, display: "block" }} />
-                    )}
-                    {m.file && (
-                      <a href={m.file.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 14, background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, textDecoration: "none", color: C.text, maxWidth: "100%" }}>
-                        <span style={{ fontSize: 20 }}>📄</span>
-                        <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.file.name}</span>
-                      </a>
-                    )}
-                    {!isMe && m.thinking && (
-                      <div>
-                        <span onClick={() => toggleThinking(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }}>
-                          💭 想了想{m.thinkingOpen ? " ▲" : " ▼"}
-                        </span>
-                        {m.thinkingOpen && (
-                          <div style={{ fontSize: 12, lineHeight: 1.6, color: C.muted, background: C.borderLight, borderRadius: 10, padding: "8px 12px", marginTop: 4, whiteSpace: "pre-wrap", fontStyle: "italic" }}>{m.thinking}</div>
-                        )}
-                      </div>
-                    )}
-                    {m.text && (
-                      <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>
-                    )}
-                    {!isMe && isLast && !thinking && (
-                      <button type="button" onClick={regenerateLast} disabled={regenerating} style={{ border: 0, padding: "3px 0", background: "transparent", fontSize: 10.5, color: C.muted, cursor: regenerating ? "default" : "pointer", alignSelf: "flex-start", fontFamily: "inherit" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</button>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
-                    <span style={{ fontSize: 9.5, color: C.mutedLight }}>{m.time || formatMsgTime(m.createdAt)}</span>
-                    <button
-                      type="button"
-                      onClick={() => openMessageActions(m)}
-                      disabled={thinking || messageActionLoading || String(m.id).startsWith('temp-')}
-                      aria-label={`${isMe ? '我的' : '陆泽的'}消息操作`}
-                      title="编辑或回到这里"
-                      style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "transparent", color: C.muted, cursor: thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: String(m.id).startsWith('temp-') ? .28 : .78, fontSize: 20, lineHeight: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 1, fontFamily: "inherit" }}
-                    ><span aria-hidden="true" style={{ transform: "translateY(-2px)" }}>⌄</span></button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          {thinking && (
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 14 }}>
-              <Avatar isMe={false} src={partnerAvatar} theme={C} />
-              <div style={{ padding: "10px 16px", borderRadius: "18px 18px 18px 4px", background: C.white, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, letterSpacing: ".15em", fontStyle: "italic" }}>想你中…</div>
-            </div>
-          )}
-        </div>
+      <LettersRoom
+        stage={stage}
+        view={view}
+        C={C}
+        lettersCategory={lettersCategory}
+        backToCabin={backToCabin}
+        leaveRoom={leaveRoom}
+        openCategory={openCategory}
+        setView={setView}
+        openLetterId={openLetterId}
+        setOpenLetterId={setOpenLetterId}
+        deleteLetter={deleteLetter}
+        letters={letters}
+        darkMode={darkMode}
+        diarySummariesByDate={diarySummariesByDate}
+        repliesByParentId={repliesByParentId}
+        replyingToId={replyingToId}
+        replyText={replyText}
+        setReplyText={setReplyText}
+        setReplyingToId={setReplyingToId}
+        submitReply={submitReply}
+        askAiWrite={askAiWrite}
+        aiWriting={aiWriting}
+        whisperBgImage={whisperBgImage}
+        whisperBgColor={whisperBgColor}
+        lettersLoading={lettersLoading}
+        orderedRootLetters={orderedRootLetters}
+        revealedIds={revealedIds}
+        toggleReveal={toggleReveal}
+        newLetterTitle={newLetterTitle}
+        setNewLetterTitle={setNewLetterTitle}
+        selectedPaperStyle={selectedPaperStyle}
+        setSelectedPaperStyle={setSelectedPaperStyle}
+        newLetterText={newLetterText}
+        setNewLetterText={setNewLetterText}
+        submitNewLetter={submitNewLetter}
+        savingLetter={savingLetter}
+      />
 
-        <div className="ourhome-safe-bottom" style={{ background: C.white, borderTop: `1px solid ${C.border}`, paddingTop: 10, paddingLeft: 14, paddingRight: 14, flexShrink: 0 }}>
-          {editingMessage && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>正在重新编辑这条消息</div>
-                <div style={{ fontSize: 10, lineHeight: 1.5, color: C.muted, marginTop: 2 }}>发送后会收起后面的 {editingMessage.afterCount} 条，陆泽会按新内容重新回复。</div>
-              </div>
-              <button type="button" onClick={cancelEditMsg} disabled={messageActionLoading} style={{ flexShrink: 0, minWidth: 44, minHeight: 34, border: 0, borderRadius: 999, background: "rgba(255,255,255,.72)", color: C.muted, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>取消</button>
-            </div>
-          )}
-          {rollbackUndo && !editingMessage && (
-            <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
-              <span style={{ flex: 1, fontSize: 11, lineHeight: 1.5, color: C.honeyDeep }}>已回到这里，收起了 {rollbackUndo.hiddenMessages.length} 条消息。</span>
-              <button type="button" onClick={undoRollback} disabled={messageActionLoading} style={{ minWidth: 52, minHeight: 34, border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.white, color: C.honeyDeep, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>{messageActionLoading ? "恢复中…" : "撤销"}</button>
-            </div>
-          )}
-          {messageActionError && !messageAction && (
-            <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{messageActionError}</div>
-          )}
-          {tokenUsageOpen && (
-            <div id="chat-token-usage" style={{ marginBottom: 8, padding: "10px 11px", borderRadius: 14, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>当前对话用量</div>
-                <button type="button" onClick={() => setTokenUsageOpen(false)} aria-label="收起 token 用量" style={{ width: 28, height: 28, border: 0, borderRadius: "50%", background: "rgba(255,255,255,.68)", color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✕</button>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
-                {[
-                  [chatUsage.totalChars, '聊天字数'],
-                  [chatUsage.currentContextTokens, '当前上下文'],
-                  [chatUsage.totalOutputTokens, '累计生成'],
-                ].map(([value, label]) => (
-                  <div key={label} style={{ minWidth: 0, textAlign: "center", background: "rgba(255,255,255,.68)", borderRadius: 10, padding: "7px 3px" }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.honeyDeep, overflow: "hidden", textOverflow: "ellipsis" }}>{Number(value).toLocaleString('zh-CN')}</div>
-                    <div style={{ fontSize: 9.5, color: C.muted, marginTop: 1 }}>{label}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ fontSize: 9.5, color: C.muted, lineHeight: 1.5, marginTop: 7 }}>上下文是陆泽下一次回复会带着的聊天量；累计生成是这段对话里已经生成的 token。</div>
-            </div>
-          )}
-          {(pendingFile || imageUploading) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              {imageUploading ? (
-                <div style={{ width: 52, height: 52, borderRadius: 10, border: `1px solid ${C.border}`, background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: 9, color: C.muted }}>上传中…</span>
-                </div>
-              ) : pendingFile && pendingFile.type && pendingFile.type.startsWith('image/') ? (
-                <div style={{ position: "relative", width: 52, height: 52, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
-                  <img src={pendingFile.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <span onClick={() => setPendingFile(null)} style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "rgba(46,31,18,.6)", color: C.white, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>✕</span>
-                </div>
-              ) : pendingFile && (
-                <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.cream, maxWidth: "80%" }}>
-                  <span style={{ fontSize: 16 }}>📄</span>
-                  <span style={{ fontSize: 11.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pendingFile.name}</span>
-                  <span onClick={() => setPendingFile(null)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", marginLeft: 4 }}>✕</span>
-                </div>
-              )}
-            </div>
-          )}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
-            <button type="button" onClick={() => chatImageInputRef.current?.click()} disabled={Boolean(editingMessage) || messageActionLoading} aria-label="添加图片或文件" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: editingMessage || messageActionLoading ? "default" : "pointer", opacity: editingMessage ? .3 : 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
-            <input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} />
-            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫步"} value={input} onChange={e => { setInput(e.target.value); if (messageActionError) setMessageActionError(""); }} style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
-            <button type="button" onClick={send} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "all .2s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
-            <select aria-label="选择聊天模型" value={selectedModel} onChange={e => { setMessageActionError(""); chooseModel(e.target.value); }} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
-              {availableModels.length > 0 ? (
-                availableModels.map(m => <option key={m} value={m}>{m}</option>)
-              ) : (
-                <option value={selectedModel}>{selectedModel}</option>
-              )}
-            </select>
-            <button
-              type="button"
-              onClick={() => loadActiveModels(selectedModel)}
-              disabled={modelsLoading}
-              aria-label="重新拉取当前 API 站点的模型"
-              title={modelsError || '重新拉取当前 API 站点的模型'}
-              style={{ width: 26, height: 26, flexShrink: 0, borderRadius: '50%', border: `1px solid ${modelsError ? C.blushDeep : C.border}`, background: C.surface, color: modelsError ? C.blushDeep : C.honeyDeep, cursor: modelsLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: modelsLoading ? .55 : 1 }}
-            >{modelsLoading ? '…' : '↻'}</button>
-            <button
-              type="button"
-              onClick={() => setTokenUsageOpen(open => !open)}
-              aria-expanded={tokenUsageOpen}
-              aria-controls="chat-token-usage"
-              style={{ minWidth: 86, height: 26, flexShrink: 0, borderRadius: 999, border: `1px solid ${tokenUsageOpen ? C.honeyMid : C.border}`, background: tokenUsageOpen ? C.honeyLight : "transparent", color: tokenUsageOpen ? C.honeyDeep : C.muted, cursor: "pointer", padding: "0 9px", fontFamily: "inherit", fontSize: 9.5, whiteSpace: "nowrap" }}
-            >◎ 上下文 {compactUsageNumber(chatUsage.currentContextTokens)}</button>
-          </div>
-        </div>
-      </div>
+      <CalendarRoom
+        stage={stage}
+        view={view}
+        C={C}
+        leaveRoom={leaveRoom}
+        calendarTab={calendarTab}
+        setCalendarTab={setCalendarTab}
+        calendarMonth={calendarMonth}
+        changeMonth={changeMonth}
+        monthEntries={monthEntries}
+        dayColors={dayColors}
+        openDay={openDay}
+        setColorPickerDate={setColorPickerDate}
+        milestonesLoading={milestonesLoading}
+        milestones={milestones}
+        deleteMilestoneRemote={deleteMilestoneRemote}
+        newMilestoneKind={newMilestoneKind}
+        setNewMilestoneKind={setNewMilestoneKind}
+        newMilestoneName={newMilestoneName}
+        setNewMilestoneName={setNewMilestoneName}
+        newMilestoneDate={newMilestoneDate}
+        setNewMilestoneDate={setNewMilestoneDate}
+        addMilestone={addMilestone}
+        scheduleEvents={scheduleEvents}
+        deleteScheduleEvent={deleteScheduleEvent}
+        newScheduleTitle={newScheduleTitle}
+        setNewScheduleTitle={setNewScheduleTitle}
+        newScheduleTime={newScheduleTime}
+        setNewScheduleTime={setNewScheduleTime}
+        createScheduleEvent={createScheduleEvent}
+        savingSchedule={savingSchedule}
+        notifStatus={notifStatus}
+        enablePushNotifications={enablePushNotifications}
+        subscribing={subscribing}
+        wishes={wishes}
+        toggleWish={toggleWish}
+        deleteWish={deleteWish}
+        newWishText={newWishText}
+        setNewWishText={setNewWishText}
+        addWish={addWish}
+        colorPickerDate={colorPickerDate}
+        setDayColor={setDayColor}
+        calendarDayOpen={calendarDayOpen}
+        setCalendarDayOpen={setCalendarDayOpen}
+        dayEntriesLoading={dayEntriesLoading}
+        dayEntries={dayEntries}
+        editingMoodId={editingMoodId}
+        startEditMood={startEditMood}
+        deleteMoodEntry={deleteMoodEntry}
+        editingMoodText={editingMoodText}
+        setEditingMoodText={setEditingMoodText}
+        cancelEditMood={cancelEditMood}
+        saveEditMood={saveEditMood}
+        selectedMood={selectedMood}
+        setSelectedMood={setSelectedMood}
+        newMoodText={newMoodText}
+        setNewMoodText={setNewMoodText}
+        askAiWriteMood={askAiWriteMood}
+        aiMoodWriting={aiMoodWriting}
+        submitMoodEntry={submitMoodEntry}
+      />
 
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "letters") ? 1 : 0, pointerEvents: (stage === "home" && view === "letters") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
-        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-          <span onClick={lettersCategory ? backToCabin : leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>{lettersCategory || "时光信差"}</span>
-        </header>
-
-        {!lettersCategory ? (
-          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "16px 20px 24px" }}>
-            <CabinScene theme={C} onPick={openCategory} />
-            <div style={{ maxWidth: 330, fontSize: 10.5, lineHeight: 1.75, color: C.muted, letterSpacing: ".09em", textAlign: "center" }}>把悄悄话、幸福日记和寄往世界的小信，都藏进各自的礼物盒里。</div>
-          </div>
-        ) : lettersCategory === '陆泽邮箱' ? (
-          <AgentMailRoom
-            apiFetch={apiFetch}
-            backend={BACKEND}
-            theme={C}
-            onOpenSettings={() => setView('settings')}
-          />
-        ) : (lettersCategory === '幸福日记' && openLetterId) ? (
-          <>
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span onClick={() => setOpenLetterId(null)} style={{ fontSize: 12, color: C.honeyDeep, cursor: "pointer" }}>← 返回</span>
-                <span onClick={() => deleteLetter(openLetterId)} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer" }}>删除</span>
-              </div>
-              {(() => {
-                const l = letters.find(x => x.id === openLetterId);
-                if (!l) return null;
-                const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
-                const diaryDateKey = shanghaiDateKey(l.created_at);
-                const diarySummary = diarySummariesByDate[diaryDateKey];
-                return (
-                  <>
-                    <div style={{ marginTop: 14, marginBottom: 10, padding: "11px 13px", color: C.honeyDeep, background: `linear-gradient(145deg, ${C.honeyLight}, ${C.white})`, border: `1px solid ${C.border}`, borderRadius: 14, boxShadow: `0 5px 14px ${C.borderLight}88` }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                        <span style={{ fontSize: 10, letterSpacing: ".15em", fontWeight: 700 }}>今日摘要</span>
-                        <span style={{ color: C.mutedLight, fontSize: 9.5 }}>{diaryDateKey}</span>
-                      </div>
-                      <p style={{ margin: 0, color: C.muted, fontSize: 11.5, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{diarySummary?.summary || "这一天的摘要还没有生成。"}</p>
-                    </div>
-                    <div style={{ background: style.background, border: style.border, borderLeft: style.extraBorderLeft || style.border, borderRadius: 10, padding: "22px 22px", color: style.color, boxShadow: "0 6px 18px rgba(46,31,18,.18)" }}>
-                      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{l.title || "（没有标题）"}</div>
-                      <div style={{ fontSize: 10.5, opacity: .65, marginBottom: 16, letterSpacing: ".05em" }}>{l.author} · {l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
-                      <div style={{ fontSize: 14.5, lineHeight: 1.85, whiteSpace: "pre-wrap" }}>{l.content}</div>
-                      {(repliesByParentId.get(l.id) || []).map(r => (
-                        <div key={r.id} style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid rgba(0,0,0,.12)` }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2 }}>{r.author}</div>
-                          <div style={{ fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.content}</div>
-                        </div>
-                      ))}
-                      {replyingToId === l.id ? (
-                        <div style={{ marginTop: 12 }}>
-                          <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: "rgba(255,255,255,.6)", border: `1px solid rgba(0,0,0,.15)`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-                            <span onClick={() => { setReplyingToId(null); setReplyText(""); }} style={{ fontSize: 11, cursor: "pointer", padding: "3px 8px", opacity: .7 }}>取消</span>
-                            <span onClick={() => submitReply(l.id)} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>留言</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", gap: 12, marginTop: 14 }}>
-                          <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .75 }}>{l.author === '泽' ? '叶檀留言' : '回信'}</span>
-                          {l.author !== '泽' && (
-                            <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, cursor: "pointer", opacity: .9, fontWeight: 600 }}>{aiWriting === l.id ? "陆泽在写…" : "请陆泽回信"}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{
-              flex: 1, overflowY: "auto", padding: "16px 14px",
-              background: lettersCategory === '悄悄话'
-                ? (whisperBgImage ? `url(${whisperBgImage}) center/cover no-repeat` : (whisperBgColor || "#3A2C1E"))
-                : "transparent"
-            }}>
-              {lettersLoading && (
-                <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>翻找中…</div>
-              )}
-              {!lettersLoading && orderedRootLetters.length === 0 && (
-                <div style={{ textAlign: "center", fontSize: 12, color: lettersCategory === '悄悄话' ? "#C9B08C" : C.muted, padding: "20px 0" }}>这里还没有信，写第一篇吧。</div>
-              )}
-              {!lettersLoading && lettersCategory === '幸福日记' && orderedRootLetters.map(l => {
-                const style = PAPER_STYLES[l.paper_style] || PAPER_STYLES.parchment;
-                return (
-                  <div key={l.id} onClick={() => setOpenLetterId(l.id)} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 14px", cursor: "pointer" }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: style.swatch, flexShrink: 0, border: "1px solid rgba(0,0,0,.15)" }} />
-                    <span style={{ width: 18, height: 18, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9.5, fontWeight: 700, color: C.white, background: l.author === '泽' ? `linear-gradient(150deg, #E8B45A, ${C.honeyDeep})` : `linear-gradient(150deg, #F2AFA2, ${C.blushDeep})` }}>{l.author}</span>
-                    <span style={{ flex: 1, fontSize: 14, color: C.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.title || "（没有标题）"}</span>
-                    <span style={{ fontSize: 10.5, color: C.mutedLight, flexShrink: 0 }}>{l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit' }) : ''}</span>
-                  </div>
-                );
-              })}
-              {!lettersLoading && lettersCategory === '悄悄话' && orderedRootLetters.map(l => {
-                const revealed = revealedIds.has(l.id);
-                return (
-                  <div key={l.id} style={{ marginBottom: 16, background: "rgba(255,248,236,.94)", border: `1px solid #D9C19A`, borderRadius: 14, padding: "12px 14px", boxShadow: "0 4px 10px rgba(0,0,0,.25)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: C.honeyDeep }}>{l.author}</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 9.5, color: C.mutedLight }}>{l.created_at ? new Date(l.created_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
-                        {revealed && <span onClick={() => deleteLetter(l.id)} style={{ fontSize: 10.5, color: "#A78A5E", cursor: "pointer" }}>删除</span>}
-                      </div>
-                    </div>
-                    {!revealed ? (
-                      <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 13, color: "#A78A5E", cursor: "pointer", padding: "10px 0", textAlign: "center", letterSpacing: ".1em", border: `1px dashed #D9C19A`, borderRadius: 8 }}>🔒 轻触查看悄悄话</div>
-                    ) : (
-                      <div onClick={() => toggleReveal(l.id)} style={{ fontSize: 14, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap", cursor: "pointer" }}>{l.content}</div>
-                    )}
-                    {revealed && (repliesByParentId.get(l.id) || []).map(r => (
-                      <div key={r.id} style={{ marginTop: 10, marginLeft: 14, paddingLeft: 10, borderLeft: `2px solid ${C.borderLight}` }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep, marginBottom: 2 }}>{r.author}</div>
-                        <div style={{ fontSize: 13, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{r.content}</div>
-                      </div>
-                    ))}
-                    {revealed && (replyingToId === l.id ? (
-                      <div style={{ marginTop: 10 }}>
-                        <textarea value={replyText} onChange={e => setReplyText(e.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-                          <span onClick={() => { setReplyingToId(null); setReplyText(""); }} style={{ fontSize: 11, color: C.muted, cursor: "pointer", padding: "3px 8px" }}>取消</span>
-                          <span onClick={() => submitReply(l.id)} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>留言</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                        <span onClick={() => setReplyingToId(l.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>{l.author === '泽' ? '叶檀留言' : '回信'}</span>
-                        {l.author !== '泽' && (
-                          <span onClick={() => askAiWrite(l.id)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>{aiWriting === l.id ? "陆泽在写…" : "请陆泽回信"}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="ourhome-safe-bottom" style={{ background: C.white, borderTop: `1px solid ${C.border}`, paddingTop: 10, paddingLeft: 14, paddingRight: 14, flexShrink: 0 }}>
-              {lettersCategory === '幸福日记' && (
-                <>
-                  <input value={newLetterTitle} onChange={e => setNewLetterTitle(e.target.value)} placeholder="今天的日记起个标题…" style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 999, padding: "8px 14px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    {PAPER_STYLE_KEYS.map(key => (
-                      <div key={key} onClick={() => setSelectedPaperStyle(key)} title={PAPER_STYLES[key].label} style={{ width: 26, height: 26, borderRadius: 8, background: PAPER_STYLES[key].swatch, cursor: "pointer", border: selectedPaperStyle === key ? `2px solid ${C.honeyDeep}` : `1px solid ${C.border}`, boxShadow: selectedPaperStyle === key ? `0 0 0 2px ${C.honeyLight}` : "none" }} />
-                    ))}
-                  </div>
-                </>
-              )}
-              <textarea value={newLetterText} onChange={e => setNewLetterText(e.target.value)} placeholder={lettersCategory === '悄悄话' ? "悄悄说一句…" : `在"${lettersCategory}"写一篇新的…`} rows={2} style={{ width: "100%", fontSize: 14, color: C.text, background: C.surface, border: `1.5px solid ${C.border}`, borderRadius: 14, padding: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                <span onClick={() => askAiWrite(null)} style={{ fontSize: 12, color: C.honeyDeep, cursor: "pointer" }}>{aiWriting === 'new' ? "陆泽在写…" : "✦ 请陆泽写一篇"}</span>
-                <span onClick={submitNewLetter} style={{ fontSize: 12.5, color: C.white, cursor: "pointer", padding: "6px 16px", background: newLetterText.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingLetter ? "存中…" : "寄出"}</span>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "calendar") ? 1 : 0, pointerEvents: (stage === "home" && view === "calendar") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
-        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 0, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: 10 }}>
-            <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
-            <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>心情日历</span>
-          </div>
-          <div style={{ display: "flex", gap: 0 }}>
-            {[
-              { key: 'calendar', label: '📅 日历' },
-              { key: 'milestones', label: '♡ 重要时刻' },
-              { key: 'schedule', label: '⏰ 日程' },
-              { key: 'wishes', label: '⭐ 心愿' },
-            ].map(tab => (
-              <span key={tab.key} onClick={() => setCalendarTab(tab.key)} style={{ flex: 1, textAlign: "center", fontSize: 11.5, padding: "8px 0 10px", cursor: "pointer", color: calendarTab === tab.key ? C.honeyDeep : C.muted, borderBottom: calendarTab === tab.key ? `2px solid ${C.honeyDeep}` : "2px solid transparent", fontWeight: calendarTab === tab.key ? 700 : 400, transition: "all .15s" }}>{tab.label}</span>
-            ))}
-          </div>
-        </header>
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
-
-          {/* ===== 日历 Tab ===== */}
-          {calendarTab === 'calendar' && (<>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, marginBottom: 16 }}>
-            <span onClick={() => changeMonth(-1)} style={{ fontSize: 16, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>‹</span>
-            <span style={{ fontSize: 14.5, fontWeight: 700, color: C.text }}>{calendarMonth.replace('-', '年')}月</span>
-            <span onClick={() => changeMonth(1)} style={{ fontSize: 16, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>›</span>
-          </div>
-          {(() => {
-            const [y, m] = calendarMonth.split('-').map(Number);
-            const firstDay = new Date(y, m - 1, 1).getDay();
-            const daysInMonth = new Date(y, m, 0).getDate();
-            const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            const cells = [];
-            for (let i = 0; i < firstDay; i++) cells.push(null);
-            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-            return (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-                {['日', '一', '二', '三', '四', '五', '六'].map(w => (
-                  <div key={w} style={{ textAlign: "center", fontSize: 11, color: C.muted, paddingBottom: 4 }}>{w}</div>
-                ))}
-                {cells.map((d, idx) => {
-                  if (d === null) return <div key={idx} />;
-                  const dateStr = `${calendarMonth}-${String(d).padStart(2, '0')}`;
-                  const dayMoods = monthEntries.filter(e => e.date === dateStr);
-                  const isToday = dateStr === todayStr;
-                  const customColor = dayColors[dateStr];
-                  let pressTimer = null;
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => openDay(dateStr)}
-                      onContextMenu={e => { e.preventDefault(); setColorPickerDate(dateStr); }}
-                      onTouchStart={() => { pressTimer = setTimeout(() => setColorPickerDate(dateStr), 480); }}
-                      onTouchEnd={() => clearTimeout(pressTimer)}
-                      onTouchMove={() => clearTimeout(pressTimer)}
-                      style={{ aspectRatio: "1", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 10, cursor: "pointer", background: customColor || (isToday ? C.honeyLight : C.white), border: `1px solid ${isToday ? C.honeyDeep : (customColor ? 'transparent' : C.border)}`, gap: 2, position: "relative" }}
-                    >
-                      <span style={{ fontSize: 13, color: isToday ? C.honeyDeep : C.text, fontWeight: isToday ? 700 : 400 }}>{d}</span>
-                      {dayMoods.length > 0 && <span style={{ fontSize: 12 }}>{dayMoods[0].mood || '✦'}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-          <div style={{ textAlign: "center", fontSize: 10, color: C.mutedLight, marginTop: 8, letterSpacing: ".05em" }}>长按（电脑右键）格子可以改颜色</div>
-          </>)}
-
-          {/* ===== 重要时刻 Tab：轻手账风格 ===== */}
-          {calendarTab === 'milestones' && (
-            <section
-              className="milestone-journal"
-              style={{
-                '--milestone-text': C.text,
-                '--milestone-muted': C.muted,
-                '--milestone-faint': C.mutedLight,
-                '--milestone-paper': C.white,
-                '--milestone-cream': C.cream,
-                '--milestone-line': C.border,
-                '--milestone-honey': C.honey,
-                '--milestone-honey-deep': C.honeyDeep,
-                '--milestone-butter': C.honeyLight,
-                '--milestone-blush': C.blush,
-              }}
-            >
-              <header className="milestone-journal-heading">
-                <span>OUR LITTLE DATES</span>
-                <h2>把喜欢的日子收好</h2>
-                <p>纪念日、生日和节日，快到时会去主页便签里轻轻提醒。</p>
-              </header>
-
-              {milestonesLoading && <div className="milestone-empty">正在翻找我们的小日子…</div>}
-              {!milestonesLoading && milestones.length === 0 && <div className="milestone-empty">这里还空着，先收好第一个日子吧。</div>}
-
-              <div className="milestone-card-list">
-                {milestones.map(ms => {
-                  const display = milestoneDisplay(ms);
-                  if (!display) return null;
-                  const kind = MILESTONE_KINDS[display.kind];
-                  return (
-                    <article className={`milestone-card milestone-card--${display.kind}`} key={ms.id}>
-                      <div className="milestone-card-meta">
-                        <span>{kind.label}</span>
-                        <time dateTime={ms.date}>{ms.date.replace(/-/g, '.')}</time>
-                      </div>
-                      <h3>{ms.label}</h3>
-                      <p className="milestone-card-kicker">{display.kicker}</p>
-                      <div className={`milestone-card-count milestone-card-count--${display.state}`}>
-                        <strong>{display.value}</strong>
-                        {display.unit && <span>{display.unit}</span>}
-                      </div>
-                      {display.state === 'past' && display.nextDays <= 30 && (
-                        <p className="milestone-card-next">下一个纪念节点还有 {display.nextDays} 天</p>
-                      )}
-                      <button type="button" className="milestone-card-remove" onClick={() => deleteMilestoneRemote(ms.id, ms.label)}>移除</button>
-                    </article>
-                  );
-                })}
-              </div>
-
-              <form className="milestone-add-card" onSubmit={event => { event.preventDefault(); addMilestone(); }}>
-                <div className="milestone-add-title"><span>ADD A DATE</span><b>再收好一个日子</b></div>
-                <div className="milestone-kind-picker" aria-label="重要日子类型">
-                  {Object.entries(MILESTONE_KINDS).map(([key, kind]) => (
-                    <button type="button" className={newMilestoneKind === key ? 'is-active' : ''} key={key} onClick={() => setNewMilestoneKind(key)}>{kind.label}</button>
-                  ))}
-                </div>
-                <label>
-                  <span>写下名称</span>
-                  <input value={newMilestoneName} onChange={e => setNewMilestoneName(e.target.value)} placeholder={newMilestoneKind === 'birthday' ? '例如：老婆生日' : newMilestoneKind === 'festival' ? '例如：七夕' : '例如：第一次旅行'} />
-                </label>
-                <label>
-                  <span>是哪一天</span>
-                  <input type="date" value={newMilestoneDate} onChange={e => setNewMilestoneDate(e.target.value)} />
-                </label>
-                <footer>
-                  <small>保存过的日子会按年回到十日倒计时里；情人节与 520 已自动照看。</small>
-                  <button type="submit" disabled={!newMilestoneName.trim() || !newMilestoneDate}>收好</button>
-                </footer>
-              </form>
-            </section>
-          )}
-
-          {/* ===== 日程提醒 Tab ===== */}
-          {calendarTab === 'schedule' && (<>
-          <div style={{ marginTop: 4 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>✦ 日程提醒</div>
-            {scheduleEvents.length === 0 && (
-              <div style={{ fontSize: 11.5, color: C.muted, padding: "8px 0" }}>还没有日程，加一个吧。</div>
-            )}
-            {scheduleEvents.map(ev => (
-              <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "8px 12px", opacity: ev.notified ? 0.55 : 1 }}>
-                <span style={{ fontSize: 14 }}>{ev.notified ? "✓" : "⏰"}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: C.text }}>{ev.title}</div>
-                  <div style={{ fontSize: 10.5, color: C.mutedLight }}>{new Date(ev.remind_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
-                </div>
-                <span onClick={() => deleteScheduleEvent(ev.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>删</span>
-              </div>
-            ))}
-            <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 12px", marginTop: 6 }}>
-              <input value={newScheduleTitle} onChange={e => setNewScheduleTitle(e.target.value)} placeholder="要提醒什么事…" style={{ width: "100%", fontSize: 13, color: C.text, background: "transparent", border: "none", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-              <input type="datetime-local" value={newScheduleTime} onChange={e => setNewScheduleTime(e.target.value)} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px", outline: "none", marginBottom: 8, fontFamily: "inherit" }} />
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <span onClick={createScheduleEvent} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: (newScheduleTitle.trim() && newScheduleTime) ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingSchedule ? "存中…" : "加提醒"}</span>
-              </div>
-            </div>
-            {notifStatus !== 'granted' && (
-              <div onClick={enablePushNotifications} style={{ marginTop: 10, fontSize: 11.5, color: C.honeyDeep, cursor: "pointer", textAlign: "center", padding: "8px 0", border: `1px dashed ${C.honeyMid}`, borderRadius: 10 }}>
-                {subscribing ? "开启中…" : "🔔 点这里开启提醒通知"}
-              </div>
-            )}
-          </div>
-          </>)}
-
-          {/* ===== 心愿单 Tab ===== */}
-          {calendarTab === 'wishes' && (<>
-          <div style={{ marginTop: 4 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.text, marginBottom: 8 }}>✦ 心愿单</div>
-            {wishes.length === 0 && (
-              <div style={{ fontSize: 11.5, color: C.muted, padding: "8px 0" }}>还没有心愿，写第一个吧。</div>
-            )}
-            {wishes.map(w => (
-              <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "8px 12px" }}>
-                <span onClick={() => toggleWish(w.id, w.done)} style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${w.done ? C.honey : C.border}`, background: w.done ? C.honey : "transparent", color: C.white, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}>{w.done ? "✓" : ""}</span>
-                <span style={{ flex: 1, fontSize: 13, color: w.done ? C.mutedLight : C.text, textDecoration: w.done ? "line-through" : "none" }}>{w.content}</span>
-                <span style={{ fontSize: 10, color: C.mutedLight, flexShrink: 0 }}>{w.author}</span>
-                <span onClick={() => deleteWish(w.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", flexShrink: 0 }}>删</span>
-              </div>
-            ))}
-            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <input value={newWishText} onChange={e => setNewWishText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addWish(); }} placeholder="想一起做的事…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
-              <button onClick={addWish} style={{ fontSize: 12, color: C.white, background: newWishText.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: "pointer" }}>加</button>
-            </div>
-          </div>
-          </>)}
-
-        </div>
-      </div>
-
-      {/* ===== 日期颜色选择器 ===== */}
-      <div onClick={() => setColorPickerDate(null)} style={{ position: "absolute", inset: 0, zIndex: 58, background: "rgba(46,31,18,.35)", opacity: colorPickerDate ? 1 : 0, pointerEvents: colorPickerDate ? "auto" : "none", transition: "opacity .2s" }} />
-      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 59, width: "78%", maxWidth: 300, transform: colorPickerDate ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: colorPickerDate ? 1 : 0, pointerEvents: colorPickerDate ? "auto" : "none", transition: "all .2s ease", background: C.surface, borderRadius: 16, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", padding: "18px 18px 16px" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12, textAlign: "center" }}>{colorPickerDate} 的颜色</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 12 }}>
-          {['#FDE8E0', '#D9F0D9', '#D6E8FA', '#FFF3D6', '#F0DCF5', '#FFFFFF'].map(c => (
-            <span key={c} onClick={() => setDayColor(colorPickerDate, c)} style={{ width: 32, height: 32, borderRadius: 8, background: c, cursor: "pointer", border: `1.5px solid ${C.border}` }} />
-          ))}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <span style={{ fontSize: 11, color: C.muted }}>自选颜色</span>
-          <input type="color" onChange={e => setDayColor(colorPickerDate, e.target.value)} style={{ width: 36, height: 32, borderRadius: 8, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span onClick={() => setDayColor(colorPickerDate, null)} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
-          <span onClick={() => setColorPickerDate(null)} style={{ fontSize: 11.5, color: C.honeyDeep, cursor: "pointer" }}>完成</span>
-        </div>
-      </div>
-
-      <div onClick={() => setCalendarDayOpen(null)} style={{ position: "absolute", inset: 0, zIndex: 50, background: "rgba(46,31,18,.35)", opacity: calendarDayOpen ? 1 : 0, pointerEvents: calendarDayOpen ? "auto" : "none", transition: "opacity .25s" }} />
-      <div style={{ position: "absolute", left: "50%", top: "50%", zIndex: 55, width: "82%", maxWidth: 360, maxHeight: "70vh", transform: calendarDayOpen ? "translate(-50%, -50%) scale(1)" : "translate(-50%, -50%) scale(.96)", opacity: calendarDayOpen ? 1 : 0, pointerEvents: calendarDayOpen ? "auto" : "none", transition: "all .22s ease", background: C.surface, borderRadius: 18, border: `1px solid ${C.border}`, boxShadow: "0 20px 60px rgba(100,70,30,.25)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ padding: "16px 18px 12px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: ".04em", color: C.text }}>{calendarDayOpen}</span>
-          <span onClick={() => setCalendarDayOpen(null)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
-        </div>
-        <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.borderLight}`, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-          <span style={{ fontSize: 10.5, color: C.muted, marginRight: 2 }}>格子颜色</span>
-          {['#FDE8E0', '#D5EBD5', '#D6E6F5', '#F5DFA0', '#E8D5F0', '#FFFFFF'].map(c => (
-            <span key={c} onClick={() => setDayColor(calendarDayOpen, c === '#FFFFFF' ? null : c)} style={{ width: 20, height: 20, borderRadius: "50%", background: c, cursor: "pointer", border: dayColors[calendarDayOpen] === c ? `2px solid ${C.honeyDeep}` : `1px solid ${C.border}`, boxShadow: c === '#FFFFFF' ? 'inset 0 0 0 1px #eee' : 'none' }} />
-          ))}
-          <input type="color" value={dayColors[calendarDayOpen] || '#ffffff'} onChange={e => setDayColor(calendarDayOpen, e.target.value)} style={{ width: 22, height: 22, borderRadius: "50%", border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none", marginLeft: 2 }} />
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px" }}>
-          {dayEntriesLoading && (
-            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "16px 0" }}>翻找中…</div>
-          )}
-          {!dayEntriesLoading && dayEntries.length === 0 && (
-            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, padding: "16px 0" }}>这天还没有留言。</div>
-          )}
-          {!dayEntriesLoading && dayEntries.map(e => (
-            <div key={e.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${C.borderLight}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {e.mood && <span style={{ fontSize: 14 }}>{e.mood}</span>}
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>{e.author}</span>
-                </div>
-                {editingMoodId !== e.id && (
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <span onClick={() => startEditMood(e)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer" }}>改</span>
-                    <span onClick={() => deleteMoodEntry(e.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer" }}>删</span>
-                  </div>
-                )}
-              </div>
-              {editingMoodId === e.id ? (
-                <div>
-                  <textarea value={editingMoodText} onChange={ev => setEditingMoodText(ev.target.value)} rows={2} style={{ width: "100%", fontSize: 13, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
-                    <span onClick={cancelEditMood} style={{ fontSize: 11, color: C.muted, cursor: "pointer", padding: "3px 8px" }}>取消</span>
-                    <span onClick={saveEditMood} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "3px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ fontSize: 13.5, lineHeight: 1.6, color: C.text, whiteSpace: "pre-wrap" }}>{e.content}</div>
-              )}
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: "10px 18px 16px", borderTop: `1px solid ${C.border}`, flexShrink: 0 }}>
-          <div style={{ fontSize: 10.5, color: C.mutedLight, marginBottom: 6 }}>选一个心情，或者自己输入喜欢的表情</div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {['😊', '🥰', '😢', '😡', '😴', '😐'].map(em => (
-              <span key={em} onClick={() => setSelectedMood(em === selectedMood ? null : em)} style={{ fontSize: 18, cursor: "pointer", padding: "4px 6px", borderRadius: 8, background: selectedMood === em ? C.honeyLight : "transparent", border: selectedMood === em ? `1px solid ${C.honeyMid}` : "1px solid transparent" }}>{em}</span>
-            ))}
-            <input value={selectedMood && !['😊', '🥰', '😢', '😡', '😴', '😐'].includes(selectedMood) ? selectedMood : ''} onChange={e => setSelectedMood(e.target.value || null)} placeholder="🍀 自己输入" maxLength={4} style={{ width: 82, fontSize: 14, textAlign: "center", color: C.text, background: C.cream, border: `1.5px dashed ${C.honeyMid}`, borderRadius: 8, padding: "5px 6px", outline: "none", fontFamily: "inherit" }} />
-          </div>
-          <textarea value={newMoodText} onChange={e => setNewMoodText(e.target.value)} placeholder="这天想留点什么…" rows={2} style={{ width: "100%", fontSize: 13.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-            <span onClick={askAiWriteMood} style={{ fontSize: 11.5, color: C.honeyDeep, cursor: "pointer" }}>{aiMoodWriting ? "陆泽在写…" : "✦ 请陆泽写一句"}</span>
-            <span onClick={submitMoodEntry} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: newMoodText.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>记下</span>
-          </div>
-        </div>
-      </div>
-
-      <div onClick={() => setDrawerOpen(false)} style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(46,31,18,.2)", opacity: drawerOpen ? 1 : 0, pointerEvents: drawerOpen ? "auto" : "none", transition: "opacity .25s" }} />
-      <aside style={{ position: "absolute", left: 0, top: 0, bottom: 0, zIndex: 25, width: 252, background: C.white, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", transform: drawerOpen ? "none" : "translateX(-100%)", transition: "transform .28s cubic-bezier(.4,0,.2,1)", boxShadow: drawerOpen ? "8px 0 32px rgba(100,70,30,.1)" : "none" }}>
-        <div className="ourhome-safe-top" style={{ paddingLeft: 20, paddingRight: 20, paddingBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: ".04em" }}>聊天栖息地</span>
-          <span onClick={() => setDrawerOpen(false)} style={{ fontSize: 15, color: C.muted, cursor: "pointer", padding: 4 }}>✕</span>
-        </div>
-        <button onClick={createSession} style={{ margin: "4px 14px 12px", padding: "10px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13, cursor: "pointer", background: "transparent", letterSpacing: ".1em", fontFamily: "inherit" }}>✦ 新对话</button>
-        <Stars theme={C} />
-        <div style={{ padding: "6px 0", flex: 1 }}>
-          {sessions.map(s => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px 10px 20px", background: s.id === sessionId ? C.honeyLight : "transparent", borderRadius: "0 12px 12px 0", margin: "1px 8px 1px 0", transition: "background .15s" }}>
-              <span onClick={() => switchSession(s.id)} style={{ flex: 1, fontSize: 14, cursor: "pointer", color: s.id === sessionId ? C.honeyDeep : C.text, fontWeight: s.id === sessionId ? 600 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-              <span onClick={() => renameSession(s.id, s.name)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", flexShrink: 0 }}>改</span>
-              <span onClick={() => deleteSession(s.id)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", flexShrink: 0 }}>删</span>
-            </div>
-          ))}
-        </div>
-        <div className="ourhome-safe-bottom" style={{ paddingTop: 14, paddingLeft: 20, paddingRight: 20, borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.muted, letterSpacing: ".15em" }}>
-          <span>since 2025.03.07</span>
-        </div>
-      </aside>
+      <ChatDrawer
+        open={drawerOpen}
+        theme={C}
+        onClose={() => setDrawerOpen(false)}
+        createSession={createSession}
+        sessions={sessions}
+        sessionId={sessionId}
+        switchSession={switchSession}
+        renameSession={renameSession}
+        deleteSession={deleteSession}
+      />
 
       <MemoryRoom
         theme={C}
@@ -2732,6 +2200,8 @@ export default function App({ initialView = 'chat', onHome }) {
         setSystemPromptInput={setSystemPromptInput}
         temperatureInput={temperatureInput}
         setTemperatureInput={setTemperatureInput}
+        minReplyCharsInput={minReplyCharsInput}
+        setMinReplyCharsInput={setMinReplyCharsInput}
         savePersona={savePersona}
         savingPersona={savingPersona}
         newMemory={newMemory}
@@ -2747,73 +2217,38 @@ export default function App({ initialView = 'chat', onHome }) {
         cancelEditMemory={cancelEditMemory}
         saveEditMemory={saveEditMemory}
         deleteMemory={deleteMemory}
-        memoryEventDraft={memoryEventDraft}
-        setMemoryEventDraft={setMemoryEventDraft}
-        saveManualMemoryEvent={saveManualMemoryEvent}
-        savingMemoryEvent={savingMemoryEvent}
-        memoryEventError={memoryEventError}
-        memoryLog={memoryLog}
-        editingMemoryEventId={editingMemoryEventId}
-        editingMemoryEventDraft={editingMemoryEventDraft}
-        setEditingMemoryEventDraft={setEditingMemoryEventDraft}
-        startEditMemoryEvent={startEditMemoryEvent}
-        cancelEditMemoryEvent={cancelEditMemoryEvent}
-        saveEditMemoryEvent={saveEditMemoryEvent}
-        deleteMemoryEvent={deleteMemoryEvent}
       />
 
-      <div
-        onClick={() => { if (!messageActionLoading) setMessageAction(null); }}
-        style={{ position: "absolute", inset: 0, zIndex: 60, background: "rgba(46,31,18,.34)", opacity: messageAction ? 1 : 0, pointerEvents: messageAction ? "auto" : "none", transition: "opacity .2s" }}
+      <TheaterRoom
+        theme={C}
+        visible={stage === "home" && view === "theater"}
+        leaveRoom={leaveRoom}
+        selectedModel={selectedModel}
+        availableModels={availableModels}
+        mainChatBackground={{ image: bgImage, color: bgColor || "#FDFAF5" }}
       />
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-hidden={!messageAction}
-        aria-label="消息操作"
-        style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 65, padding: "18px 18px max(18px, env(safe-area-inset-bottom))", background: C.surface, borderRadius: "22px 22px 0 0", borderTop: `1px solid ${C.border}`, boxShadow: "0 -18px 50px rgba(70,45,20,.18)", transform: messageAction ? "translateY(0)" : "translateY(105%)", pointerEvents: messageAction ? "auto" : "none", transition: "transform .25s cubic-bezier(.2,.8,.2,1)" }}
-      >
-        {messageAction && (
-          <>
-            <div style={{ width: 38, height: 4, borderRadius: 999, background: C.border, margin: "0 auto 14px" }} />
-            {messageAction.mode === 'menu' ? (
-              <>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>这条消息</div>
-                    <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{messageAction.message.role === 'me' ? '叶檀' : '陆泽'} · {messageAction.message.time || formatMsgTime(messageAction.message.createdAt)}</div>
-                  </div>
-                  <button type="button" onClick={() => setMessageAction(null)} aria-label="关闭消息操作" style={{ width: 38, height: 38, border: 0, borderRadius: "50%", background: C.cream, color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 15 }}>✕</button>
-                </div>
-                <div style={{ margin: "13px 0 14px", padding: "10px 12px", borderRadius: 12, background: C.cream, color: C.text, fontSize: 12.5, lineHeight: 1.65, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", whiteSpace: "pre-wrap" }}>{messageAction.message.text || '（附件消息）'}</div>
-                <div style={{ display: "grid", gap: 9 }}>
-                  {messageAction.message.role === 'me' && messageAction.message.text && (
-                    <button type="button" onClick={() => startEditMsg(messageAction.message)} style={{ minHeight: 48, border: `1px solid ${C.honeyMid}`, borderRadius: 14, background: C.honeyLight, color: C.honeyDeep, cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, fontWeight: 700 }}>✎ 重新编辑并发送</button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={messageAction.afterCount === 0}
-                    onClick={() => setMessageAction(current => current ? { ...current, mode: 'rollback' } : null)}
-                    style={{ minHeight: 48, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, color: messageAction.afterCount === 0 ? C.mutedLight : C.text, cursor: messageAction.afterCount === 0 ? "default" : "pointer", fontFamily: "inherit", fontSize: 13.5 }}
-                  >{messageAction.afterCount === 0 ? '已经在当前时间点' : `↶ 回到这里 · 收起后面 ${messageAction.afterCount} 条`}</button>
-                </div>
-                {messageActionError && <div role="alert" style={{ marginTop: 10, color: C.blushDeep, fontSize: 11, textAlign: "center" }}>{messageActionError}</div>}
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.text, textAlign: "center" }}>回到这条消息？</div>
-                <div style={{ marginTop: 8, color: C.muted, fontSize: 12, lineHeight: 1.7, textAlign: "center" }}>后面的 {messageAction.afterCount} 条消息会暂时收起来，不会删除；完成后可以立即撤销。</div>
-                <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 10, background: C.cream, color: C.muted, fontSize: 10.5, lineHeight: 1.6 }}>聊天回溯只调整对话分支，已经执行过的金库、日历等操作不会跟着撤销。</div>
-                {messageActionError && <div role="alert" style={{ marginTop: 10, color: C.blushDeep, fontSize: 11, textAlign: "center" }}>{messageActionError}</div>}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.35fr", gap: 10, marginTop: 16 }}>
-                  <button type="button" onClick={() => setMessageAction(current => current ? { ...current, mode: 'menu' } : null)} disabled={messageActionLoading} style={{ minHeight: 48, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, color: C.muted, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 13 }}>再想想</button>
-                  <button type="button" onClick={confirmRollback} disabled={messageActionLoading} style={{ minHeight: 48, border: 0, borderRadius: 14, background: `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, cursor: messageActionLoading ? "default" : "pointer", opacity: messageActionLoading ? .65 : 1, fontFamily: "inherit", fontSize: 13.5, fontWeight: 700 }}>{messageActionLoading ? '正在回到这里…' : '确认回到这里'}</button>
-                </div>
-              </>
-            )}
-          </>
-        )}
-      </section>
+
+      <MusicRoom
+        theme={C}
+        visible={stage === "home" && view === "music"}
+        leaveRoom={leaveRoom}
+      />
+
+      <PhotoMemoryRoom
+        theme={C}
+        visible={stage === "home" && view === "photos"}
+        leaveRoom={leaveRoom}
+      />
+
+      <MessageActionSheet
+        action={messageAction}
+        loading={messageActionLoading}
+        error={messageActionError}
+        theme={C}
+        setAction={setMessageAction}
+        startEditMessage={startEditMsg}
+        confirmRollback={confirmRollback}
+      />
 
       <ChatSearchPanel
         open={searchOpen}
@@ -2834,213 +2269,78 @@ export default function App({ initialView = 'chat', onHome }) {
         onSearch={() => performSearch()}
         onLoadMore={() => performSearch(searchMeta.page + 1, true)}
         onJump={jumpToSearchResult}
-        HighlightedText={HighlightedText}
       />
 
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "settings") ? 1 : 0, pointerEvents: (stage === "home" && view === "settings") ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
-        <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
-          <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>⚙ 设置</span>
-        </header>
-        <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", paddingTop: 16, paddingLeft: 18, paddingRight: 18, paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
-          <SettingsGroup theme={C} title="主题与外观" subtitle="昼夜、字体、天气和主页背景" resetKey={settingsGroupsResetKey}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-            <span style={{ fontSize: 13, color: C.text }}>{darkMode ? "🌙 夜间模式" : "☀️ 日间模式"}</span>
-            <button type="button" role="switch" aria-checked={darkMode} aria-label="切换日间与夜间模式" onClick={toggleDarkMode} style={{ width: 44, height: 24, padding: 0, border: 0, borderRadius: 999, background: darkMode ? C.honey : C.honeyMid, position: "relative", cursor: "pointer", transition: "background .2s", display: "inline-block" }}>
-              <span style={{ position: "absolute", top: 2, left: darkMode ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: C.white, transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" }} />
-            </button>
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>字体</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
-            {Object.keys(FONT_STYLES).map(key => (
-              <button type="button" aria-pressed={fontStyle === key} key={key} onClick={() => changeFontStyle(key)} style={{ fontFamily: FONT_STYLES[key].family, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, cursor: "pointer", color: fontStyle === key ? C.honeyDeep : C.text, background: fontStyle === key ? C.honeyLight : C.cream, border: `1px solid ${fontStyle === key ? C.honeyDeep : C.border}` }}>{FONT_STYLES[key].label}</button>
-            ))}
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>主页天气城市</div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-            <input
-              value={weatherCityInput}
-              onChange={event => { setWeatherCityInput(event.target.value); setWeatherCitySaved(false); }}
-              onKeyDown={event => { if (event.key === 'Enter') saveWeatherCity(); }}
-              placeholder="例如：十堰、武汉、上海"
-              maxLength={60}
-              style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 12, padding: "9px 11px" }}
-            />
-            <button type="button" onClick={saveWeatherCity} style={{ flexShrink: 0, padding: "0 14px", border: 0, borderRadius: 12, color: C.white, background: C.honey, cursor: "pointer", fontSize: 12 }}>保存</button>
-          </div>
-          <div style={{ fontSize: 10.5, lineHeight: 1.55, color: weatherCitySaved ? C.honeyDeep : C.muted, marginBottom: 18 }}>
-            {weatherCitySaved ? (weatherCityInput ? `已保存“${weatherCityInput}”，回到主页会自动刷新。` : '已清空主页天气城市。') : '保存在这台设备里，主页只显示城市与当前天气，不会持续读取定位。'}
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 9, letterSpacing: ".05em" }}>主页与便签背景</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 9 }}>
-            <BackgroundImageOption
-              label="日间主页"
-              description="会自动加一层浅蜂蜜薄纱"
-              image={homeDayBgImage}
-              busy={uploadingHomeBg === 'day'}
-              onUpload={file => uploadHomeBackground(file, 'day')}
-              onReset={() => resetHomeBackground('day')}
-              theme={C}
-            />
-            <BackgroundImageOption
-              label="夜间主页"
-              description="会自动压暗，保证文字清楚"
-              image={homeNightBgImage}
-              busy={uploadingHomeBg === 'night'}
-              onUpload={file => uploadHomeBackground(file, 'night')}
-              onReset={() => resetHomeBackground('night')}
-              theme={C}
-            />
-            <BackgroundImageOption
-              label="云端便签纸"
-              description="更换主页便签和展开纸页的背景"
-              image={homeMemoBgImage}
-              busy={uploadingHomeBg === 'memo'}
-              onUpload={file => uploadHomeBackground(file, 'memo')}
-              onReset={() => resetHomeBackground('memo')}
-              theme={C}
-              wide
-            />
-          </div>
-          <div style={{ marginTop: 7, color: homeBgError ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>{homeBgError || '主页背景跟随昼夜切换，便签纸单独保存；三套都会在云端同步。'}</div>
-          </SettingsGroup>
-
-          <SettingsGroup theme={C} title="每日收尾" subtitle="定时补写幸福日记与心情日历" resetKey={settingsGroupsResetKey}>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>每天的幸福收尾</div>
-          <div style={{ padding: 12, marginBottom: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 12.5, color: C.text }}>缺项自动补写</div>
-                <div style={{ marginTop: 3, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>只负责每天收尾，不管理记忆页的年表和抽屉。</div>
-              </div>
-              <button type="button" role="switch" aria-checked={dailyJournalEnabled} onClick={() => { setDailyJournalEnabled(value => !value); setDailyJournalSaved(false); }} style={{ width: 44, height: 24, padding: 0, border: 0, borderRadius: 999, background: dailyJournalEnabled ? C.honey : C.honeyMid, position: 'relative', cursor: 'pointer', transition: 'background .2s', flexShrink: 0 }}>
-                <span style={{ position: 'absolute', top: 2, left: dailyJournalEnabled ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: C.white, transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
-              </button>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 11 }}>
-              <input type="time" value={dailyJournalTime} disabled={!dailyJournalEnabled} onChange={event => { setDailyJournalTime(event.target.value); setDailyJournalSaved(false); }} style={{ flex: 1, minWidth: 0, padding: '8px 10px', color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }} />
-              <button type="button" onClick={saveDailyJournalSchedule} style={{ padding: '8px 13px', color: C.white, background: C.honey, border: 0, borderRadius: 10, cursor: 'pointer', fontSize: 11.5 }}>保存</button>
-            </div>
-            <div style={{ marginTop: 6, color: dailyJournalSaved ? C.honeyDeep : C.muted, fontSize: 9.5 }}>{dailyJournalSaved ? '已经按中国时间保存好。' : '按中国时间执行；记忆页的今日摘要会按聊天另行整理。'}</div>
-          </div>
-          <div style={{ padding: 12, marginBottom: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12.5, color: C.text }}>提醒通知</div>
-                <div style={{ marginTop: 3, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>给日程提醒和陆泽主动敲门用；换设备后在这里重新登记。</div>
-              </div>
-              <button
-                type="button"
-                onClick={enablePushNotifications}
-                disabled={subscribing}
-                style={{ padding: '8px 12px', color: C.white, background: notifStatus === 'granted' ? C.honeyDeep : C.honey, border: 0, borderRadius: 10, cursor: subscribing ? 'default' : 'pointer', opacity: subscribing ? .65 : 1, fontSize: 11.5, flexShrink: 0 }}
-              >
-                {subscribing ? '登记中…' : notifStatus === 'granted' ? '重新登记' : '开启通知'}
-              </button>
-            </div>
-            <div style={{ marginTop: 6, color: notifStatus === 'denied' ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>
-              {notifStatus === 'granted' ? '这台设备已经允许通知。' : notifStatus === 'denied' ? '系统已经拒绝通知，需要先在浏览器或手机设置里打开 OurHome 通知。' : '点按钮后同意浏览器弹出的通知权限。'}
-            </div>
-          </div>
-          </SettingsGroup>
-
-          <SettingsGroup theme={C} title="聊天装扮" subtitle="头像、聊天墙面和气泡颜色" resetKey={settingsGroupsResetKey}>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>头像</div>
-          <div style={{ display: "flex", gap: 20, marginBottom: 18 }}>
-            <div style={{ textAlign: "center" }}>
-              <div onClick={() => myAvatarInputRef.current?.click()} style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", margin: "0 auto 6px", cursor: "pointer", background: `linear-gradient(150deg, #F2AFA2, ${C.blushDeep})`, display: "flex", alignItems: "center", justifyContent: "center", color: C.white, fontSize: 18, fontWeight: 700 }}>
-                {uploadingAvatar === 'me' ? <span style={{ fontSize: 10 }}>上传中…</span> : myAvatar ? <img src={myAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "檀"}
-              </div>
-              <span style={{ fontSize: 11, color: C.muted }}>我的头像</span>
-              <input ref={myAvatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadAvatar(e.target.files?.[0], 'me')} />
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div onClick={() => partnerAvatarInputRef.current?.click()} style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", margin: "0 auto 6px", cursor: "pointer", background: `linear-gradient(150deg, #E8B45A, ${C.honeyDeep})`, display: "flex", alignItems: "center", justifyContent: "center", color: C.white, fontSize: 18, fontWeight: 700 }}>
-                {uploadingAvatar === 'partner' ? <span style={{ fontSize: 10 }}>传中…</span> : partnerAvatar ? <img src={partnerAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "泽"}
-              </div>
-              <span style={{ fontSize: 11, color: C.muted }}>陆泽的头像</span>
-              <input ref={partnerAvatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadAvatar(e.target.files?.[0], 'partner')} />
-            </div>
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>聊天背景</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <div onClick={() => bgImageInputRef.current?.click()} style={{ width: 44, height: 44, borderRadius: 10, overflow: "hidden", cursor: "pointer", border: `1.5px dashed ${C.honeyMid}`, background: bgImage ? "transparent" : C.cream, display: "flex", alignItems: "center", justifyContent: "center", color: C.honeyDeep, fontSize: 18, flexShrink: 0 }}>
-              {uploadingBg ? <span style={{ fontSize: 9 }}>传中</span> : bgImage ? <img src={bgImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "＋"}
-            </div>
-            <input ref={bgImageInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadBgImage(e.target.files?.[0])} />
-            <input type="color" value={bgColor || "#FDFAF5"} onChange={e => setBackgroundColor(e.target.value)} style={{ width: 44, height: 44, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
-            <span onClick={resetBackground} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>悄悄话墙面</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <div onClick={() => whisperBgInputRef.current?.click()} style={{ width: 44, height: 44, borderRadius: 10, overflow: "hidden", cursor: "pointer", border: `1.5px dashed ${C.honeyMid}`, background: whisperBgImage ? "transparent" : C.cream, display: "flex", alignItems: "center", justifyContent: "center", color: C.honeyDeep, fontSize: 18, flexShrink: 0 }}>
-              {uploadingWhisperBg ? <span style={{ fontSize: 9 }}>上传中</span> : whisperBgImage ? <img src={whisperBgImage} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "＋"}
-            </div>
-            <input ref={whisperBgInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => uploadWhisperBg(e.target.files?.[0])} />
-            <input type="color" value={whisperBgColor || "#3A2C1E"} onChange={e => setWhisperBackgroundColor(e.target.value)} style={{ width: 44, height: 44, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
-            <span onClick={resetWhisperBackground} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>聊天气泡颜色</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
-            <div style={{ textAlign: "center" }}>
-              <input type="color" value={myBubbleColor || "#FDE8E0"} onChange={e => setMyBubble(e.target.value)} style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
-              <div style={{ fontSize: 10.5, color: C.muted, marginTop: 4 }}>我的气泡</div>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <input type="color" value={partnerBubbleColor || "#FFFFFF"} onChange={e => setPartnerBubble(e.target.value)} style={{ width: 40, height: 40, borderRadius: 10, border: `1px solid ${C.border}`, cursor: "pointer", padding: 0, background: "none" }} />
-              <div style={{ fontSize: 10.5, color: C.muted, marginTop: 4 }}>陆泽的气泡</div>
-            </div>
-            <span onClick={resetBubbleColors} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", textDecoration: "underline" }}>恢复默认</span>
-          </div>
-          </SettingsGroup>
-
-          {view === 'settings' && (
-            <>
-              <SettingsGroup theme={C} title="API 与模型" subtitle="保存、切换站点并拉取全部模型" resetKey={settingsGroupsResetKey}>
-              <ApiProfilesSettings
-                apiFetch={apiFetch}
-                backend={BACKEND}
-                theme={C}
-                embedded
-                onModelsChange={models => setAvailableModels(normalizeModelOptions(models, selectedModel))}
-                onActiveChange={profile => {
-                  const profileModel = profile?.selected_model || '';
-                  if (profileModel) setSelectedModel(profileModel);
-                  loadActiveModels(profileModel).then(models => {
-                    if (!profileModel && models[0]) chooseModel(models[0]);
-                  });
-                }}
-              />
-              </SettingsGroup>
-
-              <SettingsGroup theme={C} title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录" resetKey={settingsGroupsResetKey}>
-                <AgentMailSettings apiFetch={apiFetch} backend={BACKEND} theme={C} />
-              </SettingsGroup>
-
-              <SettingsGroup theme={C} title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具" resetKey={settingsGroupsResetKey}>
-                <IntegrationSettings apiFetch={apiFetch} backend={BACKEND} theme={C} embedded />
-              </SettingsGroup>
-            </>
-          )}
-
-          <SettingsGroup theme={C} title="数据与导出" subtitle="把聊天记录带回本地" resetKey={settingsGroupsResetKey}>
-            <button onClick={() => {
-              apiFetch(`${BACKEND}/export`)
-                .then(r => r.blob())
-                .then(blob => {
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'ourhome-export.html';
-                  a.click();
-                  URL.revokeObjectURL(url);
-                })
-                .catch(console.error);
-            }} style={{ width: "100%", padding: "12px 0", textAlign: "center", border: `1.5px dashed ${C.honeyMid}`, color: C.honeyDeep, borderRadius: 12, fontSize: 13.5, cursor: "pointer", background: "transparent", letterSpacing: ".05em", fontFamily: "inherit" }}>导出聊天记录</button>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>会把所有对话的完整记录打包成一个文件下载下来。</div>
-          </SettingsGroup>
-        </div>
-      </div>
+      <SettingsRoom
+        stage={stage}
+        view={view}
+        C={C}
+        leaveRoom={leaveRoom}
+        settingsGroupsResetKey={settingsGroupsResetKey}
+        settingsGroupsOpenSignal={settingsGroupsOpenSignal}
+        setSettingsGroupsOpenSignal={setSettingsGroupsOpenSignal}
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
+        fontStyle={fontStyle}
+        changeFontStyle={changeFontStyle}
+        selectedModel={selectedModel}
+        modelsLoading={modelsLoading}
+        modelsError={modelsError}
+        notifStatus={notifStatus}
+        dailyJournalEnabled={dailyJournalEnabled}
+        dailyJournalTime={dailyJournalTime}
+        weatherCityInput={weatherCityInput}
+        setWeatherCityInput={setWeatherCityInput}
+        setWeatherCitySaved={setWeatherCitySaved}
+        saveWeatherCity={saveWeatherCity}
+        weatherCitySaved={weatherCitySaved}
+        homeDayBgImage={homeDayBgImage}
+        homeNightBgImage={homeNightBgImage}
+        homeMemoBgImage={homeMemoBgImage}
+        uploadingHomeBg={uploadingHomeBg}
+        uploadHomeBackground={uploadHomeBackground}
+        resetHomeBackground={resetHomeBackground}
+        homeBgError={homeBgError}
+        setDailyJournalEnabled={setDailyJournalEnabled}
+        setDailyJournalSaved={setDailyJournalSaved}
+        saveDailyJournalSchedule={saveDailyJournalSchedule}
+        dailyJournalSaved={dailyJournalSaved}
+        enablePushNotifications={enablePushNotifications}
+        subscribing={subscribing}
+        myAvatarInputRef={myAvatarInputRef}
+        partnerAvatarInputRef={partnerAvatarInputRef}
+        uploadingAvatar={uploadingAvatar}
+        myAvatar={myAvatar}
+        partnerAvatar={partnerAvatar}
+        uploadAvatar={uploadAvatar}
+        bgImageInputRef={bgImageInputRef}
+        bgImage={bgImage}
+        uploadingBg={uploadingBg}
+        uploadBgImage={uploadBgImage}
+        bgColor={bgColor}
+        setBackgroundColor={setBackgroundColor}
+        resetBackground={resetBackground}
+        whisperBgInputRef={whisperBgInputRef}
+        whisperBgImage={whisperBgImage}
+        uploadingWhisperBg={uploadingWhisperBg}
+        uploadWhisperBg={uploadWhisperBg}
+        whisperBgColor={whisperBgColor}
+        setWhisperBackgroundColor={setWhisperBackgroundColor}
+        resetWhisperBackground={resetWhisperBackground}
+        myBubbleColor={myBubbleColor}
+        partnerBubbleColor={partnerBubbleColor}
+        setMyBubble={setMyBubble}
+        setPartnerBubble={setPartnerBubble}
+        resetBubbleColors={resetBubbleColors}
+        setAvailableModels={setAvailableModels}
+        normalizeModelOptions={normalizeModelOptions}
+        setSelectedModel={applySelectedModel}
+        loadActiveModels={loadActiveModels}
+        chooseModel={chooseModel}
+        exportChatArchive={exportChatArchive}
+        exportFullBackup={exportFullBackup}
+        settingsExportState={settingsExportState}
+      />
     </div>
   );
 }
