@@ -6,6 +6,7 @@ import { applyAppFont, getSavedFont } from './fonts.js'
 import { MusicPlayerProvider } from './MusicPlayerContext.jsx'
 import { ThemeProvider } from './ThemeContext.jsx'
 import { installMessageModelLabels } from './messageModelLabels.js'
+import CloudSyncBadge from './CloudSyncBadge.jsx'
 
 applyAppFont(getSavedFont(), { persist: false })
 installMessageModelLabels()
@@ -31,6 +32,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <ThemeProvider>
     <MusicPlayerProvider>
       <Root />
+      <CloudSyncBadge />
     </MusicPlayerProvider>
   </ThemeProvider>,
 )
