@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, config, androidManifest] = await Promise.all([
+const [manifestText, install, native, styles, config, androidManifest] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
+  readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
   readFile(new URL('../capacitor.config.ts', import.meta.url), 'utf8'),
   readFile(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8'),
 ]);
@@ -26,6 +27,9 @@ test('install prompt is retained until settings asks for it', () => {
 
 test('native shell handles status bar splash and Android back button', () => {
   assert.match(native, /StatusBar\.setOverlaysWebView/);
+  assert.match(native, /StatusBar\.getInfo/);
+  assert.match(native, /--ourhome-status-bar-inset/);
+  assert.match(styles, /--ourhome-status-bar-inset/);
   assert.match(native, /SplashScreen\.hide/);
   assert.match(native, /backButton/);
   assert.match(native, /App\.minimizeApp/);
