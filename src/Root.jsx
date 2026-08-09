@@ -67,9 +67,7 @@ function useHomeShelfTarget() {
   return target && document.body.contains(target) ? target : null;
 }
 
-function ReadingHomeEntry({ onOpen }) {
-  const target = useHomeShelfTarget();
-  if (!target) return null;
+function ReadingHomeEntry({ onOpen, target }) {
   return createPortal(
     <button className="home-room-app home-room-app--reading" type="button" onClick={onOpen} aria-label="打开共读小屋">
       <span>
@@ -84,9 +82,7 @@ function ReadingHomeEntry({ onOpen }) {
   );
 }
 
-function ToyboxHomeEntry({ onOpen }) {
-  const target = useHomeShelfTarget();
-  if (!target) return null;
+function ToyboxHomeEntry({ onOpen, target }) {
   return createPortal(
     <button className="home-room-app home-room-app--toybox" type="button" onClick={onOpen} aria-label="打开玩具熊">
       <span>
@@ -98,9 +94,7 @@ function ToyboxHomeEntry({ onOpen }) {
   );
 }
 
-function LuzeRoomHomeEntry({ onOpen }) {
-  const target = useHomeShelfTarget();
-  if (!target) return null;
+function LuzeRoomHomeEntry({ onOpen, target }) {
   return createPortal(
     <button className="home-room-app home-room-app--luze" type="button" onClick={onOpen} aria-label="去陆泽的房间敲门">
       <span>
@@ -114,6 +108,18 @@ function LuzeRoomHomeEntry({ onOpen }) {
       <strong>陆泽的房间</strong>
     </button>,
     target,
+  );
+}
+
+function HomeShelfEntries({ onOpen }) {
+  const target = useHomeShelfTarget();
+  if (!target) return null;
+  return (
+    <>
+      <ReadingHomeEntry target={target} onOpen={() => onOpen('reading')} />
+      <ToyboxHomeEntry target={target} onOpen={() => onOpen('toybox')} />
+      <LuzeRoomHomeEntry target={target} onOpen={() => onOpen('luze-room')} />
+    </>
   );
 }
 
@@ -210,9 +216,7 @@ export default function Root() {
         }}
         refreshToken={homeRefreshToken}
       />
-      <ReadingHomeEntry onOpen={() => openRoom('reading')} />
-      <ToyboxHomeEntry onOpen={() => openRoom('toybox')} />
-      <LuzeRoomHomeEntry onOpen={() => openRoom('luze-room')} />
+      <HomeShelfEntries onOpen={openRoom} />
     </>
   );
 }

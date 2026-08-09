@@ -6,41 +6,12 @@ const today = () => new Date().toISOString().slice(0, 10);
 const makeId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const money = value => Number(value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const DEFAULT_DATA = {
+const EMPTY_DATA = {
   version: 2,
-  accountGroups: [
-    {
-      id: 'wechat-group',
-      name: '微信',
-      emoji: '💚',
-      accounts: [
-        { id: 'cash', name: '钱包', type: 'asset', balance: 368.52, emoji: '👛' },
-        { id: 'wechat-fund', name: '零钱通', type: 'asset', balance: 0, emoji: '🍃' },
-      ],
-    },
-    {
-      id: 'alipay-group',
-      name: '支付宝',
-      emoji: '🟦',
-      accounts: [
-        { id: 'alipay', name: '余额宝', type: 'asset', balance: 126.8, emoji: '💰' },
-        { id: 'huabei', name: '花呗', type: 'debt', balance: 275.43, emoji: '🌸' },
-      ],
-    },
-    {
-      id: 'bank-group',
-      name: '银行卡',
-      emoji: '💳',
-      accounts: [
-        { id: 'card', name: '工资卡', type: 'asset', balance: 5200, emoji: '💳' },
-      ],
-    },
-  ],
-  transactions: [
-    { id: 'seed-1', date: today(), type: 'expense', amount: 18, category: '餐饮', accountId: 'cash', tag: '必要', note: '午饭' },
-  ],
-  goals: [{ id: 'goal-1', name: '旅行基金', target: 5000, current: 2000, emoji: '✈️' }],
-  budget: 1500,
+  accountGroups: [],
+  transactions: [],
+  goals: [],
+  budget: 0,
 };
 
 const CARD = {
@@ -102,8 +73,22 @@ const SECTION_TITLE = {
   letterSpacing: '.04em',
 };
 
-function cloneDefault() {
-  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+function cloneEmpty() {
+  return JSON.parse(JSON.stringify(EMPTY_DATA));
+}
+
+function isUntouchedLegacyDemo(raw) {
+  const accounts = Array.isArray(raw?.accountGroups)
+    ? raw.accountGroups.flatMap(group => Array.isArray(group?.accounts) ? group.accounts : [])
+    : [];
+  return raw?.budget === 1500
+    && raw?.transactions?.length === 1
+    && raw.transactions[0]?.id === 'seed-1'
+    && raw?.goals?.length === 1
+    && raw.goals[0]?.id === 'goal-1'
+    && accounts.length === 5
+    && accounts.some(account => account.id === 'cash' && Number(account.balance) === 368.52)
+    && accounts.some(account => account.id === 'card' && Number(account.balance) === 5200);
 }
 
 function normalizeAccount(account, fallbackName = '账户') {
@@ -162,7 +147,7 @@ function migrateLegacyAccounts(accounts) {
 }
 
 function normalizeData(raw) {
-  if (!raw || typeof raw !== 'object') return cloneDefault();
+  if (!raw || typeof raw !== 'object' || isUntouchedLegacyDemo(raw)) return cloneEmpty();
 
   let accountGroups;
   if (Array.isArray(raw.accountGroups)) {
@@ -175,15 +160,15 @@ function normalizeData(raw) {
   } else if (Array.isArray(raw.accounts)) {
     accountGroups = migrateLegacyAccounts(raw.accounts);
   } else {
-    accountGroups = cloneDefault().accountGroups;
+    accountGroups = [];
   }
 
   return {
     version: 2,
     accountGroups,
-    transactions: Array.isArray(raw.transactions) ? raw.transactions : cloneDefault().transactions,
-    goals: Array.isArray(raw.goals) ? raw.goals : cloneDefault().goals,
-    budget: Number.isFinite(Number(raw.budget)) ? Number(raw.budget) : DEFAULT_DATA.budget,
+    transactions: Array.isArray(raw.transactions) ? raw.transactions : [],
+    goals: Array.isArray(raw.goals) ? raw.goals : [],
+    budget: Number.isFinite(Number(raw.budget)) ? Number(raw.budget) : 0,
   };
 }
 
@@ -191,7 +176,7 @@ function loadData() {
   try {
     return normalizeData(JSON.parse(localStorage.getItem(STORAGE_KEY)));
   } catch {
-    return cloneDefault();
+    return cloneEmpty();
   }
 }
 

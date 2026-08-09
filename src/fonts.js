@@ -19,13 +19,14 @@ export const FONT_STYLES = {
   },
 };
 
-const loaded = new Set(['system']);
+// The decorative home shell already loads the brush face once in Root.jsx.
+// Mark it ready here so the settings preview does not import the same 2.7 MB face again.
+const loaded = new Set(['system', 'brush']);
 
 async function loadFontFiles(key) {
   if (loaded.has(key)) return;
   if (key === 'round') await import('@fontsource/zcool-kuaile/chinese-simplified-400.css');
   if (key === 'serif') await import('@fontsource/noto-serif-sc/chinese-simplified-400.css');
-  if (key === 'brush') await import('@fontsource/ma-shan-zheng/chinese-simplified-400.css');
   loaded.add(key);
 }
 

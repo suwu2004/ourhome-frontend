@@ -120,7 +120,7 @@ function friendlyGenerationError(error, retryAction = '再试一次') {
 }
 
 export default function App({ initialView = 'chat', onHome }) {
-  const { darkMode, theme: C, toggleDarkMode, refreshTheme } = useTheme();
+  const { darkMode, theme: C, settings: sharedSettings, toggleDarkMode, refreshTheme } = useTheme();
   const [stage, setStage] = useState("home");
   const [locked, setLocked] = useState(!localStorage.getItem(TOKEN_KEY));
   const [pwInput, setPwInput] = useState("");
@@ -149,6 +149,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const selectedModelRef = useRef("claude-sonnet-4-6");
   const modelSelectionVersionRef = useRef(0);
   const modelSaveQueueRef = useRef(Promise.resolve());
+  const loadedModelSettingsRef = useRef('');
   const [modelSaveState, setModelSaveState] = useState('idle');
   const [lastUsedModel, setLastUsedModel] = useState('');
   const [lastRequestedModel, setLastRequestedModel] = useState('');
@@ -576,44 +577,45 @@ export default function App({ initialView = 'chat', onHome }) {
   }, []);
 
   useEffect(() => {
-    if (locked) return;
+    if (locked || !sharedSettings) return;
     const selectionVersionAtLoad = modelSelectionVersionRef.current;
-    apiFetch(`${BACKEND}/settings`)
-      .then(r => r.json())
-      .then(data => {
-        if (data?.my_avatar_url) setMyAvatar(data.my_avatar_url);
-        if (data?.partner_avatar_url) setPartnerAvatar(data.partner_avatar_url);
-        if (data?.bg_image_url) setBgImage(data.bg_image_url);
-        if (data?.bg_color) setBgColor(data.bg_color);
-        setHomeDayBgImage(data?.home_bg_day_image_url || null);
-        setHomeNightBgImage(data?.home_bg_night_image_url || null);
-        setHomeMemoBgImage(data?.home_memo_bg_image_url || null);
-        if (data?.whisper_bg_image_url) setWhisperBgImage(data.whisper_bg_image_url);
-        if (data?.whisper_bg_color) setWhisperBgColor(data.whisper_bg_color);
-        if (data?.my_bubble_color) setMyBubbleColor(data.my_bubble_color);
-        if (data?.partner_bubble_color) setPartnerBubbleColor(data.partner_bubble_color);
-        if (data?.font_style && FONT_STYLES[data.font_style]) {
-          setFontStyle(data.font_style);
-          applyAppFont(data.font_style);
-        }
-        if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
-        if (typeof data?.daily_journal_enabled === 'boolean') setDailyJournalEnabled(data.daily_journal_enabled);
-        if (data?.daily_journal_time) setDailyJournalTime(String(data.daily_journal_time).slice(0, 5));
-        const preferredModel = data?.selected_model || '';
-        const modelChangedWhileLoading = modelSelectionVersionRef.current !== selectionVersionAtLoad;
-        if (preferredModel && !modelChangedWhileLoading) {
-          selectedModelRef.current = preferredModel;
-          setSelectedModel(preferredModel);
-        }
-        if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
-        if (typeof data?.min_reply_chars === 'number') setMinReplyCharsInput(data.min_reply_chars);
-        const activeModel = modelChangedWhileLoading ? selectedModelRef.current : preferredModel;
-        return loadActiveModels(activeModel).then(models => {
-          if (!activeModel && models[0]) chooseModel(models[0]);
-        });
+    const data = sharedSettings;
+    setMyAvatar(data?.my_avatar_url || null);
+    setPartnerAvatar(data?.partner_avatar_url || null);
+    setBgImage(data?.bg_image_url || null);
+    if (data?.bg_color) setBgColor(data.bg_color);
+    setHomeDayBgImage(data?.home_bg_day_image_url || null);
+    setHomeNightBgImage(data?.home_bg_night_image_url || null);
+    setHomeMemoBgImage(data?.home_memo_bg_image_url || null);
+    setWhisperBgImage(data?.whisper_bg_image_url || null);
+    if (data?.whisper_bg_color) setWhisperBgColor(data.whisper_bg_color);
+    if (data?.my_bubble_color) setMyBubbleColor(data.my_bubble_color);
+    if (data?.partner_bubble_color) setPartnerBubbleColor(data.partner_bubble_color);
+    if (data?.font_style && FONT_STYLES[data.font_style]) {
+      setFontStyle(data.font_style);
+      applyAppFont(data.font_style);
+    }
+    if (data?.system_prompt) setSystemPromptInput(data.system_prompt);
+    if (typeof data?.daily_journal_enabled === 'boolean') setDailyJournalEnabled(data.daily_journal_enabled);
+    if (data?.daily_journal_time) setDailyJournalTime(String(data.daily_journal_time).slice(0, 5));
+    const preferredModel = data?.selected_model || '';
+    const modelChangedWhileLoading = modelSelectionVersionRef.current !== selectionVersionAtLoad;
+    if (preferredModel && !modelChangedWhileLoading) {
+      selectedModelRef.current = preferredModel;
+      setSelectedModel(preferredModel);
+    }
+    if (typeof data?.temperature === 'number') setTemperatureInput(data.temperature);
+    if (typeof data?.min_reply_chars === 'number') setMinReplyCharsInput(data.min_reply_chars);
+    const activeModel = modelChangedWhileLoading ? selectedModelRef.current : preferredModel;
+    const modelSettingsKey = `${data?.active_api_profile_id || ''}\u0000${activeModel}`;
+    if (loadedModelSettingsRef.current === modelSettingsKey) return;
+    loadedModelSettingsRef.current = modelSettingsKey;
+    loadActiveModels(activeModel)
+      .then(models => {
+        if (!activeModel && models[0]) chooseModel(models[0]);
       })
       .catch(console.error);
-  }, [chooseModel, loadActiveModels, locked]);
+  }, [chooseModel, loadActiveModels, locked, sharedSettings]);
 
   const saveWeatherCity = () => {
     const saved = saveHomeWeatherCity(weatherCityInput);
