@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const app = fs.readFileSync(path.join(root, 'src', 'App.jsx'), 'utf8');
+const apiProfiles = fs.readFileSync(path.join(root, 'src', 'ApiProfilesSettings.jsx'), 'utf8');
 const music = fs.readFileSync(path.join(root, 'src', 'MusicRoom.jsx'), 'utf8');
 
 test('calendar day colors merge local history into cloud settings and save future changes', () => {
@@ -18,6 +19,13 @@ test('opening settings explicitly refreshes persona and asset references', () =>
   assert.match(app, /view !== 'settings'/);
   assert.match(app, /refreshTheme\(\{ refreshAssets: true \}\)/);
   assert.match(app, /setSystemPromptInput\(String\(data\?\.system_prompt \|\| ''\)\)/);
+});
+
+test('automatic API refresh keeps the selected model quiet and avoids duplicate pulls', () => {
+  assert.match(app, /preferredModel \|\| selectedModelRef\.current/);
+  assert.match(app, /setModelsError\(fallbackModels\.length \? ''/);
+  assert.match(apiProfiles, /lastNotifiedActiveRef/);
+  assert.match(apiProfiles, /activeSignature !== lastNotifiedActiveRef\.current/);
 });
 
 test('Together Listening keeps QQ Music import and removes local audio upload', () => {
