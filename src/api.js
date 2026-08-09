@@ -5,6 +5,9 @@ export const TOKEN_KEY = 'ourhome_token';
 
 const RETRYABLE_READ_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const READ_RETRY_DELAY_MS = 280;
+const CLOUD_CACHE_PREFIX = 'ourhome_cloud_read:';
+const CLOUD_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const staleCloudReads = new Map();
 
 function compactResponseText(value, limit = 260) {
   return String(value || '')
@@ -44,6 +47,87 @@ function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function parsedUrl(value) {
+  try {
+    return new URL(String(value || ''), globalThis.location?.origin || 'https://ourhome.local');
+  } catch {
+    return null;
+  }
+}
+
+function cacheableCloudRead(value, options = {}) {
+  if (requestMethod(options) !== 'GET') return null;
+  const url = parsedUrl(value);
+  if (!url) return null;
+  if (!/(?:^|\/api)\/(?:settings|home-memos|milestones)\/?$/.test(url.pathname)) return null;
+  return `${url.pathname}${url.search}`;
+}
+
+function cacheKey(path) {
+  return `${CLOUD_CACHE_PREFIX}${path}`;
+}
+
+function emitCloudSyncState() {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
+  const entries = [...staleCloudReads.entries()];
+  window.dispatchEvent(new CustomEvent('ourhome-cloud-sync', {
+    detail: {
+      state: entries.length ? 'stale' : 'online',
+      paths: entries.map(([path]) => path),
+      cachedAt: entries.length ? Math.min(...entries.map(([, value]) => value || Date.now())) : null,
+    },
+  }));
+}
+
+function markCloudStale(path, cachedAt) {
+  staleCloudReads.set(path, cachedAt || Date.now());
+  emitCloudSyncState();
+}
+
+function markCloudFresh(path) {
+  if (!path) return;
+  staleCloudReads.delete(path);
+  emitCloudSyncState();
+}
+
+function readCloudCache(path) {
+  if (!path || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(cacheKey(path));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const savedAt = Number(parsed?.savedAt || 0);
+    if (!savedAt || Date.now() - savedAt > CLOUD_CACHE_MAX_AGE_MS || typeof parsed?.body !== 'string') {
+      localStorage.removeItem(cacheKey(path));
+      return null;
+    }
+    const headers = new Headers({
+      'Content-Type': parsed.contentType || 'application/json',
+      'X-OurHome-Cache': 'stale',
+      'X-OurHome-Cached-At': String(savedAt),
+    });
+    markCloudStale(path, savedAt);
+    return new Response(parsed.body, { status: 200, headers });
+  } catch {
+    return null;
+  }
+}
+
+async function rememberCloudRead(path, response) {
+  if (!path || !response?.ok || response.headers.get('X-OurHome-Cache') === 'stale' || typeof localStorage === 'undefined') return;
+  try {
+    const body = await response.clone().text();
+    localStorage.setItem(cacheKey(path), JSON.stringify({
+      savedAt: Date.now(),
+      contentType: response.headers.get('Content-Type') || 'application/json',
+      body,
+    }));
+    markCloudFresh(path);
+  } catch {
+    // Caching is only a visual resilience layer; a cache write must never break the real response.
+  }
+}
+
 async function fetchWithSafeReadRetry(url, options, headers) {
   const retryable = mayRetryRead(options);
   const attempts = retryable ? 2 : 1;
@@ -79,14 +163,31 @@ export async function apiFetch(url, options = {}) {
   headers.set('Authorization', `Bearer ${token}`);
   if (!headers.has('X-OurHome-Request-Id')) headers.set('X-OurHome-Request-Id', requestId());
 
-  // Only idempotent reads get one quiet retry. Writes, Chat sends and model calls
-  // remain strictly single-shot so a network wobble can never duplicate data or cost.
-  const response = await fetchWithSafeReadRetry(url, options, headers);
+  const cloudPath = cacheableCloudRead(url, options);
+  let response;
+  try {
+    // Only idempotent reads get one quiet retry. Writes, Chat sends and model calls
+    // remain strictly single-shot so a network wobble can never duplicate data or cost.
+    response = await fetchWithSafeReadRetry(url, options, headers);
+  } catch (error) {
+    const cached = cloudPath ? readCloudCache(cloudPath) : null;
+    if (cached) response = cached;
+    else throw error;
+  }
+
+  // Home-facing configuration is tiny and safe to show from the last successful
+  // sync when the relay is briefly unavailable. Never mask authentication errors,
+  // and never cache chat/session reads where stale data could target the wrong room.
+  if (cloudPath && RETRYABLE_READ_STATUS.has(response.status)) {
+    response = readCloudCache(cloudPath) || response;
+  }
 
   if (response.status === 401 && token) {
     localStorage.removeItem(TOKEN_KEY);
     window.dispatchEvent(new Event('ourhome-auth-changed'));
   }
+
+  if (cloudPath && response.ok) await rememberCloudRead(cloudPath, response);
 
   const fallbackBody = response.clone();
   const safeJson = async () => {
