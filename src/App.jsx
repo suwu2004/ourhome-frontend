@@ -603,8 +603,9 @@ export default function App({ initialView = 'chat', onHome }) {
       setAvailableModels(nextModels);
       return nextModels;
     } catch (error) {
-      const fallbackModels = normalizeModelOptions([], preferredModel);
-      setAvailableModels(current => normalizeModelOptions(current, preferredModel));
+      const fallbackModel = String(preferredModel || selectedModelRef.current || '').trim();
+      const fallbackModels = normalizeModelOptions([], fallbackModel);
+      setAvailableModels(current => normalizeModelOptions(current, fallbackModel));
       // Some compatible API sites can chat normally but deliberately omit
       // GET /models. Keep their configured model usable without leaving a red
       // global error after a successful profile switch; manual model pulls in

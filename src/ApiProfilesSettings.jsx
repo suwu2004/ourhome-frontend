@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const emptyDraft = () => ({ id: null, name: '', base_url: '', api_key: '', selected_model: '' });
 
@@ -9,6 +9,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
   const [error, setError] = useState('');
   const [models, setModels] = useState([]);
   const [modelsBusy, setModelsBusy] = useState(false);
+  const lastNotifiedActiveRef = useRef('');
 
   const active = useMemo(() => profiles.find(profile => profile.is_active) || null, [profiles]);
 
@@ -20,7 +21,13 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
       const list = Array.isArray(data) ? data : [];
       setProfiles(list);
       const current = list.find(profile => profile.is_active);
-      if (current) onActiveChange?.(current);
+      const activeSignature = current ? `${current.id}\u0000${current.selected_model || ''}` : '';
+      if (current && activeSignature !== lastNotifiedActiveRef.current) {
+        lastNotifiedActiveRef.current = activeSignature;
+        onActiveChange?.(current);
+      } else if (!current) {
+        lastNotifiedActiveRef.current = '';
+      }
     } catch (err) {
       setError(err.message);
     }
