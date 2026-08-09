@@ -23,4 +23,5 @@ jobs:
       - run: npm run test:gomoku
       - run: npm run test:storage
       - run: npm run test:offline
+      - run: npm run test:app
       - run: npm run build
