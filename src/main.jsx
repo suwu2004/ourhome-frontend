@@ -7,9 +7,11 @@ import { MusicPlayerProvider } from './MusicPlayerContext.jsx'
 import { ThemeProvider } from './ThemeContext.jsx'
 import { installMessageModelLabels } from './messageModelLabels.js'
 import CloudSyncBadge from './CloudSyncBadge.jsx'
+import { registerOfflineShell } from './offlineShell.js'
 
 applyAppFont(getSavedFont(), { persist: false })
 installMessageModelLabels()
+registerOfflineShell()
 
 const updateViewportHeight = () => {
   const viewportHeight = window.visualViewport?.height || window.innerHeight

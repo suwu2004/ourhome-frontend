@@ -24,7 +24,7 @@ function installBrowserGlobals() {
 }
 
 installBrowserGlobals();
-const { apiFetch } = await import('../src/api.js');
+const { apiFetch, DIRECT_BACKEND, getApiRouteState } = await import('../src/api.js');
 
 test('transient GET failure is retried exactly once', async () => {
   let calls = 0;
@@ -54,7 +54,7 @@ test('network wobble on GET gets one quiet retry', async () => {
   assert.deepEqual(await response.json(), [{ id: 1 }]);
 });
 
-test('small home reads can fall back to the last successful sync after both network attempts fail', async () => {
+test('small home reads can fall back to the last successful sync after both routes fail', async () => {
   storage.set('ourhome_token', 'test-token');
   globalThis.fetch = async () => new Response('[{"id":"memo-1","content":"爱你"}]', {
     status: 200,
@@ -71,13 +71,13 @@ test('small home reads can fall back to the last successful sync after both netw
   };
 
   const cached = await apiFetch('/api/home-memos');
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
   assert.equal(cached.status, 200);
   assert.equal(cached.headers.get('X-OurHome-Cache'), 'stale');
   assert.deepEqual(await cached.json(), [{ id: 'memo-1', content: '爱你' }]);
 });
 
-test('chat and session reads never use the stale home cache', async () => {
+test('chat and session reads never use the stale home cache after both routes fail', async () => {
   let calls = 0;
   globalThis.fetch = async () => {
     calls += 1;
@@ -85,14 +85,33 @@ test('chat and session reads never use the stale home cache', async () => {
   };
 
   await assert.rejects(() => apiFetch('/api/sessions/1/messages'), /network down/);
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
 });
 
-test('POST is never retried so writes and model calls stay single-shot', async () => {
+test('a failed same-origin GET may pin the page session to direct Render', async () => {
+  const urls = [];
+  globalThis.fetch = async url => {
+    urls.push(String(url));
+    if (urls.length <= 2) throw new TypeError('same-origin route unavailable');
+    return new Response('[{"id":9}]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+
+  const response = await apiFetch('/api/sessions');
+  assert.deepEqual(await response.json(), [{ id: 9 }]);
+  assert.equal(urls.length, 3);
+  assert.equal(urls[0], '/api/sessions');
+  assert.equal(urls[1], '/api/sessions');
+  assert.equal(urls[2], `${DIRECT_BACKEND}/sessions`);
+  assert.equal(getApiRouteState().mode, 'direct-backend');
+});
+
+test('POST is never retried or cross-routed after it is sent', async () => {
   storage.set('ourhome_token', 'test-token');
   let calls = 0;
-  globalThis.fetch = async () => {
+  const urls = [];
+  globalThis.fetch = async url => {
     calls += 1;
+    urls.push(String(url));
     return new Response('{"error":"temporary"}', { status: 503, headers: { 'Content-Type': 'application/json' } });
   };
 
@@ -104,9 +123,27 @@ test('POST is never retried so writes and model calls stay single-shot', async (
 
   assert.equal(response.status, 503);
   assert.equal(calls, 1);
+  assert.equal(urls[0], `${DIRECT_BACKEND}/chat`);
 });
 
-test('caller-owned abort signals opt out of automatic retry', async () => {
+test('a fresh module does not fall back after an ambiguous POST network failure', async () => {
+  const fresh = await import(`../src/api.js?write-safety=${Date.now()}`);
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    throw new TypeError('write connection failed');
+  };
+
+  await assert.rejects(() => fresh.apiFetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'one shot only' }),
+  }), /write connection failed/);
+  assert.equal(calls, 1);
+  assert.equal(fresh.getApiRouteState().mode, 'same-origin');
+});
+
+test('caller-owned abort signals opt out of automatic retry and route fallback', async () => {
   let calls = 0;
   globalThis.fetch = async () => {
     calls += 1;
