@@ -13,6 +13,34 @@ const emptyTrack = {
   note: '',
 };
 
+const emptyQqTrack = { share_text: '', title: '', artist: '' };
+
+function parseQqMusicShare(value) {
+  const raw = String(value || '').trim();
+  const url = raw.match(/https?:\/\/[^\s]+/i)?.[0]?.replace(/[),，。；;]+$/, '') || '';
+  if (!url) return { valid: false, url: '', title: '', artist: '' };
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return { valid: false, url: '', title: '', artist: '' };
+  }
+  const valid = host === 'y.qq.com' || host.endsWith('.y.qq.com') || host === 'qqmusic.qq.com';
+  const clean = raw
+    .replace(url, '')
+    .replace(/(?:分享歌曲|歌曲|QQ音乐|qq音乐|来QQ音乐听我喜欢的歌|打开QQ音乐)[：:]?/gi, ' ')
+    .replace(/[《》“”"']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const parts = clean.split(/\s[-—·|]\s|\s{2,}/).map(item => item.trim()).filter(Boolean);
+  return {
+    valid,
+    url,
+    title: parts[0] || '',
+    artist: parts[1] || '',
+  };
+}
+
 function lyricText(track) {
   const text = String(track?.lyrics || track?.note || '').trim();
   if (!text) return '歌词还没有回来，先听一小段。';
@@ -82,6 +110,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
   const [backgroundUploading, setBackgroundUploading] = useState(false);
   const [lyricsLoadingId, setLyricsLoadingId] = useState(null);
   const [tab, setTab] = useState('listen');
+  const [qqDraft, setQqDraft] = useState(emptyQqTrack);
 
   useEffect(() => {
     if (visible) loadMusic();
@@ -143,6 +172,45 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
   const addSearchResult = async track => {
     const saved = await saveTrackPayload(track);
     if (saved) setSearchResults(items => items.filter(item => item.audio_url !== track.audio_url));
+  };
+
+  const updateQqShare = value => {
+    const parsed = parseQqMusicShare(value);
+    setQqDraft(current => ({
+      share_text: value,
+      title: current.title || parsed.title,
+      artist: current.artist || parsed.artist,
+    }));
+    if (value.trim() && !parsed.valid) setError('请粘贴 QQ 音乐里“分享”复制出来的链接或整段文案。');
+    else setError('');
+  };
+
+  const saveQqTrack = async () => {
+    const parsed = parseQqMusicShare(qqDraft.share_text);
+    if (!parsed.valid) {
+      setError('还没有识别到 QQ 音乐链接。');
+      return;
+    }
+    if (!qqDraft.title.trim()) {
+      setError('再补一下歌名，就可以放进我们的歌单了。');
+      return;
+    }
+    const saved = await saveTrackPayload({
+      ...emptyTrack,
+      title: qqDraft.title.trim(),
+      artist: qqDraft.artist.trim(),
+      source_url: parsed.url,
+      note: 'QQ 音乐收藏',
+    });
+    if (saved) {
+      setQqDraft(emptyQqTrack);
+      setTab('library');
+    }
+  };
+
+  const openSourceTrack = track => {
+    if (!track?.source_url) return;
+    window.open(track.source_url, '_blank', 'noopener,noreferrer');
   };
 
   const fillLyrics = async track => {
@@ -280,6 +348,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
           {[
             ['listen', '🎵 听歌'],
             ['search', '🔎 搜索'],
+            ['qqmusic', 'QQ 音乐'],
             ['library', '💿 歌单'],
             ['upload', '⬆ 上传'],
           ].map(([key, label]) => (
@@ -362,6 +431,7 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                   <button type="button" onClick={() => setTab('search')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>去搜索</button>
                   <button type="button" onClick={() => setTab('upload')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>上传音频</button>
+                  <button type="button" onClick={() => setTab('qqmusic')} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 12, cursor: 'pointer' }}>从 QQ 音乐收藏</button>
                 </div>
               </div>
             </section>
@@ -392,6 +462,31 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
             </section>
           )}
 
+          {tab === 'qqmusic' && (
+            <section className="qq-music-import" style={{ border: `1px solid ${C.border}`, borderRadius: 18, background: C.white, padding: 15 }}>
+              <div className="qq-music-import-head">
+                <span aria-hidden="true">♫</span>
+                <div>
+                  <b style={{ color: C.text }}>从 QQ 音乐收藏</b>
+                  <small style={{ color: C.muted }}>在 QQ 音乐点“分享 → 复制链接”，把整段内容粘贴到这里。</small>
+                </div>
+              </div>
+              <textarea
+                value={qqDraft.share_text}
+                onChange={event => updateQqShare(event.target.value)}
+                placeholder="粘贴 QQ 音乐分享文案或歌曲链接…"
+                rows={4}
+                style={{ ...inputStyle(C), width: '100%', marginTop: 14, borderRadius: 14, resize: 'vertical', lineHeight: 1.65 }}
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 9, marginTop: 9 }}>
+                <input value={qqDraft.title} onChange={event => setQqDraft(current => ({ ...current, title: event.target.value }))} placeholder="歌名" style={inputStyle(C)} />
+                <input value={qqDraft.artist} onChange={event => setQqDraft(current => ({ ...current, artist: event.target.value }))} placeholder="歌手，可不填" style={inputStyle(C)} />
+              </div>
+              <div className="qq-music-import-note">收藏会留在我们的共同歌单里；播放时会安全唤起 QQ 音乐，会员权益仍由 QQ 音乐负责。</div>
+              <button type="button" onClick={saveQqTrack} disabled={saving} style={{ marginTop: 12, border: 0, borderRadius: 999, background: 'linear-gradient(145deg, #31c27c, #20a968)', color: '#fff', padding: '9px 16px', fontFamily: 'inherit', cursor: saving ? 'default' : 'pointer', opacity: saving ? .65 : 1 }}>{saving ? '收藏中' : '放进我们的歌单'}</button>
+            </section>
+          )}
+
           {tab === 'library' && (
             <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
@@ -402,14 +497,14 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {tracks.map(track => (
                   <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 10, border: `1px solid ${String(activeTrack?.id) === String(track.id) ? C.honeyMid : C.borderLight}`, background: String(activeTrack?.id) === String(track.id) ? C.honeyLight : C.surface, borderRadius: 13, padding: '10px 11px' }}>
-                    <button type="button" onClick={() => selectTrack(track)} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid ${C.border}`, background: C.white, color: C.honeyDeep, cursor: 'pointer' }}>{String(activeTrack?.id) === String(track.id) && state.is_playing ? 'Ⅱ' : '▶'}</button>
+                    <button type="button" onClick={() => track.audio_url ? selectTrack(track) : openSourceTrack(track)} aria-label={track.audio_url ? `播放${track.title}` : `去 QQ 音乐播放${track.title}`} style={{ width: 34, height: 34, borderRadius: '50%', border: `1px solid ${C.border}`, background: C.white, color: track.audio_url ? C.honeyDeep : '#20a968', cursor: 'pointer' }}>{track.audio_url && String(activeTrack?.id) === String(track.id) && state.is_playing ? 'Ⅱ' : track.audio_url ? '▶' : 'Q'}</button>
                     {track.cover_url && <img src={track.cover_url} alt="" style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ color: C.text, fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
                       <div style={{ color: C.muted, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[track.artist, track.album, track.note].filter(Boolean).join(' · ') || '没有备注'}</div>
                     </div>
                     {!track.lyrics && <button type="button" onClick={() => fillLyrics(track)} disabled={lyricsLoadingId === track.id} style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>{lyricsLoadingId === track.id ? '找中' : '歌词'}</button>}
-                    {track.source_url && <a href={track.source_url} target="_blank" rel="noreferrer" style={{ color: C.honeyDeep, fontSize: 11, flexShrink: 0 }}>原曲</a>}
+                    {track.source_url && <a href={track.source_url} target="_blank" rel="noreferrer" style={{ color: track.note === 'QQ 音乐收藏' ? '#20a968' : C.honeyDeep, fontSize: 11, flexShrink: 0 }}>{track.note === 'QQ 音乐收藏' ? 'QQ播放' : '原曲'}</a>}
                     <button type="button" onClick={() => deleteTrack(track)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer', fontSize: 11 }}>删除</button>
                   </div>
                 ))}

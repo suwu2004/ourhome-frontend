@@ -13,7 +13,7 @@ export default function AppInstallSettings({ compact = false }) {
     else setNotice('请打开浏览器菜单，选择“添加到主屏幕”或“安装应用”。');
   };
 
-  const status = state.native ? 'Android App' : state.installed ? '已安装到桌面' : '网页版';
+  const status = state.native ? 'Android App · v1.0.0' : state.installed ? '已安装到桌面' : '网页版';
   if (compact) {
     return (
       <div className="app-device-summary">
