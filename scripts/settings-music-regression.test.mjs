@@ -18,7 +18,8 @@ test('calendar day colors merge local history into cloud settings and save futur
 test('opening settings explicitly refreshes persona and asset references', () => {
   assert.match(app, /view !== 'settings'/);
   assert.match(app, /refreshTheme\(\{ refreshAssets: true \}\)/);
-  assert.match(app, /setSystemPromptInput\(String\(data\?\.system_prompt \|\| ''\)\)/);
+  assert.match(app, /hasOwnProperty\.call\(data \|\| \{\}, 'system_prompt'\)/);
+  assert.match(app, /setSystemPromptInput\(String\(data\.system_prompt \|\| ''\)\)/);
 });
 
 test('automatic API refresh keeps the selected model quiet and avoids duplicate pulls', () => {
@@ -26,6 +27,8 @@ test('automatic API refresh keeps the selected model quiet and avoids duplicate 
   assert.match(app, /setModelsError\(fallbackModels\.length \? ''/);
   assert.match(apiProfiles, /lastNotifiedActiveRef/);
   assert.match(apiProfiles, /activeSignature !== lastNotifiedActiveRef\.current/);
+  assert.match(apiProfiles, /data\.degraded \? \(data\.notice/);
+  assert.match(apiProfiles, /role="status"/);
 });
 
 test('Together Listening keeps QQ Music import and removes local audio upload', () => {

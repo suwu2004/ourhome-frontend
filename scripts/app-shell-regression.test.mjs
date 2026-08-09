@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, config, androidManifest, themeContext, root, vault] = await Promise.all([
+const [manifestText, install, native, styles, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -12,6 +12,9 @@ const [manifestText, install, native, styles, config, androidManifest, themeCont
   readFile(new URL('../src/ThemeContext.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/Root.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/VaultPage.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/offlineShell.js', import.meta.url), 'utf8'),
+  readFile(new URL('../src/AppInstallSettings.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/build.gradle', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -44,6 +47,16 @@ test('Android shell is bundled, HTTPS-only, and excludes device backups', () => 
   assert.match(config, /webDir: 'dist'/);
   assert.match(androidManifest, /android:allowBackup="false"/);
   assert.match(androidManifest, /android:usesCleartextTraffic="false"/);
+});
+
+test('native releases clear web-only caches and expose a distinguishable build', () => {
+  assert.match(offline, /Capacitor\.isNativePlatform\(\)/);
+  assert.match(offline, /registration => registration\.unregister/);
+  assert.match(offline, /name\.startsWith\('ourhome-'\)/);
+  assert.match(installSettings, /APP_VERSION = '1\.0\.1'/);
+  assert.match(installSettings, /VITE_BUILD_SHA/);
+  assert.match(gradle, /versionCode 2/);
+  assert.match(gradle, /versionName "1\.0\.1"/);
 });
 
 test('expired private backgrounds recover without an upload loop', () => {

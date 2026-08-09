@@ -7,6 +7,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
   const [draft, setDraft] = useState(emptyDraft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [models, setModels] = useState([]);
   const [modelsBusy, setModelsBusy] = useState(false);
   const lastNotifiedActiveRef = useRef('');
@@ -45,6 +46,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
     });
     setModels([]);
     setError('');
+    setNotice('');
   };
 
   const saveProfile = async event => {
@@ -55,6 +57,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
     }
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       const url = draft.id ? `${backend}/api-profiles/${draft.id}` : `${backend}/api-profiles`;
       const response = await apiFetch(url, {
@@ -83,6 +86,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
   const activateProfile = async profile => {
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       const response = await apiFetch(`${backend}/api-profiles/${profile.id}/activate`, { method: 'POST' });
       const data = await response.json();
@@ -119,12 +123,14 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
     }
     setModelsBusy(true);
     setError('');
+    setNotice('');
     try {
       const response = await apiFetch(`${backend}/api-profiles/${draft.id}/models`);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '模型拉取失败');
       const nextModels = Array.isArray(data.models) ? data.models : [];
       setModels(nextModels);
+      setNotice(data.degraded ? (data.notice || '已继续使用这个站点保存的模型') : '');
       if (draft.id === active?.id) onModelsChange?.(nextModels);
     } catch (err) {
       setError(err.message);
@@ -144,7 +150,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
           <div style={{ fontSize: 12, color: theme.muted, letterSpacing: '.05em' }}>API 站点档案</div>
           <div style={{ fontSize: 10.5, color: theme.mutedLight, marginTop: 3 }}>密钥只保存在服务端，页面不会再把原文读回来</div>
         </div>
-        <button type="button" onClick={() => { setDraft(emptyDraft()); setModels([]); setError(''); }} style={pill}>＋ 新站点</button>
+        <button type="button" onClick={() => { setDraft(emptyDraft()); setModels([]); setError(''); setNotice(''); }} style={pill}>＋ 新站点</button>
       </div>
 
       <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
@@ -186,6 +192,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
       </form>
 
       {error && <div role="alert" style={{ marginTop: 8, fontSize: 11, color: theme.blushDeep }}>{error}</div>}
+      {notice && <div role="status" style={{ marginTop: 8, fontSize: 10.5, color: theme.muted }}>{notice}</div>}
       {active && <div style={{ marginTop: 8, fontSize: 10.5, color: theme.mutedLight }}>当前：{active.name}{active.selected_model ? ` · ${active.selected_model}` : ''}</div>}
     </section>
   );
