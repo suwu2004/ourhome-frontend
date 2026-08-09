@@ -33,6 +33,7 @@ test('native shell handles status bar splash and Android back button', () => {
   assert.match(native, /StatusBar\.getInfo/);
   assert.match(native, /--ourhome-status-bar-inset/);
   assert.match(styles, /--ourhome-status-bar-inset/);
+  assert.match(styles, /top:\s*calc\(var\(--ourhome-status-bar-inset, 24px\) \+ 33px\)/);
   assert.match(native, /SplashScreen\.hide/);
   assert.match(native, /backButton/);
   assert.match(native, /App\.minimizeApp/);
