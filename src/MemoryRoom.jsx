@@ -1,62 +1,95 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { SettingsGroup } from './SettingsGroup.jsx';
-import { apiFetch, BACKEND } from './api.js';
 
-const MEMORY_LAYER_TABS = [
-  { key: 'core', label: '核心记忆', description: '稳定身份、偏好、边界和重要约定' },
-  { key: 'episodic', label: '阶段记忆', description: '重要经历、关系片段和项目进展' },
-  { key: 'temporary', label: '临时记忆', description: '近期没聊完、还需要接上的事情' },
+const MEMORY_EVENT_TYPE_OPTIONS = [
+  ['note', '记录'],
+  ['project', '项目'],
+  ['todo', '待办'],
+  ['life', '生活'],
+  ['emotion', '情绪'],
+  ['relationship', '关系'],
+  ['memory', '记忆'],
 ];
 
-const MEMORY_KIND_LABELS = {
-  identity: '身份',
-  preference: '偏好',
-  boundary: '边界',
-  relationship: '关系',
-  plan: '计划',
-  state: '近况',
-  health: '身体',
-  project: '项目',
-  event: '经历',
-  general: '记忆',
-};
-
-function displayDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
+function eventDateKey(event) {
+  if (event?.event_date) return String(event.event_date).slice(0, 10);
+  if (!event?.occurred_at) return '';
+  const date = new Date(event.occurred_at);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return date.toISOString().slice(0, 10);
 }
 
-function LayerTab({ tab, active, count, onClick, theme }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      style={{
-        flex: 1,
-        minWidth: 0,
-        padding: '9px 7px',
-        border: `1px solid ${active ? theme.honey : theme.border}`,
-        borderRadius: 12,
-        background: active ? theme.honeyLight : theme.white,
-        color: active ? theme.honeyDeep : theme.muted,
-        cursor: 'pointer',
-        fontFamily: 'inherit',
-        textAlign: 'left',
-      }}
-    >
-      <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700 }}>{tab.label} · {count}</span>
-      <span style={{ display: 'block', marginTop: 3, fontSize: 8.8, lineHeight: 1.35, color: active ? theme.honeyDeep : theme.mutedLight }}>{tab.description}</span>
-    </button>
-  );
+function formatHistoryDate(event) {
+  const raw = eventDateKey(event);
+  if (!raw) return '某日';
+  const [year, month, day] = raw.split('-');
+  return `${Number(year)}年${Number(month)}月${Number(day)}日`;
+}
+
+function formatEventClock(event) {
+  if (!event?.occurred_at) return '';
+  const date = new Date(event.occurred_at);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function normalizedEventText(event) {
+  return `${event?.title || ''}${event?.summary || ''}`
+    .toLocaleLowerCase('zh-CN')
+    .replace(/[，。！？、；：,.!?;:\s"'“”‘’（）()[\]【】]/g, '');
+}
+
+function bigrams(text) {
+  const normalized = String(text || '');
+  const set = new Set();
+  for (let index = 0; index < normalized.length - 1; index += 1) {
+    set.add(normalized.slice(index, index + 2));
+  }
+  return set;
+}
+
+function eventSimilarity(left, right) {
+  const leftText = normalizedEventText(left);
+  const rightText = normalizedEventText(right);
+  if (!leftText || !rightText) return 0;
+  if (leftText.includes(rightText.slice(0, 14)) || rightText.includes(leftText.slice(0, 14))) return 1;
+  const leftBigrams = bigrams(leftText);
+  const rightBigrams = bigrams(rightText);
+  let overlap = 0;
+  for (const item of leftBigrams) {
+    if (rightBigrams.has(item)) overlap += 1;
+  }
+  const union = new Set([...leftBigrams, ...rightBigrams]).size || 1;
+  return overlap / union;
+}
+
+function mergeSimilarEvents(events = []) {
+  const groups = [];
+  for (const event of events) {
+    const dateKey = eventDateKey(event);
+    const existing = groups.find(group => {
+      if (group.dateKey !== dateKey) return false;
+      if ((group.event.title || '') === (event.title || '')) return true;
+      return eventSimilarity(group.event, event) >= 0.24;
+    });
+    if (existing) {
+      existing.items.push(event);
+    } else {
+      groups.push({ dateKey, event, items: [event] });
+    }
+  }
+  return groups;
+}
+
+function sentencePunctuation(text) {
+  return /[。！？!?]$/.test(String(text || '').trim()) ? '' : '。';
+}
+
+function historySentence(event) {
+  const title = String(event?.title || '').trim();
+  const summary = String(event?.summary || '').trim();
+  const titlePart = title ? `${title}${sentencePunctuation(title)}` : '';
+  return `${formatHistoryDate(event)}，${titlePart}${summary}${sentencePunctuation(summary)}`;
 }
 
 export function MemoryRoom({
@@ -68,8 +101,6 @@ export function MemoryRoom({
   setSystemPromptInput,
   temperatureInput,
   setTemperatureInput,
-  minReplyCharsInput,
-  setMinReplyCharsInput,
   savePersona,
   savingPersona,
   newMemory,
@@ -85,52 +116,21 @@ export function MemoryRoom({
   cancelEditMemory,
   saveEditMemory,
   deleteMemory,
+  memoryEventDraft,
+  setMemoryEventDraft,
+  saveManualMemoryEvent,
+  savingMemoryEvent,
+  memoryEventError,
+  memoryLog,
+  editingMemoryEventId,
+  editingMemoryEventDraft,
+  setEditingMemoryEventDraft,
+  startEditMemoryEvent,
+  cancelEditMemoryEvent,
+  saveEditMemoryEvent,
+  deleteMemoryEvent,
 }) {
-  const [memoryLayer, setMemoryLayer] = useState('core');
-  const [workingMemories, setWorkingMemories] = useState([]);
-  const [workingLoading, setWorkingLoading] = useState(false);
-  const [workingError, setWorkingError] = useState('');
-
-  useEffect(() => {
-    if (!visible) return undefined;
-    let cancelled = false;
-    setWorkingLoading(true);
-    setWorkingError('');
-    apiFetch(`${BACKEND}/memory-log?days=90`)
-      .then(async response => {
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload?.error || '临时记忆没有打开');
-        if (!cancelled) setWorkingMemories(Array.isArray(payload?.openMarks) ? payload.openMarks : []);
-      })
-      .catch(error => {
-        if (!cancelled) setWorkingError(error.message || '临时记忆没有打开');
-      })
-      .finally(() => {
-        if (!cancelled) setWorkingLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [visible]);
-
-  const coreMemories = useMemo(
-    () => memories.filter(memory => memory.memory_tier === 'core' || memory.is_protected),
-    [memories],
-  );
-  const episodicMemories = useMemo(
-    () => memories.filter(memory => memory.memory_tier !== 'core' && !memory.is_protected && memory.memory_tier !== 'archived'),
-    [memories],
-  );
-  const activeWorkingMemories = useMemo(
-    () => workingMemories.filter(memory => !memory.expires_at || Date.parse(memory.expires_at) > Date.now()),
-    [workingMemories],
-  );
-
-  const selectedPersistentMemories = memoryLayer === 'core' ? coreMemories : episodicMemories;
-  const selectedTab = MEMORY_LAYER_TABS.find(tab => tab.key === memoryLayer) || MEMORY_LAYER_TABS[0];
-  const layerCounts = {
-    core: coreMemories.length,
-    episodic: episodicMemories.length,
-    temporary: activeWorkingMemories.length,
-  };
+  const timelineEvents = useMemo(() => mergeSimilarEvents(memoryLog.events || []), [memoryLog.events]);
 
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
@@ -145,113 +145,137 @@ export function MemoryRoom({
             <span style={{ fontSize: 11.5, color: C.muted, flexShrink: 0 }}>随机性 {temperatureInput}</span>
             <input type="range" min="0" max="1" step="0.1" value={temperatureInput} onChange={e => setTemperatureInput(e.target.value)} style={{ flex: 1 }} />
           </div>
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 5 }}>
-              <span style={{ fontSize: 11.5, color: C.muted }}>最低回复长度</span>
-              <label style={{ display: "flex", alignItems: "center", gap: 4, color: C.mutedLight, fontSize: 10.5 }}>
-                <input
-                  type="number"
-                  min="0"
-                  max="600"
-                  step="10"
-                  value={minReplyCharsInput}
-                  onChange={e => setMinReplyCharsInput(Math.min(600, Math.max(0, Number(e.target.value) || 0)))}
-                  style={{ width: 62, border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, color: C.text, padding: "4px 6px", fontFamily: "inherit", textAlign: "right" }}
-                />
-                字
-              </label>
-            </div>
-            <input aria-label="陆泽最低回复长度" type="range" min="0" max="600" step="10" value={minReplyCharsInput} onChange={e => setMinReplyCharsInput(Number(e.target.value))} style={{ width: "100%" }} />
-            <div style={{ fontSize: 10.5, lineHeight: 1.55, color: C.mutedLight }}>陆泽仍会自己判断该说多长；不足下限时只把当前内容说完整，不会另起无关话题。设为 0 就只按语境决定。</div>
-          </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存人设"}</span>
           </div>
         </SettingsGroup>
 
-        <SettingsGroup theme={C} title="记忆分层" subtitle="重要的会沉淀，临时的会自然退场" resetKey={resetKey}>
-          <div style={{ padding: '10px 11px', marginBottom: 11, borderRadius: 13, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, color: C.honeyDeep, fontSize: 10.5, lineHeight: 1.6 }}>
-            新内容先进入阶段或临时记忆；稳定身份、反复确认的偏好、边界和重要约定会逐渐提炼为核心记忆。过期与重复内容只归档，不会悄悄删除。
-          </div>
-          <div style={{ display: 'flex', gap: 7 }}>
-            {MEMORY_LAYER_TABS.map(tab => (
-              <LayerTab
-                key={tab.key}
-                tab={tab}
-                count={layerCounts[tab.key]}
-                active={memoryLayer === tab.key}
-                onClick={() => setMemoryLayer(tab.key)}
-                theme={C}
-              />
-            ))}
-          </div>
-        </SettingsGroup>
-
-        <SettingsGroup theme={C} title="主动记住" subtitle="手动写下的内容先作为阶段记忆保存" resetKey={resetKey}>
-          <div style={{ display: "flex", gap: 8 }}>
+        <SettingsGroup theme={C} title="长期记忆" subtitle="稳定偏好、重要约定和长期资料" resetKey={resetKey}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
             <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
             <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
           </div>
+          {memoriesLoading && (
+            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>翻找中…</div>
+          )}
+          {!memoriesLoading && memories.length === 0 && (
+            <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>还没有存下来的记忆。</div>
+          )}
+          {!memoriesLoading && memories.map((m, idx) => (
+            <div key={m.id ?? idx} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: idx === memories.length - 1 ? "none" : `1px solid ${C.borderLight}` }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                {m.timestamp && (
+                  <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: ".1em", marginBottom: 4 }}>
+                    {new Date(m.timestamp).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+                {editingMemoryId !== m.id && (
+                  <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+                    <span onClick={() => startEditMemory(m)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
+                    <span onClick={() => deleteMemory(m.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
+                  </div>
+                )}
+              </div>
+              {editingMemoryId === m.id ? (
+                <div>
+                  <textarea value={editingMemoryText} onChange={e => setEditingMemoryText(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
+                    <span onClick={cancelEditMemory} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", padding: "4px 8px" }}>取消</span>
+                    <span onClick={saveEditMemory} style={{ fontSize: 11.5, color: C.white, cursor: "pointer", padding: "4px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap" }}>{m.summary}</div>
+              )}
+            </div>
+          ))}
         </SettingsGroup>
 
-        <SettingsGroup theme={C} title={selectedTab.label} subtitle={selectedTab.description} resetKey={resetKey}>
-          {memoryLayer === 'temporary' ? (
-            <>
-              {workingLoading && <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: '20px 0' }}>整理近期话题中…</div>}
-              {!workingLoading && workingError && <div style={{ fontSize: 11.5, lineHeight: 1.6, color: C.blushDeep, padding: '10px 0' }}>{workingError}</div>}
-              {!workingLoading && !workingError && activeWorkingMemories.length === 0 && (
-                <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, letterSpacing: '.08em', padding: '20px 0' }}>现在没有挂着没聊完的事情。</div>
-              )}
-              {!workingLoading && !workingError && activeWorkingMemories.map((memory, idx) => (
-                <div key={memory.id ?? idx} style={{ marginBottom: 13, paddingBottom: 13, borderBottom: idx === activeWorkingMemories.length - 1 ? 'none' : `1px solid ${C.borderLight}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: C.honeyDeep }}>{memory.topic || '近期话题'}</span>
-                    <span style={{ fontSize: 9.5, color: C.mutedLight, flexShrink: 0 }}>{displayDate(memory.created_at)}</span>
-                  </div>
-                  <div style={{ fontSize: 13, lineHeight: 1.7, color: C.text, whiteSpace: 'pre-wrap' }}>{memory.summary}</div>
-                  <div style={{ marginTop: 6, fontSize: 9.5, color: C.mutedLight }}>会在话题结束、被新进展替代或到期后自然归档。</div>
-                </div>
-              ))}
-            </>
+        <SettingsGroup theme={C} title="大事年表" subtitle="按日期合并相似事件，像年表一样保留节点" resetKey={resetKey}>
+          <div style={{ padding: 12, borderRadius: 14, background: C.white, border: `1px solid ${C.borderLight}`, marginBottom: 12 }}>
+            <input
+              value={memoryEventDraft.title}
+              onChange={e => setMemoryEventDraft(draft => ({ ...draft, title: e.target.value }))}
+              placeholder="标题，比如：M3 记忆库优化"
+              style={{ width: "100%", marginBottom: 8, fontSize: 12.5, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", fontFamily: "inherit" }}
+            />
+            <textarea
+              value={memoryEventDraft.summary}
+              onChange={e => setMemoryEventDraft(draft => ({ ...draft, summary: e.target.value }))}
+              rows={3}
+              placeholder="按“谁在什么地点发生了什么事”的方式补一条…"
+              style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 10px", outline: "none", resize: "vertical", fontFamily: "inherit" }}
+            />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
+              <input
+                type="date"
+                value={memoryEventDraft.event_date || ''}
+                onChange={e => setMemoryEventDraft(draft => ({ ...draft, event_date: e.target.value }))}
+                style={{ minWidth: 0, width: 122, flexShrink: 0, fontSize: 12, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 10px", outline: "none", fontFamily: "inherit" }}
+              />
+              <select
+                value={memoryEventDraft.event_type}
+                onChange={e => setMemoryEventDraft(draft => ({ ...draft, event_type: e.target.value }))}
+                style={{ minWidth: 0, flex: 1, fontSize: 12, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 10px", outline: "none", fontFamily: "inherit" }}
+              >
+                {MEMORY_EVENT_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+              <button
+                type="button"
+                onClick={saveManualMemoryEvent}
+                disabled={savingMemoryEvent}
+                style={{ flexShrink: 0, border: 0, background: memoryEventDraft.title.trim() && memoryEventDraft.summary.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, borderRadius: 999, padding: "7px 14px", fontSize: 12, cursor: savingMemoryEvent ? "default" : "pointer", opacity: savingMemoryEvent ? .7 : 1, fontFamily: "inherit" }}
+              >{savingMemoryEvent ? "补进年表中…" : "补进年表"}</button>
+            </div>
+            {memoryEventError && <div role="alert" style={{ marginTop: 8, color: C.blushDeep, fontSize: 11 }}>{memoryEventError}</div>}
+          </div>
+          {timelineEvents.length === 0 ? (
+            <div style={{ color: C.muted, fontSize: 12, padding: "12px 0" }}>还没有年表记录。</div>
           ) : (
-            <>
-              {memoriesLoading && (
-                <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>翻找中…</div>
-              )}
-              {!memoriesLoading && selectedPersistentMemories.length === 0 && (
-                <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".08em", padding: "20px 0" }}>{memoryLayer === 'core' ? '还没有被提炼成核心的记忆。' : '还没有存下来的阶段记忆。'}</div>
-              )}
-              {!memoriesLoading && selectedPersistentMemories.map((memory, idx) => (
-                <div key={memory.id ?? idx} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: idx === selectedPersistentMemories.length - 1 ? "none" : `1px solid ${C.borderLight}` }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, marginBottom: 5 }}>
-                      <span style={{ flexShrink: 0, fontSize: 9.5, color: memoryLayer === 'core' ? C.honeyDeep : C.muted, background: memoryLayer === 'core' ? C.honeyLight : C.cream, border: `1px solid ${memoryLayer === 'core' ? C.honeyMid : C.border}`, borderRadius: 999, padding: '2px 7px' }}>{MEMORY_KIND_LABELS[memory.memory_kind] || '记忆'}</span>
-                      {memory.timestamp && <span style={{ fontSize: 9.5, color: C.mutedLight }}>{displayDate(memory.timestamp)}</span>}
+            <div style={{ display: "grid", gap: 9 }}>
+              {timelineEvents.slice(0, 12).map(group => {
+                const event = group.event;
+                return (
+                  <article key={event.id} style={{ display: "grid", gridTemplateColumns: "74px 1fr", gap: 10, opacity: event.status === 'resolved' ? .55 : 1 }}>
+                    <time style={{ color: C.mutedLight, fontSize: 10, lineHeight: 1.35, paddingTop: 2 }}>
+                      <span style={{ display: "block" }}>{eventDateKey(event).slice(0, 4)}</span>
+                      <span style={{ display: "block" }}>{eventDateKey(event).slice(5).replace('-', '/')}</span>
+                      {formatEventClock(event) && <span style={{ display: "block" }}>{formatEventClock(event)}</span>}
+                    </time>
+                    <div style={{ paddingBottom: 10, borderBottom: `1px solid ${C.borderLight}` }}>
+                      {editingMemoryEventId === event.id ? (
+                        <div>
+                          <input value={editingMemoryEventDraft.title} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, title: e.target.value }))} style={{ width: "100%", marginBottom: 7, fontSize: 12.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 9, padding: "7px 9px", outline: "none", fontFamily: "inherit" }} />
+                          <textarea value={editingMemoryEventDraft.summary} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, summary: e.target.value }))} rows={3} style={{ width: "100%", fontSize: 12.5, lineHeight: 1.55, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 9, padding: "7px 9px", outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 6 }}>
+                            <input type="date" value={editingMemoryEventDraft.event_date || ''} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, event_date: e.target.value }))} style={{ width: 116, flexShrink: 0, fontSize: 11.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 8px", outline: "none", fontFamily: "inherit" }} />
+                            <select value={editingMemoryEventDraft.event_type} onChange={e => setEditingMemoryEventDraft(draft => ({ ...draft, event_type: e.target.value }))} style={{ minWidth: 0, flex: 1, fontSize: 11.5, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "5px 8px", outline: "none", fontFamily: "inherit" }}>
+                              {MEMORY_EVENT_TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                            </select>
+                            <span onClick={cancelEditMemoryEvent} style={{ fontSize: 11, color: C.muted, cursor: "pointer" }}>取消</span>
+                            <span onClick={saveEditMemoryEvent} style={{ fontSize: 11, color: C.white, cursor: "pointer", padding: "4px 9px", background: C.honey, borderRadius: 999 }}>保存</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3, flexWrap: "wrap" }}>
+                            <b style={{ color: C.text, fontSize: 12.5 }}>{event.title}</b>
+                            <span style={{ color: C.honeyDeep, background: C.honeyLight, borderRadius: 999, padding: "2px 7px", fontSize: 9 }}>{event.event_type}</span>
+                            {group.items.length > 1 && <span style={{ color: C.muted, background: C.surface, borderRadius: 999, padding: "2px 7px", fontSize: 9 }}>合并 {group.items.length} 条</span>}
+                          </div>
+                          <p style={{ margin: 0, color: C.muted, fontSize: 11.5, lineHeight: 1.65 }}>{historySentence(event)}</p>
+                          {event.emotion && <small style={{ display: "block", marginTop: 5, color: C.blushDeep, fontSize: 10 }}>情绪：{event.emotion}</small>}
+                          <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                            <span onClick={() => startEditMemoryEvent(event)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
+                            <span onClick={() => deleteMemoryEvent(event.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
+                          </div>
+                        </>
+                      )}
                     </div>
-                    {editingMemoryId !== memory.id && (
-                      <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-                        <span onClick={() => startEditMemory(memory)} style={{ fontSize: 11, color: C.honeyDeep, cursor: "pointer" }}>编辑</span>
-                        <span onClick={() => deleteMemory(memory.id)} style={{ fontSize: 11, color: C.blushDeep, cursor: "pointer" }}>删除</span>
-                      </div>
-                    )}
-                  </div>
-                  {editingMemoryId === memory.id ? (
-                    <div>
-                      <textarea value={editingMemoryText} onChange={e => setEditingMemoryText(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: 8, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
-                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 6 }}>
-                        <span onClick={cancelEditMemory} style={{ fontSize: 11.5, color: C.muted, cursor: "pointer", padding: "4px 8px" }}>取消</span>
-                        <span onClick={saveEditMemory} style={{ fontSize: 11.5, color: C.white, cursor: "pointer", padding: "4px 10px", background: C.honey, borderRadius: 999 }}>保存</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 13.5, lineHeight: 1.7, color: C.text, whiteSpace: "pre-wrap" }}>{memory.summary}</div>
-                  )}
-                  {memoryLayer === 'core' && memory.reinforcement_count > 0 && (
-                    <div style={{ marginTop: 6, fontSize: 9.5, color: C.mutedLight }}>已在相关对话中被重新想起 {memory.reinforcement_count} 次</div>
-                  )}
-                </div>
-              ))}
-            </>
+                  </article>
+                );
+              })}
+            </div>
           )}
         </SettingsGroup>
       </div>

@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">OurHome</string>
-    <string name="title_activity_main">OurHome</string>
-    <string name="package_name">com.ourhome.app</string>
-    <string name="custom_url_scheme">com.ourhome.app</string>
-</resources>

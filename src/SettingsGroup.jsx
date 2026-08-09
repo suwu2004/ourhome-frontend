@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react';
 
-export function SettingsGroup({ theme, title, subtitle, children, defaultOpen = false, resetKey, openSignal }) {
+export function SettingsGroup({ theme, title, subtitle, children, defaultOpen = false, resetKey }) {
   const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {
     if (resetKey !== undefined) setOpen(false);
   }, [resetKey]);
-
-  useEffect(() => {
-    if (openSignal?.key !== undefined) setOpen(Boolean(openSignal.open));
-  }, [openSignal?.key]);
 
   return (
     <section style={{ marginBottom: 12, overflow: 'hidden', background: theme.white, border: `1px solid ${theme.border}`, borderRadius: 16, boxShadow: `0 8px 22px ${theme.borderLight}88` }}>

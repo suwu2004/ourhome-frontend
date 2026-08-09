@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { getHomeWeatherCity, HOME_PREFERENCES_EVENT } from './homePreferences.js';
 import { upcomingOccasions } from './milestoneDates.js';
-import { useMusicPlayer } from './MusicPlayerContext.jsx';
 import { useTheme } from './ThemeContext.jsx';
 import '@fontsource/parisienne/400.css';
 
@@ -101,16 +100,6 @@ function CoinIcon() {
     <svg className="home-room-glyph home-coin-icon" viewBox="0 0 32 32" aria-hidden="true">
       <circle cx="16" cy="16" r="11.5" />
       <path d="m11.5 10.5 4.5 5 4.5-5M16 15.5v7M11.8 17.5h8.4M11.8 20.5h8.4" />
-    </svg>
-  );
-}
-
-function PhotoIcon() {
-  return (
-    <svg className="home-room-glyph" viewBox="0 0 36 36" aria-hidden="true">
-      <rect x="7" y="8" width="22" height="20" rx="4" />
-      <circle cx="14" cy="15" r="2.3" />
-      <path d="m9 25 6.5-6.5 4.5 4.2 2.6-2.7L29 26" />
     </svg>
   );
 }
@@ -256,10 +245,6 @@ function MemoDrawer({
 
 export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const { darkMode, settings } = useTheme();
-  const {
-    state: musicState,
-    loadMusic: loadMusicPreview,
-  } = useMusicPlayer();
   const [now, setNow] = useState(() => new Date());
   const [city, setCity] = useState(getHomeWeatherCity);
   const [weather, setWeather] = useState(null);
@@ -344,8 +329,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   useEffect(() => {
     loadMemos();
     loadMilestones();
-    loadMusicPreview();
-  }, [loadMemos, loadMilestones, loadMusicPreview, refreshToken]);
+  }, [loadMemos, loadMilestones, refreshToken]);
 
   useEffect(() => {
     if (!refreshing) return undefined;
@@ -468,42 +452,17 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
               {featuredOccasion && <span className="home-note-countdown"><OccasionReminder occasion={featuredOccasion} /></span>}
             </div>
           </button>
-
         </section>
 
-        <section className={`home-living-grid home-music-garden ${musicState.is_playing ? 'is-playing' : ''}`} aria-label="客厅功能区">
-          <div className="home-bubble-field" aria-hidden="true">
-            <span /><span /><span /><span /><span /><span /><span /><span /><span /><span />
-          </div>
-
-          <div className="home-room-shelf">
-            <button className="home-room-app home-room-app--music" type="button" onClick={() => onOpen('music')} aria-label="打开一起听">
-              <span aria-hidden="true">♪</span>
-              <strong>一起听</strong>
-            </button>
-            <button className="home-room-app home-room-app--letters" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
-              <span><EnvelopeIcon /></span>
-              <strong>时光信差</strong>
-            </button>
-            <button className="home-room-app home-room-app--theater" type="button" onClick={() => onOpen('theater')} aria-label="打开小剧场">
-              <span>
-                <svg className="home-room-glyph" viewBox="0 0 36 36" aria-hidden="true">
-                  <path d="M7 9h22v18H7z" />
-                  <path d="M11 13h14M11 18h10M11 23h7" />
-                  <path d="M27 7l4 4M31 7l-4 4" />
-                </svg>
-              </span>
-              <strong>小剧场</strong>
-            </button>
-            <button className="home-room-app home-room-app--vault" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
-              <span><CoinIcon /></span>
-              <strong>猫的金库</strong>
-            </button>
-            <button className="home-room-app home-room-app--photos" type="button" onClick={() => onOpen('photos')} aria-label="打开光影相册">
-              <span><PhotoIcon /></span>
-              <strong>光影相册</strong>
-            </button>
-          </div>
+        <section className="home-room-shelf" aria-label="客厅里的小房间">
+          <button className="home-room-app home-room-app--letters" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
+            <span><EnvelopeIcon /></span>
+            <strong>时光信差</strong>
+          </button>
+          <button className="home-room-app home-room-app--vault" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
+            <span><CoinIcon /></span>
+            <strong>猫的金库</strong>
+          </button>
         </section>
 
         <nav className="home-dock" aria-label="主页房间导航">
