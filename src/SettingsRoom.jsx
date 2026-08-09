@@ -5,6 +5,7 @@ import { AgentMailSettings } from './AgentMailSettings.jsx';
 import { SettingsGroup } from './SettingsGroup.jsx';
 import { FONT_STYLES } from './fonts.js';
 import { apiFetch, BACKEND } from './api.js';
+import AppInstallSettings from './AppInstallSettings.jsx';
 
 function BackgroundImageOption({ label, description, image, busy, onUpload, onReset, theme, wide = false }) {
   const inputRef = useRef(null);
@@ -75,6 +76,10 @@ export function SettingsRoom(props) {
               <SettingStatusCard theme={C} label="通知" value={notifStatus === 'granted' ? '已开启' : notifStatus === 'denied' ? '已拒绝' : '未开启'} detail={dailyJournalEnabled ? `收尾 ${dailyJournalTime}` : '自动收尾关'} />
             </div>
           </section>
+
+          <SettingsGroup theme={C} title="安装与设备" subtitle="vivo 手机、华为平板与 Android App" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+            <AppInstallSettings />
+          </SettingsGroup>
 
           <SettingsGroup theme={C} title="主题与外观" subtitle="昼夜、字体、天气和主页背景" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
@@ -269,4 +274,3 @@ export function SettingsRoom(props) {
       </div>
   );
 }
-

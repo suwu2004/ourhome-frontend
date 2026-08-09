@@ -2032,3 +2032,14 @@ textarea { display: block; margin: 0; }
 .offline-update-notice button { border: 0; color: inherit; background: transparent; font: inherit; cursor: pointer; }
 .offline-update-notice button:first-of-type { padding: 6px 10px; border-radius: 999px; color: #fff; background: #c98a2a; }
 .offline-update-notice button:last-of-type { padding: 2px 5px; font-size: 16px; opacity: .62; }
+.app-install-settings { display: grid; gap: 10px; color: var(--home-text, #4f3a2d); }
+.app-install-settings > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .68); }
+.app-install-settings > div span { color: #b97820; font-size: 11px; }
+.app-install-settings p { color: var(--home-muted, #8d7461); font-size: 10.5px; line-height: 1.65; }
+.app-install-settings button { min-height: 42px; border: 0; border-radius: 13px; color: #fff; background: linear-gradient(145deg, #dda13b, #b97820); font: inherit; cursor: pointer; }
+.app-install-settings small { color: #b97820; font-size: 10px; }
+html[data-native-app="true"] body { overscroll-behavior: none; }
+@media (min-width: 800px) and (orientation: landscape) {
+  html[data-native-app="true"] .ourhome-scroll { padding-left: max(26px, env(safe-area-inset-left)); padding-right: max(26px, env(safe-area-inset-right)); }
+  html[data-native-app="true"] .home-room-shelf { max-width: 860px; margin-inline: auto; }
+}
