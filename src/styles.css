@@ -524,13 +524,13 @@ html[data-native-app="true"] body[data-ourhome-room="settings"] header.ourhome-s
 
 .home-scene--custom {
   background:
-    linear-gradient(180deg, rgba(255, 252, 244, 0.76), rgba(255, 247, 229, 0.88)),
+    linear-gradient(180deg, rgba(255, 252, 244, 0.42), rgba(255, 247, 229, 0.58)),
     var(--home-custom-background) center / cover no-repeat;
 }
 
 .home-scene--night.home-scene--custom {
   background:
-    linear-gradient(180deg, rgba(34, 24, 16, 0.72), rgba(18, 13, 9, 0.87)),
+    linear-gradient(180deg, rgba(34, 24, 16, 0.48), rgba(18, 13, 9, 0.66)),
     var(--home-custom-background) center / cover no-repeat;
 }
 

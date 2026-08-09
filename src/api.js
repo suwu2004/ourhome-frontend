@@ -10,6 +10,7 @@ const ROUTE_FALLBACK_STATUS = new Set([502, 504]);
 const READ_RETRY_DELAY_MS = 280;
 const CLOUD_CACHE_PREFIX = 'ourhome_cloud_read:';
 const CLOUD_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const SETTINGS_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const staleCloudReads = new Map();
 let activeBackend = BACKEND;
 
@@ -177,7 +178,10 @@ function readCloudCache(path) {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const savedAt = Number(parsed?.savedAt || 0);
-    if (!savedAt || Date.now() - savedAt > CLOUD_CACHE_MAX_AGE_MS || typeof parsed?.body !== 'string') {
+    const maxAge = /(?:^|\/api)\/settings\/?(?:\?.*)?$/.test(path)
+      ? SETTINGS_CACHE_MAX_AGE_MS
+      : CLOUD_CACHE_MAX_AGE_MS;
+    if (!savedAt || Date.now() - savedAt > maxAge || typeof parsed?.body !== 'string') {
       localStorage.removeItem(cacheKey(path));
       return null;
     }
