@@ -5,6 +5,8 @@ const storage = new Map([['ourhome_token', 'test-token']]);
 
 function installBrowserGlobals() {
   globalThis.localStorage = {
+    get length() { return storage.size; },
+    key(index) { return [...storage.keys()][index] ?? null; },
     getItem(key) { return storage.has(key) ? storage.get(key) : null; },
     setItem(key, value) { storage.set(key, String(value)); },
     removeItem(key) { storage.delete(key); },
@@ -24,7 +26,7 @@ function installBrowserGlobals() {
 }
 
 installBrowserGlobals();
-const { apiFetch, DIRECT_BACKEND, getApiRouteState } = await import('../src/api.js');
+const { apiFetch, DIRECT_BACKEND, getApiRouteState, clearOurHomePrivateCache } = await import('../src/api.js');
 
 test('transient GET failure is retried exactly once', async () => {
   let calls = 0;
@@ -154,4 +156,31 @@ test('caller-owned abort signals opt out of automatic retry and route fallback',
   const response = await apiFetch('/api/settings/models', { signal: controller.signal });
   assert.equal(response.status, 503);
   assert.equal(calls, 1);
+});
+
+test('cached settings keep only visual home fields and never retain private prompts', async () => {
+  storage.set('ourhome_token', 'test-token');
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    dark_mode: true,
+    home_bg_day_image_url: 'https://img.test/day.webp',
+    system_prompt: 'private persona',
+    selected_model: 'private-model',
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  await apiFetch('/api/settings');
+  const cachedEntry = [...storage.entries()].find(([key]) => key.startsWith('ourhome_cloud_read:/api/settings'));
+  assert.ok(cachedEntry);
+  const cached = JSON.parse(cachedEntry[1]);
+  assert.deepEqual(JSON.parse(cached.body), {
+    dark_mode: true,
+    home_bg_day_image_url: 'https://img.test/day.webp',
+  });
+});
+
+test('auth cleanup removes cloud cache entries without touching unrelated preferences', () => {
+  storage.set('ourhome_cloud_read:/api/settings', '{}');
+  storage.set('ourhome_weather_city', '武汉');
+  clearOurHomePrivateCache();
+  assert.equal(storage.has('ourhome_cloud_read:/api/settings'), false);
+  assert.equal(storage.get('ourhome_weather_city'), '武汉');
 });

@@ -1,17 +1,8 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import App from './App.jsx';
 import { HomeHub } from './HomeHub.jsx';
-import ReadingRoom from './ReadingRoom.jsx';
-import ReadingCompanionPanel from './ReadingCompanionPanel.jsx';
-import ReadingShelfLiveNote from './ReadingShelfLiveNote.jsx';
-import ToyBoxSharedRoom from './ToyBoxSharedRoom.jsx';
-import ToyBoxGomokuIntegrationV2 from './ToyBoxGomokuIntegrationV2.jsx';
-import ToolBearGameDock from './ToolBearGameDock.jsx';
-import ApiUsageLogPanel from './ApiUsageLogPanel.jsx';
-import LuzeAutonomySettingsPanel from './LuzeAutonomySettingsPanel.jsx';
-import LuzePrivateRoom from './LuzePrivateRoom.jsx';
 import OurHomeAccessGate, { useOurHomeAccess } from './OurHomeAccessGate.jsx';
+import RoomBoundary from './RoomBoundary.jsx';
 import '@fontsource/ma-shan-zheng/chinese-simplified-400.css';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
@@ -24,8 +15,19 @@ import './UnifiedRoomHeaders.css';
 import './RoomHeaderFinal.css';
 import './DecorativeTypographyPolish.css';
 import { useTheme } from './ThemeContext.jsx';
-import VaultPage from './VaultPage.jsx';
-import TheaterRuleLibrary from './TheaterRuleLibrary.jsx';
+
+const App = lazy(() => import('./App.jsx'));
+const ReadingRoom = lazy(() => import('./ReadingRoom.jsx'));
+const ReadingCompanionPanel = lazy(() => import('./ReadingCompanionPanel.jsx'));
+const ReadingShelfLiveNote = lazy(() => import('./ReadingShelfLiveNote.jsx'));
+const ToyBoxSharedRoom = lazy(() => import('./ToyBoxSharedRoom.jsx'));
+const ToyBoxGomokuIntegrationV2 = lazy(() => import('./ToyBoxGomokuIntegrationV2.jsx'));
+const ToolBearGameDock = lazy(() => import('./ToolBearGameDock.jsx'));
+const ApiUsageLogPanel = lazy(() => import('./ApiUsageLogPanel.jsx'));
+const LuzeAutonomySettingsPanel = lazy(() => import('./LuzeAutonomySettingsPanel.jsx'));
+const LuzePrivateRoom = lazy(() => import('./LuzePrivateRoom.jsx'));
+const VaultPage = lazy(() => import('./VaultPage.jsx'));
+const TheaterRuleLibrary = lazy(() => import('./TheaterRuleLibrary.jsx'));
 
 const roomKeys = new Set(['chat', 'theater', 'music', 'reading', 'letters', 'memories', 'calendar', 'vault', 'photos', 'settings', 'toybox', 'luze-room']);
 
@@ -155,28 +157,36 @@ export default function Root() {
 
   if (!unlocked) return <OurHomeAccessGate onUnlocked={() => setUnlocked(true)} />;
 
-  if (room === 'vault') return <VaultPage onClose={goHome} />;
-  if (room === 'luze-room') return <LuzePrivateRoom onClose={goHome} />;
+  const roomShell = children => (
+    <RoomBoundary key={room} room={room} onHome={goHome}>
+      <Suspense fallback={<div className="room-loading-shell" role="status">正在打开房间…</div>}>
+        {children}
+      </Suspense>
+    </RoomBoundary>
+  );
+
+  if (room === 'vault') return roomShell(<VaultPage onClose={goHome} />);
+  if (room === 'luze-room') return roomShell(<LuzePrivateRoom onClose={goHome} />);
   if (room === 'toybox') {
-    return (
+    return roomShell(
       <>
         <ToyBoxSharedRoom onClose={goHome} />
         <ToyBoxGomokuIntegrationV2 />
         <ToolBearGameDock />
-      </>
+      </>,
     );
   }
   if (room === 'reading') {
-    return (
+    return roomShell(
       <>
         <ReadingRoom onClose={goHome} />
         <ReadingShelfLiveNote />
         <ReadingCompanionPanel />
-      </>
+      </>,
     );
   }
   if (room !== 'home') {
-    return (
+    return roomShell(
       <>
         <App key={room} initialView={room} onHome={goHome} />
         {room === 'theater' && <TheaterRuleLibrary />}
@@ -186,7 +196,7 @@ export default function Root() {
             <LuzeAutonomySettingsPanel />
           </>
         )}
-      </>
+      </>,
     );
   }
 

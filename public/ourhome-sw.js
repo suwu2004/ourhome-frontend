@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'ourhome-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v1`;
+const CACHE_NAME = `${CACHE_PREFIX}v2`;
 const CORE_SHELL = [
   '/',
   '/manifest.json',
@@ -48,6 +48,30 @@ async function cacheBuiltAssets(cache) {
   }
 }
 
+async function pruneOldBuiltAssets(cache) {
+  try {
+    const response = await fetch('/', { cache: 'no-store' });
+    if (!response.ok) return;
+    const html = await response.clone().text();
+    const livePaths = new Set(CORE_SHELL);
+    for (const match of html.matchAll(/(?:src|href)=["']([^"']+)["']/g)) {
+      const value = match[1];
+      if (!sameOrigin(value)) continue;
+      const pathname = new URL(value, self.location.origin).pathname;
+      if (staticAssetPath(pathname)) livePaths.add(pathname);
+    }
+    const requests = await cache.keys();
+    await Promise.all(requests.map(request => {
+      const pathname = new URL(request.url).pathname;
+      return pathname.startsWith('/assets/') && !livePaths.has(pathname)
+        ? cache.delete(request)
+        : undefined;
+    }));
+  } catch {
+    // Cleanup is best-effort; the existing offline shell remains usable.
+  }
+}
+
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
@@ -60,7 +84,6 @@ self.addEventListener('install', event => {
       }
     }));
     await cacheBuiltAssets(cache);
-    await self.skipWaiting();
   })());
 });
 
@@ -70,8 +93,13 @@ self.addEventListener('activate', event => {
     await Promise.all(names
       .filter(name => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME)
       .map(name => caches.delete(name)));
+    await pruneOldBuiltAssets(await caches.open(CACHE_NAME));
     await self.clients.claim();
   })());
+});
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', event => {

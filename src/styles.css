@@ -2009,3 +2009,26 @@ textarea { display: block; margin: 0; }
     transition-duration: 0.01ms !important;
   }
 }
+/* Room-level loading and recovery keep one broken lazy room from blanking the whole home. */
+.room-loading-shell,
+.room-recovery-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 24px;
+  color: var(--home-text, #4f3a2d);
+  background: var(--home-cream, #fff9ef);
+  font-size: 12px;
+  letter-spacing: .12em;
+}
+.room-recovery-card { width: min(320px, 86vw); padding: 24px; text-align: center; border: 1px solid rgba(181, 132, 70, .22); border-radius: 20px; background: rgba(255, 255, 255, .78); box-shadow: 0 12px 38px rgba(107, 72, 38, .10); }
+.room-recovery-card span,
+.room-recovery-card strong { display: block; }
+.room-recovery-card strong { margin-top: 8px; font-size: 15px; letter-spacing: .04em; }
+.room-recovery-card div { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+.room-recovery-card button { padding: 9px 15px; border: 1px solid rgba(181, 132, 70, .34); border-radius: 999px; color: inherit; background: #fffaf1; font: inherit; cursor: pointer; }
+.offline-update-notice { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 10000; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100vw - 28px); padding: 9px 10px 9px 14px; border: 1px solid rgba(181, 132, 70, .26); border-radius: 999px; color: #5b412e; background: rgba(255, 250, 241, .96); box-shadow: 0 8px 26px rgba(92, 61, 34, .16); backdrop-filter: blur(12px); font-size: 11px; }
+.offline-update-notice button { border: 0; color: inherit; background: transparent; font: inherit; cursor: pointer; }
+.offline-update-notice button:first-of-type { padding: 6px 10px; border-radius: 999px; color: #fff; background: #c98a2a; }
+.offline-update-notice button:last-of-type { padding: 2px 5px; font-size: 16px; opacity: .62; }
