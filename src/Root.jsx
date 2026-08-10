@@ -231,11 +231,13 @@ export default function Root() {
   }
 
   const persistentAppVisible = persistentAppRoomKeys.has(room);
+  const activePersistentRoom = persistentAppVisible ? room : lastPersistentRoom;
+  const renderPersistentApp = persistentAppMounted || persistentAppVisible;
 
   return (
     <>
       {foregroundRoom}
-      {persistentAppMounted && (
+      {renderPersistentApp && (
         <div
           aria-hidden={!persistentAppVisible}
           style={{
@@ -245,11 +247,11 @@ export default function Root() {
             zIndex: persistentAppVisible ? 1 : -1,
           }}
         >
-          <RoomBoundary room={lastPersistentRoom} onHome={goHome}>
+          <RoomBoundary room={activePersistentRoom} onHome={goHome}>
             <Suspense fallback={<div className="room-loading-shell" role="status">正在打开房间…</div>}>
-              <App initialView={lastPersistentRoom} onHome={goHome} />
-              {lastPersistentRoom === 'theater' && <TheaterRuleLibrary />}
-              {lastPersistentRoom === 'settings' && (
+              <App initialView={activePersistentRoom} onHome={goHome} />
+              {activePersistentRoom === 'theater' && <TheaterRuleLibrary />}
+              {activePersistentRoom === 'settings' && (
                 <>
                   <ApiUsageLogPanel />
                   <LuzeAutonomySettingsPanel />
