@@ -115,21 +115,23 @@ test('Android update and Supabase recovery live under data management instead of
   assert.match(failoverRecovery, /pending_objects/);
 });
 
-test('Android notifications use native permission and local alarms while web keeps Web Push', () => {
+test('Android notifications keep local alarms, support optional private FCM, and web keeps Web Push', () => {
   assert.match(androidManifest, /android\.permission\.POST_NOTIFICATIONS/);
   assert.match(androidManifest, /OurHomeReminderReceiver/);
   assert.match(mainActivity, /registerPlugin\(OurHomeNotificationsPlugin\.class\)/);
   assert.match(nativeNotifications, /isNativeAndroidApp/);
   assert.match(nativeNotifications, /syncNativeScheduleReminders/);
+  assert.match(nativeNotifications, /registerNativeRemotePush/);
   assert.match(notificationsPlugin, /requestPermissionForAlias/);
   assert.match(notificationsPlugin, /PermissionState\.PROMPT/);
   assert.match(notificationsPlugin, /setAndAllowWhileIdle/);
+  assert.match(notificationsPlugin, /FirebaseMessaging\.getInstance\(\)\.getToken\(\)/);
   assert.match(reminderReceiver, /NotificationCompat\.Builder/);
   assert.match(appSource, /if \(isNativeAndroidApp\(\)\)/);
   assert.match(appSource, /await fetchSchedule\(\)/);
   assert.match(appSource, /serviceWorker.*PushManager/s);
   assert.match(settingsSource, /Android 系统通知/);
-  assert.match(settingsSource, /原生云推送还需要接 FCM/);
+  assert.match(settingsSource, /native-fcm/);
 });
 
 test('Chat session switching rejects stale responses and scopes attachments', () => {
