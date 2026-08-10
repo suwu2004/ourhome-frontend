@@ -66,6 +66,7 @@ export function SettingsRoom(props) {
                 <button type="button" onClick={() => setSettingsGroupsOpenSignal(current => ({ key: current.key + 1, open: false }))} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.cream, color: C.muted, padding: '6px 10px', fontSize: 10.5, cursor: 'pointer', fontFamily: 'inherit' }}>收起</button>
               </div>
             </div>
+            <div data-settings-console-api-usage-target="true" />
           </section>
 
           <SettingsSectionLabel theme={C}>常用设置</SettingsSectionLabel>
