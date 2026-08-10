@@ -1,0 +1,11 @@
+/* Keep the Chat composer visually centered across custom fonts and Android font scaling.
+ * The textarea still auto-grows from its scrollHeight; these rules only stabilize
+ * its single-line rhythm and nudge fonts with low visual baselines slightly upward. */
+textarea[rows="1"][placeholder="在云端漫步"],
+textarea[rows="1"][placeholder="修改好后重新发送…"] {
+  box-sizing: border-box !important;
+  align-self: center !important;
+  min-height: 34px !important;
+  line-height: 1.48 !important;
+  padding-block: 0.30em 0.42em !important;
+}
