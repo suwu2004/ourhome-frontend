@@ -1,7 +1,9 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
 import { promptAppInstall, subscribeInstallState } from './appInstall.js';
 import { checkForAndroidUpdate, installAndroidUpdate } from './appUpdate.js';
 import FailoverRecoverySettings from './FailoverRecoverySettings.jsx';
+import { useSettingsGroupTarget } from './useSettingsGroupTarget.js';
 
 const BUILD_SHA = String(import.meta.env.VITE_BUILD_SHA || 'local').slice(0, 7);
 
@@ -9,6 +11,11 @@ export default function AppInstallSettings({ compact = false }) {
   const [state, setState] = useState({ native: false, installed: false, promptAvailable: false });
   const [notice, setNotice] = useState('');
   const [updateState, setUpdateState] = useState({ checking: false, installing: false, current: null, latest: null, available: false });
+  const dataManagementTarget = useSettingsGroupTarget({
+    key: 'data-device-recovery',
+    title: '备份与导出',
+    position: 'start',
+  });
 
   useEffect(() => subscribeInstallState(setState), []);
 
@@ -91,33 +98,24 @@ export default function AppInstallSettings({ compact = false }) {
         ? '更新到最新版'
         : '检查更新';
 
-  if (compact) {
-    return (
-      <div className="app-device-summary">
-        <span>当前形态：{status}</span>
-        {state.native ? (
-          <button type="button" onClick={updateState.available ? updateNow : checkUpdate} disabled={nativeBusy}>{nativeActionLabel}</button>
-        ) : !state.installed && (
-          <button type="button" onClick={install}>{state.promptAvailable ? '安装' : '安装方法'}</button>
-        )}
-        {notice && <small role="status">{notice}</small>}
-        {state.native && <FailoverRecoverySettings />}
-      </div>
-    );
-  }
-
-  return (
-    <div className="app-install-settings">
-      <div><strong>当前形态</strong><span>{status}</span></div>
+  const maintenancePanel = (
+    <div className="app-install-settings app-data-maintenance-settings">
+      <div><strong>设备与数据状态</strong><span>{status}</span></div>
       {state.native ? (
         <>
-          <p>现在运行在 OurHome 的 Android 外壳里。以后有新版直接从这里更新；安装包支持网络抖动重试和断点续传，并会在安装前校验完整性。</p>
+          <p>版本检查、主库与灾备都收在数据管理里；更新包支持网络抖动重试和断点续传，安装前会校验完整性。</p>
           <button type="button" onClick={updateState.available ? updateNow : checkUpdate} disabled={nativeBusy}>{nativeActionLabel}</button>
         </>
-      ) : state.installed ? <p>已经可以像普通 App 一样从桌面打开，更新仍会自动跟随我们的家。</p>
-        : <><p>vivo 手机与华为平板都可以先安装桌面版；进入后没有浏览器地址栏。</p><button type="button" onClick={install}>{state.promptAvailable ? '安装 OurHome' : '查看安装方法'}</button></>}
+      ) : state.installed ? <p>已经可以像普通 App 一样从桌面打开，设备维护与数据恢复都集中放在这里。</p>
+        : <><p>可以先安装桌面版；设备维护、备份和恢复都集中放在数据管理里。</p><button type="button" onClick={install}>{state.promptAvailable ? '安装 OurHome' : '查看安装方法'}</button></>}
       {notice && <small role="status">{notice}</small>}
       {state.native && <FailoverRecoverySettings />}
     </div>
   );
+
+  if (compact) {
+    return dataManagementTarget ? createPortal(maintenancePanel, dataManagementTarget) : null;
+  }
+
+  return maintenancePanel;
 }

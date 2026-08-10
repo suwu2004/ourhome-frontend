@@ -1,11 +1,25 @@
 const RETRYABLE_CHAT_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RECOVERY_WINDOW_MS = 5 * 60 * 1000;
+const PERSISTED_SEND_TTL_MS = 15 * 60 * 1000;
+const PERSISTED_SEND_STORAGE_KEY = 'ourhome_chat_pending_sends:v1';
+const MAX_PERSISTED_SENDS = 6;
 const DIRECT_BACKEND = String(import.meta.env?.VITE_DIRECT_BACKEND_URL || 'https://ourhome-backend.onrender.com').replace(/\/$/, '');
 const activeChatRequests = new Map();
 const nativeFetch = globalThis.fetch?.bind(globalThis);
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function logicalFingerprint(value) {
+  const text = String(value || '');
+  let hash = 0xcbf29ce484222325n;
+  const prime = 0x100000001b3n;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= BigInt(text.charCodeAt(index));
+    hash = BigInt.asUintN(64, hash * prime);
+  }
+  return hash.toString(16).padStart(16, '0');
 }
 
 function chatRequestInfo(input, init = {}) {
@@ -36,11 +50,13 @@ function chatRequestInfo(input, init = {}) {
     attachment_type: String(body.attachment_type || ''),
     attachment_name: String(body.attachment_name || ''),
   };
+  const key = JSON.stringify(logical);
   return {
     url,
     body,
     logical,
-    key: JSON.stringify(logical),
+    key,
+    fingerprint: logicalFingerprint(key),
     startedAt: Date.now(),
   };
 }
@@ -54,6 +70,91 @@ function safeRequestId(headers) {
   if (/^[A-Za-z0-9._:-]{8,160}$/.test(current)) return current;
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `chat-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function browserStorage() {
+  try {
+    return globalThis.localStorage || null;
+  } catch {
+    return null;
+  }
+}
+
+function validPersistedSend(entry, now = Date.now()) {
+  return Boolean(
+    entry
+    && /^[a-f0-9]{16}$/.test(String(entry.fingerprint || ''))
+    && /^[A-Za-z0-9._:-]{8,160}$/.test(String(entry.requestId || ''))
+    && Number.isFinite(Number(entry.startedAt))
+    && Number(entry.startedAt) > 0
+    && Number.isFinite(Number(entry.expiresAt))
+    && Number(entry.expiresAt) > now,
+  );
+}
+
+function readPersistedSends(now = Date.now()) {
+  const storage = browserStorage();
+  if (!storage) return [];
+  try {
+    const parsed = JSON.parse(storage.getItem(PERSISTED_SEND_STORAGE_KEY) || '[]');
+    const source = Array.isArray(parsed) ? parsed : [];
+    const valid = source.filter(entry => validPersistedSend(entry, now)).slice(-MAX_PERSISTED_SENDS);
+    if (valid.length !== source.length) {
+      if (valid.length) storage.setItem(PERSISTED_SEND_STORAGE_KEY, JSON.stringify(valid));
+      else storage.removeItem(PERSISTED_SEND_STORAGE_KEY);
+    }
+    return valid;
+  } catch {
+    try { storage.removeItem(PERSISTED_SEND_STORAGE_KEY); } catch { /* ignore local cleanup failures */ }
+    return [];
+  }
+}
+
+function pendingSendFor(info) {
+  if (!info) return null;
+  return readPersistedSends().find(entry => entry.fingerprint === info.fingerprint) || null;
+}
+
+function rememberPendingSend(info, requestId) {
+  const storage = browserStorage();
+  if (!storage || !info?.fingerprint || !requestId) return null;
+  const startedAt = Number(info.startedAt) || Date.now();
+  const entry = {
+    fingerprint: info.fingerprint,
+    requestId,
+    startedAt,
+    expiresAt: startedAt + PERSISTED_SEND_TTL_MS,
+  };
+  try {
+    const next = readPersistedSends()
+      .filter(item => item.fingerprint !== info.fingerprint)
+      .concat(entry)
+      .slice(-MAX_PERSISTED_SENDS);
+    storage.setItem(PERSISTED_SEND_STORAGE_KEY, JSON.stringify(next));
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+function forgetPendingSend(info, requestId = '') {
+  const storage = browserStorage();
+  if (!storage || !info?.fingerprint) return;
+  try {
+    const next = readPersistedSends().filter(entry => (
+      entry.fingerprint !== info.fingerprint
+      || (requestId && entry.requestId !== requestId)
+    ));
+    if (next.length) storage.setItem(PERSISTED_SEND_STORAGE_KEY, JSON.stringify(next));
+    else storage.removeItem(PERSISTED_SEND_STORAGE_KEY);
+  } catch {
+    // This is a best-effort transport marker only. Never break Chat for storage cleanup.
+  }
+}
+
+function clearPersistedSendsForTest() {
+  const storage = browserStorage();
+  try { storage?.removeItem(PERSISTED_SEND_STORAGE_KEY); } catch { /* ignore */ }
 }
 
 function sameRouteHistoryUrl(info) {
@@ -163,7 +264,10 @@ async function recoverChatResponse(info, headers, requestId, originalError = nul
     try {
       const rows = await fetchRecoveryHistory(info, headers);
       const recovered = matchingRecoveredTurn(rows, info);
-      if (recovered?.payload) return recoveredResponse(recovered.payload, requestId);
+      if (recovered?.payload) {
+        forgetPendingSend(info, requestId);
+        return recoveredResponse(recovered.payload, requestId);
+      }
       if (recovered?.pending) sawPersistedUser = true;
     } catch {
       // A recovery read is intentionally cheap and retryable. Never POST Chat again here.
@@ -173,6 +277,7 @@ async function recoverChatResponse(info, headers, requestId, originalError = nul
     delay = Math.min(7000, Math.round(delay * 1.55));
   }
 
+  if (!sawPersistedUser) forgetPendingSend(info, requestId);
   const error = new Error(
     sawPersistedUser
       ? '这次消息已经送到 OurHome，但回复还没有确认回来。为了避免重复扣 API，我没有自动重发；网络稳定后重新打开这个对话就会从云端补回来。'
@@ -201,16 +306,34 @@ async function guardedChatFetch(input, init, info, headers, requestId) {
     jsonReadable = false;
   }
 
-  if (response.ok && jsonReadable) return response;
+  if (response.ok && jsonReadable) {
+    forgetPendingSend(info, requestId);
+    return response;
+  }
 
   // A structured backend generation error is final. It must not be hidden behind
   // a long delivery probe, and it must never trigger another model request.
-  if (!response.ok && jsonReadable && parsed?.userMessage) return response;
+  if (!response.ok && jsonReadable && parsed?.userMessage) {
+    forgetPendingSend(info, requestId);
+    return response;
+  }
 
   if (!jsonReadable || RETRYABLE_CHAT_STATUS.has(response.status)) {
     return recoverChatResponse(info, headers, requestId);
   }
+
+  forgetPendingSend(info, requestId);
   return response;
+}
+
+async function runTrackedPromise(info, requestId, promise) {
+  activeChatRequests.set(info.key, { requestId, promise, startedAt: info.startedAt });
+  try {
+    const response = await promise;
+    return response.clone();
+  } finally {
+    if (activeChatRequests.get(info.key)?.promise === promise) activeChatRequests.delete(info.key);
+  }
 }
 
 if (nativeFetch) {
@@ -225,15 +348,18 @@ if (nativeFetch) {
     }
 
     const headers = requestHeaders(input, init);
-    const requestId = safeRequestId(headers);
-    const promise = guardedChatFetch(input, init, info, headers, requestId);
-    activeChatRequests.set(info.key, { requestId, promise, startedAt: info.startedAt });
-    try {
-      const response = await promise;
-      return response.clone();
-    } finally {
-      if (activeChatRequests.get(info.key)?.promise === promise) activeChatRequests.delete(info.key);
+    const persisted = pendingSendFor(info);
+    if (persisted) {
+      const resumedInfo = { ...info, startedAt: persisted.startedAt };
+      headers.set('X-OurHome-Request-Id', persisted.requestId);
+      const promise = recoverChatResponse(resumedInfo, headers, persisted.requestId);
+      return runTrackedPromise(resumedInfo, persisted.requestId, promise);
     }
+
+    const requestId = safeRequestId(headers);
+    rememberPendingSend(info, requestId);
+    const promise = guardedChatFetch(input, init, info, headers, requestId);
+    return runTrackedPromise(info, requestId, promise);
   };
 }
 
@@ -241,4 +367,9 @@ export const __chatNetworkGuardTest = {
   chatRequestInfo,
   matchingRecoveredTurn,
   sameRouteHistoryUrl,
+  logicalFingerprint,
+  pendingSendFor,
+  rememberPendingSend,
+  forgetPendingSend,
+  clearPersistedSendsForTest,
 };

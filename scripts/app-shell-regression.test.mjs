@@ -100,7 +100,12 @@ test('native releases expose real build info and a resilient user-approved in-ap
   assert.match(androidWorkflow, /--latest/);
 });
 
-test('Android App console exposes guarded one-tap Supabase recovery', () => {
+test('Android update and Supabase recovery live under data management instead of the console card', () => {
+  assert.match(settingsSource, /<AppInstallSettings compact \/>/);
+  assert.match(installSettings, /useSettingsGroupTarget/);
+  assert.match(installSettings, /title: '备份与导出'/);
+  assert.match(installSettings, /设备与数据状态/);
+  assert.match(installSettings, /if \(compact\) \{\s*return dataManagementTarget \? createPortal\(maintenancePanel, dataManagementTarget\) : null;/s);
   assert.match(installSettings, /FailoverRecoverySettings/);
   assert.match(failoverRecovery, /failover\/status/);
   assert.match(failoverRecovery, /failover\/replay/);
