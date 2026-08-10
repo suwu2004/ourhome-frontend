@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -16,6 +16,10 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../src/offlineShell.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/AppInstallSettings.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../android/app/build.gradle', import.meta.url), 'utf8'),
+  readFile(new URL('../src/appUpdate.js', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeUpdaterPlugin.java', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/src/main/java/com/ourhome/app/MainActivity.java', import.meta.url), 'utf8'),
+  readFile(new URL('../.github/workflows/android-apk.yml', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -54,14 +58,32 @@ test('Android shell is bundled, HTTPS-only, and excludes device backups', () => 
   assert.match(androidManifest, /android:usesCleartextTraffic="false"/);
 });
 
-test('native releases clear web-only caches and expose a distinguishable build', () => {
+test('native releases expose real build info and a user-approved in-app updater', () => {
   assert.match(offline, /Capacitor\.isNativePlatform\(\)/);
   assert.match(offline, /registration => registration\.unregister/);
   assert.match(offline, /name\.startsWith\('ourhome-'\)/);
-  assert.match(installSettings, /APP_VERSION = '1\.0\.2'/);
-  assert.match(installSettings, /VITE_BUILD_SHA/);
-  assert.match(gradle, /versionCode 3/);
-  assert.match(gradle, /versionName "1\.0\.2"/);
+  assert.doesNotMatch(installSettings, /const APP_VERSION/);
+  assert.match(installSettings, /checkForAndroidUpdate/);
+  assert.match(installSettings, /installAndroidUpdate/);
+  assert.match(installSettings, /更新到最新版/);
+  assert.match(appUpdate, /App\.getInfo\(\)/);
+  assert.match(appUpdate, /releases\/latest/);
+  assert.match(appUpdate, /latest\.build > Number\(current\?\.build/);
+  assert.match(gradle, /OURHOME_VERSION_CODE/);
+  assert.match(gradle, /OURHOME_VERSION_NAME/);
+  assert.match(gradle, /\?: "4"/);
+  assert.match(gradle, /\?: "1\.0\.3"/);
+  assert.match(androidManifest, /android\.permission\.REQUEST_INSTALL_PACKAGES/);
+  assert.match(mainActivity, /registerPlugin\(OurHomeUpdaterPlugin\.class\)/);
+  assert.match(updaterPlugin, /canRequestPackageInstalls/);
+  assert.match(updaterPlugin, /ACTION_MANAGE_UNKNOWN_APP_SOURCES/);
+  assert.match(updaterPlugin, /FileProvider\.getUriForFile/);
+  assert.match(updaterPlugin, /suwu2004\/ourhome-frontend\/releases\/download/);
+  assert.match(androidWorkflow, /contents: write/);
+  assert.match(androidWorkflow, /100000 \+ GITHUB_RUN_NUMBER/);
+  assert.match(androidWorkflow, /VERSION_NAME="1\.0\.3"/);
+  assert.match(androidWorkflow, /gh release create/);
+  assert.match(androidWorkflow, /--latest/);
 });
 
 test('expired private backgrounds recover without an upload loop', () => {

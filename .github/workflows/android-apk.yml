@@ -11,6 +11,7 @@ on:
       - package.json
       - package-lock.json
       - .env.android
+      - .github/workflows/android-apk.yml
   push:
     branches: [main]
     paths:
@@ -21,10 +22,20 @@ on:
       - package.json
       - package-lock.json
       - .env.android
+      - .github/workflows/android-apk.yml
+
+permissions:
+  contents: read
 
 jobs:
   android-apk:
     runs-on: ubuntu-latest
+    outputs:
+      version_name: ${{ steps.release_identity.outputs.version_name }}
+      version_code: ${{ steps.release_identity.outputs.version_code }}
+      release_tag: ${{ steps.release_identity.outputs.release_tag }}
+      release_apk: ${{ steps.release_identity.outputs.release_apk }}
+      release_artifact: ${{ steps.release_identity.outputs.release_artifact }}
     env:
       VITE_BUILD_SHA: ${{ github.sha }}
     steps:
@@ -42,6 +53,26 @@ jobs:
       - run: npm ci
       - run: npm run test:app
       - run: npm run android:sync
+      - name: Resolve Android release identity
+        id: release_identity
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_NAME="1.0.3"
+          VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))
+          RELEASE_TAG="android-v${VERSION_NAME}-b${VERSION_CODE}"
+          RELEASE_APK="OurHome-${VERSION_NAME}-b${VERSION_CODE}.apk"
+          RELEASE_ARTIFACT="OurHome-${VERSION_NAME}-b${VERSION_CODE}-release-signed"
+          echo "OURHOME_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "OURHOME_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "OURHOME_RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "OURHOME_RELEASE_APK=$RELEASE_APK" >> "$GITHUB_ENV"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_apk=$RELEASE_APK" >> "$GITHUB_OUTPUT"
+          echo "release_artifact=$RELEASE_ARTIFACT" >> "$GITHUB_OUTPUT"
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
@@ -52,7 +83,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Restore release keystore
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           KEYSTORE_BASE64: ${{ secrets.OURHOME_RELEASE_KEYSTORE_BASE64 }}
         run: |
@@ -60,7 +91,7 @@ jobs:
           test -n "$KEYSTORE_BASE64"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/ourhome-release.jks"
       - name: Build signed release APK
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         working-directory: android
         env:
           OURHOME_RELEASE_KEYSTORE: ${{ runner.temp }}/ourhome-release.jks
@@ -68,11 +99,49 @@ jobs:
           OURHOME_RELEASE_KEY_ALIAS: ${{ secrets.OURHOME_RELEASE_KEY_ALIAS }}
           OURHOME_RELEASE_KEY_PASSWORD: ${{ secrets.OURHOME_RELEASE_KEY_PASSWORD }}
         run: ./gradlew verifyReleaseSigning assembleRelease --no-daemon
+      - name: Prepare signed release file
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp android/app/build/outputs/apk/release/app-release.apk "$OURHOME_RELEASE_APK"
       - name: Upload signed release APK
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: OurHome-1.0.2-${{ github.sha }}-release-signed
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: ${{ steps.release_identity.outputs.release_artifact }}
+          path: ${{ steps.release_identity.outputs.release_apk }}
           if-no-files-found: error
           retention-days: 30
+
+  publish-release:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: android-apk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.android-apk.outputs.release_artifact }}
+      - name: Publish latest signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.android-apk.outputs.release_tag }}
+          RELEASE_APK: ${{ needs.android-apk.outputs.release_apk }}
+          VERSION_NAME: ${{ needs.android-apk.outputs.version_name }}
+          VERSION_CODE: ${{ needs.android-apk.outputs.version_code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$RELEASE_APK" --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "OurHome Android ${VERSION_NAME} · build ${VERSION_CODE}" --latest
+          else
+            gh release create "$RELEASE_TAG" "$RELEASE_APK" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "OurHome Android ${VERSION_NAME} · build ${VERSION_CODE}" \
+              --notes "OurHome Android 自动更新包。由 main 的签名构建生成。" \
+              --latest
+          fi

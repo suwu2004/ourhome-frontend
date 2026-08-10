@@ -3,11 +3,16 @@ name: Android Release
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   signed-apk:
     runs-on: ubuntu-latest
     env:
       VITE_BUILD_SHA: ${{ github.sha }}
+      OURHOME_VERSION_NAME: 1.0.3
+      OURHOME_VERSION_CODE: 4
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,7 +34,7 @@ jobs:
         run: |
           test -n "$OURHOME_KEYSTORE_BASE64"
           printf '%s' "$OURHOME_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/ourhome-release.jks"
-      - name: Build signed 1.0.2 APK
+      - name: Build signed 1.0.3 APK
         working-directory: android
         env:
           OURHOME_RELEASE_KEYSTORE: ${{ runner.temp }}/ourhome-release.jks
@@ -39,7 +44,7 @@ jobs:
         run: ./gradlew verifyReleaseSigning assembleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: OurHome-1.0.2-${{ github.sha }}-release
+          name: OurHome-1.0.3-${{ github.sha }}-release
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
