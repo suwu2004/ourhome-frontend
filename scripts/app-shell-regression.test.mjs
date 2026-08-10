@@ -136,10 +136,10 @@ test('Chat session switching rejects stale responses and scopes attachments', ()
   assert.match(appSource, /const targetSessionId = String\(id\)/);
   assert.match(appSource, /String\(sessionIdRef\.current\) !== targetSessionId/);
   assert.match(appSource, /setSessionSummary\(null\)/);
-  assert.match(appSource, /loadMessagesFor\(id\)\.catch/);
+  assert.match(appSource, /loadMessagesFor\(id, \{ full \}\)\.catch/);
   assert.match(appSource, /const uploadSessionId = sessionIdRef\.current/);
   assert.match(appSource, /String\(sessionIdRef\.current\) === String\(uploadSessionId\)/);
-  assert.match(appSource, /switchSession\(r\.session_id\)/);
+  assert.match(appSource, /switchSession\(r\.session_id, \{ full: true \}\)/);
   assert.match(appSource, /ourhome_chat_draft:\$\{id\}/);
   assert.match(chatRoomSource, /MAX_CHAT_SESSION_CACHE = 12/);
   assert.match(chatRoomSource, /pendingAttachmentCache/);
