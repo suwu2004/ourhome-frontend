@@ -66,10 +66,20 @@ export function useSettingsGroupTarget({ key, title, displayTitle = '', displayS
   useEffect(() => {
     let frame = 0;
     let ownedMount = null;
+    let observer = null;
+    let observing = false;
+    let disposed = false;
+
+    const stopObserver = () => {
+      if (!observer || !observing) return;
+      observer.disconnect();
+      observing = false;
+    };
 
     const findTarget = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
+        if (disposed) return;
         const section = findSettingsGroup({ key, title });
         decorateGroup(section, { displayTitle, displaySubtitle });
         const content = section?.querySelector(':scope > div:last-child') || null;
@@ -79,15 +89,25 @@ export function useSettingsGroupTarget({ key, title, displayTitle = '', displayS
           polishStartEntry(next);
         }
         setTarget(current => current === next ? current : next);
+
+        // SettingsRoom stays mounted once the core App is alive.  After a
+        // portal target is found there is no reason to observe every Chat DOM
+        // mutation for the lifetime of the App; remounting this consumer will
+        // run the lookup again if the target ever truly disappears.
+        if (next) stopObserver();
+        else if (!observing) {
+          observer ||= new MutationObserver(findTarget);
+          observer.observe(document.body, { childList: true, subtree: true });
+          observing = true;
+        }
       });
     };
 
-    const observer = new MutationObserver(findTarget);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     findTarget();
 
     return () => {
-      observer.disconnect();
+      disposed = true;
+      stopObserver();
       cancelAnimationFrame(frame);
       if (position === 'start' && ownedMount?.isConnected) ownedMount.remove();
     };
