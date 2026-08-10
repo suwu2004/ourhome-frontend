@@ -47,7 +47,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/Root.jsx src/App.jsx src/SettingsRoom.jsx src/nativeNotifications.js scripts/native-fcm-push-regression.test.mjs package.json .github/workflows/android-apk.yml .gitignore android/variables.gradle android/app/build.gradle android/app/src/main/AndroidManifest.xml android/app/src/main/java/com/ourhome/app/MainActivity.java android/app/src/main/java/com/ourhome/app/OurHomeNotificationsPlugin.java android/app/src/main/java/com/ourhome/app/OurHomeFirebaseMessagingService.java
+          git add src/Root.jsx src/App.jsx src/SettingsRoom.jsx src/nativeNotifications.js scripts/native-fcm-push-regression.test.mjs package.json .gitignore android/variables.gradle android/app/build.gradle android/app/src/main/AndroidManifest.xml android/app/src/main/java/com/ourhome/app/MainActivity.java android/app/src/main/java/com/ourhome/app/OurHomeNotificationsPlugin.java android/app/src/main/java/com/ourhome/app/OurHomeFirebaseMessagingService.java
           git diff --cached --quiet && exit 0
           git commit -m "Add private Android FCM notifications"
           git push origin HEAD:agent/native-fcm-client-20260810
