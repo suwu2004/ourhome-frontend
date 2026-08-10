@@ -1,0 +1,125 @@
+.luze-daily-folders {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+}
+
+.luze-day-folder {
+  position: relative;
+  overflow: visible;
+  border: 1px solid var(--lr-border-light);
+  border-radius: 15px 15px 18px 18px;
+  background: color-mix(in srgb, var(--lr-white) 94%, var(--lr-honey-light));
+  box-shadow: 0 8px 22px rgba(76, 48, 25, .045);
+}
+
+.luze-day-folder::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -5px;
+  left: 18px;
+  width: 84px;
+  height: 15px;
+  border: 1px solid var(--lr-border-light);
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+  background: color-mix(in srgb, var(--lr-honey-light) 82%, var(--lr-white));
+}
+
+.luze-day-folder > summary {
+  list-style: none;
+  min-height: 58px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 24px;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.luze-day-folder > summary::-webkit-details-marker { display: none; }
+
+.luze-folder-clip {
+  width: 27px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--lr-honey-deep);
+  font-size: 22px;
+  transform: rotate(-26deg);
+  opacity: .78;
+}
+
+.luze-folder-date { min-width: 0; }
+.luze-folder-date strong {
+  display: block;
+  color: var(--lr-text);
+  font-size: 12.5px;
+  line-height: 1.4;
+  letter-spacing: .03em;
+}
+.luze-folder-date small {
+  display: block;
+  margin-top: 3px;
+  color: var(--lr-muted);
+  font-size: 8.8px;
+  line-height: 1.45;
+}
+
+.luze-folder-chevron {
+  justify-self: end;
+  color: var(--lr-honey-deep);
+  font-size: 18px;
+  transition: transform .18s ease;
+}
+
+.luze-day-folder[open] .luze-folder-chevron { transform: rotate(180deg); }
+
+.luze-folder-body {
+  padding: 2px 12px 14px;
+  border-top: 1px dashed var(--lr-border-light);
+}
+
+.luze-folder-body .luze-trail-list,
+.luze-folder-body .luze-note-list,
+.luze-folder-body .luze-idea-grid {
+  max-width: none;
+  margin-top: 10px;
+}
+
+.luze-folder-body .luze-note-card {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--lr-white) 95%, var(--lr-cream));
+}
+
+.luze-folder-body .luze-note-card::before { display: none; }
+
+.luze-learning-mode {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lr-honey-light) 76%, transparent);
+  color: var(--lr-honey-deep);
+}
+
+.luze-day-folder--idea::before {
+  background: color-mix(in srgb, var(--lr-white) 85%, #eee8f6);
+}
+
+.luze-day-folder--trail::before {
+  background: color-mix(in srgb, var(--lr-white) 82%, #edf3dc);
+}
+
+@media (max-width: 520px) {
+  .luze-daily-folders { gap: 10px; }
+  .luze-day-folder > summary {
+    grid-template-columns: 27px minmax(0, 1fr) 20px;
+    gap: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .luze-folder-body { padding-left: 9px; padding-right: 9px; }
+}
