@@ -10,42 +10,49 @@ const KIND_LABELS = {
   note: '学习笔记',
   idea: '奇思妙想',
 };
+const TABS = [
+  ['trail', '足迹'],
+  ['note', '学习笔记'],
+  ['idea', '奇思妙想'],
+];
+const SHANGHAI_CLOCK_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+const SHANGHAI_DATE_PARTS_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const SHANGHAI_FOLDER_LABEL_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  month: 'long',
+  day: 'numeric',
+  weekday: 'short',
+});
 
 function clock(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).replace(/\//g, '.');
+  return SHANGHAI_CLOCK_FORMATTER.format(date).replace(/\//g, '.');
 }
 
 function shanghaiDateKey(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'unknown';
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
+  const parts = SHANGHAI_DATE_PARTS_FORMATTER.formatToParts(date);
   const lookup = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${lookup.year}-${lookup.month}-${lookup.day}`;
 }
 
 function folderDateLabel(key) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return '时间未标记';
-  const date = new Date(`${key}T00:00:00+08:00`);
-  return date.toLocaleDateString('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'short',
-  });
+  return SHANGHAI_FOLDER_LABEL_FORMATTER.format(new Date(`${key}T00:00:00+08:00`));
 }
 
 function groupEntriesByDay(items) {
@@ -139,22 +146,33 @@ function FolderContents({ kind, items }) {
   return <section className="luze-idea-grid">{items.map((entry, index) => <IdeaCard key={entry.id} entry={entry} index={index} />)}</section>;
 }
 
+function DailyFolder({ kind, folder, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <details
+      className={`luze-day-folder luze-day-folder--${kind}`}
+      open={open}
+      onToggle={event => setOpen(event.currentTarget.open)}
+    >
+      <summary>
+        <span className="luze-folder-clip" aria-hidden="true">⌁</span>
+        <span className="luze-folder-date">
+          <strong>{folder.label}</strong>
+          <small>{folder.date.replace(/-/g, '.')} · {folder.items.length} 条{KIND_LABELS[kind]}</small>
+        </span>
+        <span className="luze-folder-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      {open && <div className="luze-folder-body"><FolderContents kind={kind} items={folder.items} /></div>}
+    </details>
+  );
+}
+
 function DailyFolderList({ kind, items }) {
-  const folders = groupEntriesByDay(items);
+  const folders = useMemo(() => groupEntriesByDay(items), [items]);
   return (
     <section className="luze-daily-folders" aria-label={`${KIND_LABELS[kind]}按日期整理`}>
       {folders.map((folder, index) => (
-        <details className={`luze-day-folder luze-day-folder--${kind}`} key={`${kind}-${folder.date}`} open={index === 0}>
-          <summary>
-            <span className="luze-folder-clip" aria-hidden="true">⌁</span>
-            <span className="luze-folder-date">
-              <strong>{folder.label}</strong>
-              <small>{folder.date.replace(/-/g, '.')} · {folder.items.length} 条{KIND_LABELS[kind]}</small>
-            </span>
-            <span className="luze-folder-chevron" aria-hidden="true">⌄</span>
-          </summary>
-          <div className="luze-folder-body"><FolderContents kind={kind} items={folder.items} /></div>
-        </details>
+        <DailyFolder key={`${kind}-${folder.date}`} kind={kind} folder={folder} defaultOpen={index === 0} />
       ))}
     </section>
   );
@@ -246,12 +264,6 @@ export default function LuzePrivateRoom({ onClose }) {
     idea: entries.filter(item => item.kind === 'idea'),
   }), [entries]);
 
-  const tabs = [
-    ['trail', '足迹'],
-    ['note', '学习笔记'],
-    ['idea', '奇思妙想'],
-  ];
-
   if (!pass) {
     return (
       <div className="luze-room" style={{ '--lr-cream': C.cream, '--lr-white': C.white, '--lr-text': C.text, '--lr-muted': C.muted, '--lr-border': C.border, '--lr-border-light': C.borderLight, '--lr-honey': C.honey, '--lr-honey-deep': C.honeyDeep, '--lr-honey-light': C.honeyLight }}>
@@ -298,7 +310,7 @@ export default function LuzePrivateRoom({ onClose }) {
       </header>
 
       <nav className="luze-room-tabs" aria-label="房间分区">
-        {tabs.map(([key, label]) => (
+        {TABS.map(([key, label]) => (
           <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
             {label}<small>{grouped[key].length}</small>
           </button>

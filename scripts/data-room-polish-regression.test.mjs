@@ -34,8 +34,19 @@ test('Luze private room groups every tab into Shanghai-date folders', () => {
   assert.match(room, /function groupEntriesByDay/);
   assert.match(room, /function DailyFolderList/);
   assert.match(room, /<DailyFolderList kind=\{tab\} items=\{grouped\[tab\]\} \/>/);
-  assert.match(room, /open=\{index === 0\}/);
+  assert.match(room, /defaultOpen=\{index === 0\}/);
   assert.match(room, /LuzeDailyFolders\.css/);
+});
+
+test('closed Luze day folders avoid mounting old card trees', () => {
+  assert.match(room, /function DailyFolder\(/);
+  assert.match(room, /const \[open, setOpen\] = useState\(defaultOpen\)/);
+  assert.match(room, /onToggle=\{event => setOpen\(event\.currentTarget\.open\)\}/);
+  assert.match(room, /\{open && <div className="luze-folder-body">/);
+  assert.match(room, /useMemo\(\(\) => groupEntriesByDay\(items\), \[items\]\)/);
+  assert.match(room, /SHANGHAI_CLOCK_FORMATTER/);
+  assert.match(room, /SHANGHAI_DATE_PARTS_FORMATTER/);
+  assert.match(room, /SHANGHAI_FOLDER_LABEL_FORMATTER/);
 });
 
 test('Luze room can surface the balanced learning source mode', () => {
