@@ -62,15 +62,20 @@ export function MusicPlayerProvider({ children }) {
       const remoteState = { track_id: null, is_playing: false, shuffle: false, repeat_mode: 'list', background_url: '', ...(stateData || {}) };
       const localState = stateRef.current;
       const audio = audioRef.current;
+      const localUpdatedAt = Date.parse(localState.updated_at || '');
+      const remoteUpdatedAt = Date.parse(remoteState.updated_at || '');
+      const keepLocalIntent = Number.isFinite(localUpdatedAt)
+        && (!Number.isFinite(remoteUpdatedAt) || localUpdatedAt >= remoteUpdatedAt);
       const keepLocalPlayback = Boolean(localState.is_playing && audio && !audio.paused && !audio.ended);
-      const nextState = keepLocalPlayback
+      const nextState = (keepLocalIntent || keepLocalPlayback)
         ? {
             ...remoteState,
             track_id: localState.track_id || remoteState.track_id,
-            is_playing: true,
+            is_playing: Boolean(localState.is_playing),
             shuffle: localState.shuffle,
             repeat_mode: localState.repeat_mode || remoteState.repeat_mode,
             background_url: localState.background_url || remoteState.background_url,
+            updated_at: localState.updated_at || remoteState.updated_at,
           }
         : remoteState;
       setTracks(nextTracks);
