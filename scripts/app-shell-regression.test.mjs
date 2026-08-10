@@ -1,94 +1,127 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 
-const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
-const chatRoomSource = readFileSync(new URL('../src/ChatRoom.jsx', import.meta.url), 'utf8');
-const settingsSource = readFileSync(new URL('../src/SettingsRoom.jsx', import.meta.url), 'utf8');
-const themeContext = readFileSync(new URL('../src/ThemeContext.jsx', import.meta.url), 'utf8');
-const rootSource = readFileSync(new URL('../src/Root.jsx', import.meta.url), 'utf8');
-const manifest = readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8');
-const capacitorConfig = readFileSync(new URL('../capacitor.config.ts', import.meta.url), 'utf8');
-const androidManifest = readFileSync(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8');
-const nativeShell = readFileSync(new URL('../src/nativeShell.js', import.meta.url), 'utf8');
-const nativeNotifications = readFileSync(new URL('../src/nativeNotifications.js', import.meta.url), 'utf8');
-const mainActivity = readFileSync(new URL('../android/app/src/main/java/com/ourhome/app/MainActivity.kt', import.meta.url), 'utf8');
-const notificationsPlugin = readFileSync(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeNotificationsPlugin.kt', import.meta.url), 'utf8');
-const reminderReceiver = readFileSync(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeReminderReceiver.kt', import.meta.url), 'utf8');
-const updatePlugin = readFileSync(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeUpdatePlugin.kt', import.meta.url), 'utf8');
-const buildAndroid = readFileSync(new URL('../scripts/build-android.mjs', import.meta.url), 'utf8');
-const androidWorkflow = readFileSync(new URL('../.github/workflows/android-apk.yml', import.meta.url), 'utf8');
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery] = await Promise.all([
+  readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
+  readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
+  readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
+  readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+  readFile(new URL('../src/RoomHeaderFinal.css', import.meta.url), 'utf8'),
+  readFile(new URL('../capacitor.config.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8'),
+  readFile(new URL('../src/ThemeContext.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/Root.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/VaultPage.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/offlineShell.js', import.meta.url), 'utf8'),
+  readFile(new URL('../src/AppInstallSettings.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/build.gradle', import.meta.url), 'utf8'),
+  readFile(new URL('../src/appUpdate.js', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeUpdaterPlugin.java', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/src/main/java/com/ourhome/app/MainActivity.java', import.meta.url), 'utf8'),
+  readFile(new URL('../.github/workflows/android-apk.yml', import.meta.url), 'utf8'),
+  readFile(new URL('../src/nativeNotifications.js', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeNotificationsPlugin.java', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeReminderReceiver.java', import.meta.url), 'utf8'),
+  readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/SettingsRoom.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/ChatRoom.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/FailoverRecoverySettings.jsx', import.meta.url), 'utf8'),
+]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
-  const data = JSON.parse(manifest);
-  assert.equal(data.display, 'standalone');
-  assert.equal(data.start_url, '/');
-  assert.ok(data.icons.some(icon => icon.sizes === '192x192'));
-  assert.ok(data.icons.some(icon => icon.sizes === '512x512'));
-  assert.match(data.name, /OurHome/);
+  const manifest = JSON.parse(manifestText);
+  assert.equal(manifest.display, 'standalone');
+  assert.equal(manifest.orientation, 'any');
+  assert.equal(manifest.scope, '/');
+  assert.ok(manifest.icons.some(icon => icon.sizes === '512x512' && /maskable/.test(icon.purpose || '')));
 });
 
 test('install prompt is retained until settings asks for it', () => {
-  assert.match(rootSource, /beforeinstallprompt/);
-  assert.match(rootSource, /ourhome-install-prompt-available/);
-  assert.match(settingsSource, /ourhome-install-prompt-available/);
-  assert.match(settingsSource, /promptInstall/);
+  assert.match(install, /beforeinstallprompt/);
+  assert.match(install, /deferredPrompt/);
+  assert.match(install, /appinstalled/);
 });
 
 test('native shell handles status bar splash and Android back button', () => {
-  assert.match(nativeShell, /StatusBar\.setOverlaysWebView/);
-  assert.match(nativeShell, /SplashScreen\.hide/);
-  assert.match(nativeShell, /backButton/);
-  assert.match(rootSource, /setupNativeShell/);
+  assert.match(native, /StatusBar\.setOverlaysWebView/);
+  assert.match(native, /StatusBar\.getInfo/);
+  assert.match(native, /--ourhome-status-bar-inset/);
+  assert.match(native, /androidMajor >= 15/);
+  assert.match(finalHeaders, /--ourhome-status-bar-inset/);
+  assert.match(finalHeaders, /grid-template-columns:\s*44px minmax\(0, 1fr\) 44px/);
+  assert.match(finalHeaders, /padding-top:\s*var\(--ourhome-status-bar-inset, 0px\)/);
+  assert.match(finalHeaders, /position:\s*static !important/);
+  assert.doesNotMatch(styles, /ourhome-status-bar-inset, 24px\) \+ 33px/);
+  assert.match(native, /SplashScreen\.hide/);
+  assert.match(native, /backButton/);
+  assert.match(native, /App\.minimizeApp/);
 });
 
 test('Android shell is bundled, HTTPS-only, and excludes device backups', () => {
-  assert.match(capacitorConfig, /webDir:\s*['"]dist['"]/);
-  assert.match(androidManifest, /android:usesCleartextTraffic="false"/);
+  assert.match(config, /appId: 'com\.ourhome\.app'/);
+  assert.match(config, /webDir: 'dist'/);
   assert.match(androidManifest, /android:allowBackup="false"/);
-  assert.match(androidManifest, /android:fullBackupContent="false"/);
+  assert.match(androidManifest, /android:usesCleartextTraffic="false"/);
 });
 
 test('native releases expose real build info and a resilient user-approved in-app updater', () => {
-  assert.match(updatePlugin, /BuildConfig\.VERSION_NAME/);
-  assert.match(updatePlugin, /BuildConfig\.VERSION_CODE/);
-  assert.match(updatePlugin, /ACTION_INSTALL_PACKAGE/);
-  assert.match(updatePlugin, /FileProvider\.getUriForFile/);
-  assert.match(updatePlugin, /MessageDigest\.getInstance\("SHA-256"\)/);
-  assert.match(updatePlugin, /setRequestProperty\("Range", "bytes=\$existingLength-"\)/);
-  assert.match(updatePlugin, /HTTP_MOVED_PERM/);
-  assert.match(updatePlugin, /HTTP_UNAVAILABLE/);
-  assert.match(updatePlugin, /MAX_DOWNLOAD_ATTEMPTS/);
-  assert.match(updatePlugin, /sha256 mismatch/);
-  assert.match(androidManifest, /REQUEST_INSTALL_PACKAGES/);
-  assert.match(androidManifest, /FileProvider/);
-  assert.match(androidManifest, /ourhome_file_paths/);
-  assert.match(buildAndroid, /OurHome-\$\{versionName\}-b\$\{versionCode\}\.apk/);
+  assert.match(offline, /Capacitor\.isNativePlatform\(\)/);
+  assert.match(offline, /registration => registration\.unregister/);
+  assert.match(offline, /name\.startsWith\('ourhome-'\)/);
+  assert.doesNotMatch(installSettings, /const APP_VERSION/);
+  assert.match(installSettings, /checkForAndroidUpdate/);
+  assert.match(installSettings, /installAndroidUpdate/);
+  assert.match(installSettings, /更新到最新版/);
+  assert.match(installSettings, /断点续传/);
+  assert.match(appUpdate, /App\.getInfo\(\)/);
+  assert.match(appUpdate, /releases\/latest/);
+  assert.match(appUpdate, /latest\.build > Number\(current\?\.build/);
+  assert.match(appUpdate, /expectedBytes/);
+  assert.match(appUpdate, /apkSha256/);
+  assert.match(gradle, /OURHOME_VERSION_CODE/);
+  assert.match(gradle, /OURHOME_VERSION_NAME/);
+  assert.match(gradle, /\?: "5"/);
+  assert.match(gradle, /\?: "1\.0\.4"/);
+  assert.match(androidManifest, /android\.permission\.REQUEST_INSTALL_PACKAGES/);
+  assert.match(mainActivity, /registerPlugin\(OurHomeUpdaterPlugin\.class\)/);
+  assert.match(updaterPlugin, /canRequestPackageInstalls/);
+  assert.match(updaterPlugin, /ACTION_MANAGE_UNKNOWN_APP_SOURCES/);
+  assert.match(updaterPlugin, /FileProvider\.getUriForFile/);
+  assert.match(updaterPlugin, /suwu2004\/ourhome-frontend\/releases\/download/);
+  assert.match(updaterPlugin, /MAX_DOWNLOAD_ATTEMPTS/);
+  assert.match(updaterPlugin, /OurHome-latest\.apk\.part/);
+  assert.match(updaterPlugin, /Range/);
+  assert.match(updaterPlugin, /SHA-256/);
+  assert.match(androidWorkflow, /contents: write/);
+  assert.match(androidWorkflow, /100000 \+ GITHUB_RUN_NUMBER/);
   assert.match(androidWorkflow, /VERSION_NAME="1\.0\.4"/);
-  assert.match(androidWorkflow, /VERSION_CODE=\$\(\(100000 \+ GITHUB_RUN_NUMBER\)\)/);
-  assert.match(androidWorkflow, /android-v\$\{VERSION_NAME\}-b\$\{VERSION_CODE\}/);
-  assert.match(settingsSource, /当前版本/);
-  assert.match(settingsSource, /buildLabel/);
-  assert.match(settingsSource, /检查更新/);
-  assert.match(settingsSource, /下载并安装/);
-  assert.match(settingsSource, /latestBuildNumber > installedBuildNumber/);
-  assert.match(settingsSource, /expectedSha256/);
+  assert.match(androidWorkflow, /gh release create/);
+  assert.match(androidWorkflow, /--latest/);
 });
 
 test('Android update and Supabase recovery live under data management instead of the console card', () => {
-  assert.match(settingsSource, /<DataManagementSettings/);
-  assert.match(settingsSource, /<FailoverRecoverySettings/);
-  assert.match(settingsSource, /<AppInstallSettings/);
-  assert.doesNotMatch(settingsSource, /consoleGrid[\s\S]*<FailoverRecoverySettings/);
+  assert.match(settingsSource, /<AppInstallSettings compact \/>/);
+  assert.match(installSettings, /useSettingsGroupTarget/);
+  assert.match(installSettings, /title: '备份与导出'/);
+  assert.match(installSettings, /设备与数据状态/);
+  assert.match(installSettings, /if \(compact\) \{\s*return dataManagementTarget \? createPortal\(maintenancePanel, dataManagementTarget\) : null;/s);
+  assert.match(installSettings, /FailoverRecoverySettings/);
+  assert.match(failoverRecovery, /failover\/status/);
+  assert.match(failoverRecovery, /failover\/replay/);
+  assert.match(failoverRecovery, /primary_ready/);
+  assert.match(failoverRecovery, /supabase-restored/);
+  assert.match(failoverRecovery, /安全回灌/);
+  assert.match(failoverRecovery, /pending_objects/);
 });
 
 test('Android notifications use native permission and local alarms while web keeps Web Push', () => {
-  assert.match(nativeNotifications, /OurHomeNotifications/);
-  assert.match(nativeNotifications, /scheduleEvents/);
-  assert.match(mainActivity, /OurHomeNotificationsPlugin/);
-  assert.match(androidManifest, /POST_NOTIFICATIONS/);
-  assert.match(androidManifest, /SCHEDULE_EXACT_ALARM/);
+  assert.match(androidManifest, /android\.permission\.POST_NOTIFICATIONS/);
   assert.match(androidManifest, /OurHomeReminderReceiver/);
+  assert.match(mainActivity, /registerPlugin\(OurHomeNotificationsPlugin\.class\)/);
+  assert.match(nativeNotifications, /isNativeAndroidApp/);
+  assert.match(nativeNotifications, /syncNativeScheduleReminders/);
+  assert.match(notificationsPlugin, /requestPermissionForAlias/);
   assert.match(notificationsPlugin, /PermissionState\.PROMPT/);
   assert.match(notificationsPlugin, /setAndAllowWhileIdle/);
   assert.match(reminderReceiver, /NotificationCompat\.Builder/);
@@ -121,12 +154,13 @@ test('expired private backgrounds recover without an upload loop', () => {
 });
 
 test('home shelf uses one DOM observer for all injected room entries', () => {
-  assert.match(rootSource, /const injectedEntries = \[/);
-  const observerCount = (rootSource.match(/new MutationObserver/g) || []).length;
-  assert.equal(observerCount, 1);
+  assert.equal((root.match(/useHomeShelfTarget\(\)/g) || []).length, 2);
+  assert.match(root, /function HomeShelfEntries/);
 });
 
 test('vault fallback never presents demo money as real data', () => {
-  assert.match(rootSource, /VaultPage/);
-  assert.doesNotMatch(rootSource, /demo account|演示余额|假余额/i);
+  assert.match(vault, /const EMPTY_DATA/);
+  assert.match(vault, /isUntouchedLegacyDemo/);
+  assert.doesNotMatch(vault, /name: '午饭'/);
+  assert.doesNotMatch(vault, /name: '旅行基金'/);
 });
