@@ -7,6 +7,50 @@ body[data-ourhome-room] {
   --ourhome-room-tabs-height: 34px;
 }
 
+/* Android 15/16 draws the WebView under the status bar.  Keep these five
+   two-sided doorways in normal grid flow so the title is centered inside the
+   usable navigation row, below the measured system inset. */
+html[data-native-app="true"] body:is(
+  [data-ourhome-room="photos"],
+  [data-ourhome-room="letters"],
+  [data-ourhome-room="theater"],
+  [data-ourhome-room="memories"],
+  [data-ourhome-room="settings"]
+) header.ourhome-safe-top {
+  min-height: calc(var(--ourhome-room-nav-height) + var(--ourhome-status-bar-inset, 0px)) !important;
+  box-sizing: border-box !important;
+  display: grid !important;
+  grid-template-columns: 44px minmax(0, 1fr) 44px !important;
+  align-items: center !important;
+  column-gap: 6px !important;
+  padding-top: var(--ourhome-status-bar-inset, 0px) !important;
+  padding-bottom: 0 !important;
+}
+
+html[data-native-app="true"] body[data-ourhome-room="photos"] header.ourhome-safe-top > div,
+html[data-native-app="true"] body[data-ourhome-room="theater"] header.ourhome-safe-top > div,
+html[data-native-app="true"] body[data-ourhome-room="letters"] header.ourhome-safe-top > span:nth-child(2),
+html[data-native-app="true"] body[data-ourhome-room="memories"] header.ourhome-safe-top > span:nth-child(2),
+html[data-native-app="true"] body[data-ourhome-room="settings"] header.ourhome-safe-top > span:nth-child(2) {
+  position: static !important;
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  width: auto !important;
+  min-width: 0 !important;
+  transform: none !important;
+  align-self: center !important;
+  justify-self: stretch !important;
+}
+
+html[data-native-app="true"] body:is(
+  [data-ourhome-room="photos"],
+  [data-ourhome-room="theater"]
+) header.ourhome-safe-top > :last-child {
+  grid-column: 3 !important;
+  grid-row: 1 !important;
+  justify-self: end !important;
+}
+
 /* The header itself is only the doorway. Secondary room navigation sits below the divider. */
 body[data-ourhome-room="music"] header.ourhome-safe-top,
 body[data-ourhome-room="calendar"] header.ourhome-safe-top,

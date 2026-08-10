@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { promptAppInstall, subscribeInstallState } from './appInstall.js';
 
-const APP_VERSION = '1.0.1';
+const APP_VERSION = '1.0.2';
 const BUILD_SHA = String(import.meta.env.VITE_BUILD_SHA || 'local').slice(0, 7);
 
 export default function AppInstallSettings({ compact = false }) {
