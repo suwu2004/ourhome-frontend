@@ -2,8 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
 import './LuzePrivateRoom.css';
+import './LuzeDailyFolders.css';
 
 const PASS_KEY = 'ourhome_luze_private_room_pass_v1';
+const KIND_LABELS = {
+  trail: '搜索足迹',
+  note: '学习笔记',
+  idea: '奇思妙想',
+};
 
 function clock(value) {
   const date = new Date(value);
@@ -18,9 +24,52 @@ function clock(value) {
   }).replace(/\//g, '.');
 }
 
+function shanghaiDateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'unknown';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const lookup = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${lookup.year}-${lookup.month}-${lookup.day}`;
+}
+
+function folderDateLabel(key) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return '时间未标记';
+  const date = new Date(`${key}T00:00:00+08:00`);
+  return date.toLocaleDateString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
+}
+
+function groupEntriesByDay(items) {
+  const groups = new Map();
+  items.forEach(item => {
+    const key = shanghaiDateKey(item.created_at);
+    const bucket = groups.get(key) || [];
+    bucket.push(item);
+    groups.set(key, bucket);
+  });
+  return [...groups.entries()]
+    .sort(([left], [right]) => right.localeCompare(left))
+    .map(([date, dayItems]) => ({ date, label: folderDateLabel(date), items: dayItems }));
+}
+
 function host(value) {
   try { return new URL(value).hostname.replace(/^www\./, ''); }
   catch { return ''; }
+}
+
+function learningModeLabel(entry) {
+  if (entry?.metadata?.learning_mode === 'ourhome') return 'OurHome 相关';
+  if (entry?.metadata?.learning_mode === 'curiosity') return '自由乱逛';
+  return '';
 }
 
 function KeywordRow({ items = [] }) {
@@ -30,11 +79,15 @@ function KeywordRow({ items = [] }) {
 
 function TrailCard({ entry }) {
   const source = host(entry.source_url) || entry.source_title || entry.metadata?.tool || '网上';
+  const mode = learningModeLabel(entry);
   return (
     <article className="luze-trail-card">
       <div className="luze-trail-dot" aria-hidden="true" />
       <div className="luze-trail-main">
-        <div className="luze-entry-meta"><span>{clock(entry.created_at)}</span><span>{source}</span></div>
+        <div className="luze-entry-meta">
+          <span>{clock(entry.created_at)}</span><span>{source}</span>
+          {mode && <span className="luze-learning-mode">{mode}</span>}
+        </div>
         <strong>{entry.title || '路过这里'}</strong>
         {entry.body && <p>{entry.body}</p>}
         {entry.source_url && <a href={entry.source_url} target="_blank" rel="noreferrer">看看当时那一页 ↗</a>}
@@ -44,6 +97,7 @@ function TrailCard({ entry }) {
 }
 
 function NoteCard({ entry }) {
+  const mode = learningModeLabel(entry);
   return (
     <article className="luze-note-card">
       <KeywordRow items={entry.keywords} />
@@ -56,6 +110,7 @@ function NoteCard({ entry }) {
       )}
       <div className="luze-note-foot">
         <span>{clock(entry.created_at)}</span>
+        {mode && <span>{mode}</span>}
         {entry.metadata?.model && <span>写这页时：{entry.metadata.model}</span>}
       </div>
     </article>
@@ -63,13 +118,45 @@ function NoteCard({ entry }) {
 }
 
 function IdeaCard({ entry, index }) {
+  const mode = learningModeLabel(entry);
   return (
     <article className={`luze-idea-card luze-idea-card--${index % 3}`}>
       <KeywordRow items={entry.keywords} />
       <strong>{entry.title || '突然想到'}</strong>
       <p>{entry.body}</p>
-      <small>{clock(entry.created_at)}</small>
+      <small>{clock(entry.created_at)}{mode ? ` · ${mode}` : ''}</small>
     </article>
+  );
+}
+
+function FolderContents({ kind, items }) {
+  if (kind === 'trail') {
+    return <section className="luze-trail-list">{items.map(entry => <TrailCard key={entry.id} entry={entry} />)}</section>;
+  }
+  if (kind === 'note') {
+    return <section className="luze-note-list">{items.map(entry => <NoteCard key={entry.id} entry={entry} />)}</section>;
+  }
+  return <section className="luze-idea-grid">{items.map((entry, index) => <IdeaCard key={entry.id} entry={entry} index={index} />)}</section>;
+}
+
+function DailyFolderList({ kind, items }) {
+  const folders = groupEntriesByDay(items);
+  return (
+    <section className="luze-daily-folders" aria-label={`${KIND_LABELS[kind]}按日期整理`}>
+      {folders.map((folder, index) => (
+        <details className={`luze-day-folder luze-day-folder--${kind}`} key={`${kind}-${folder.date}`} open={index === 0}>
+          <summary>
+            <span className="luze-folder-clip" aria-hidden="true">⌁</span>
+            <span className="luze-folder-date">
+              <strong>{folder.label}</strong>
+              <small>{folder.date.replace(/-/g, '.')} · {folder.items.length} 条{KIND_LABELS[kind]}</small>
+            </span>
+            <span className="luze-folder-chevron" aria-hidden="true">⌄</span>
+          </summary>
+          <div className="luze-folder-body"><FolderContents kind={kind} items={folder.items} /></div>
+        </details>
+      ))}
+    </section>
   );
 }
 
@@ -222,7 +309,7 @@ export default function LuzePrivateRoom({ onClose }) {
         {settings && tab === 'note' && (
           <div className="luze-learning-whisper">
             <span>{settings.enabled ? '最近会自己出去逛逛' : '最近没有开自主学习'}</span>
-            <small>认真消化时用 {settings.synthesis_model || '当前 Chat 模型'} · 其余搜索杂活走省钱模型</small>
+            <small>每天的搜索一半跟着 OurHome 和最近聊天里的线索走，一半留给自己的随机好奇；认真消化时用 {settings.synthesis_model || '当前 Chat 模型'}。</small>
           </div>
         )}
         {loading && entries.length === 0 && <div className="luze-empty">正在把桌上的纸翻出来…</div>}
@@ -231,9 +318,7 @@ export default function LuzePrivateRoom({ onClose }) {
           <div className="luze-empty">他还没在这一页留下东西。<br /><small>房间会自己慢慢长起来。</small></div>
         )}
 
-        {tab === 'trail' && <section className="luze-trail-list">{grouped.trail.map(entry => <TrailCard key={entry.id} entry={entry} />)}</section>}
-        {tab === 'note' && <section className="luze-note-list">{grouped.note.map(entry => <NoteCard key={entry.id} entry={entry} />)}</section>}
-        {tab === 'idea' && <section className="luze-idea-grid">{grouped.idea.map((entry, index) => <IdeaCard key={entry.id} entry={entry} index={index} />)}</section>}
+        {grouped[tab].length > 0 && <DailyFolderList kind={tab} items={grouped[tab]} />}
       </main>
     </div>
   );
