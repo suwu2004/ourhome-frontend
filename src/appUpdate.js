@@ -18,6 +18,11 @@ function pickReleaseApk(release) {
   }) || null;
 }
 
+function normalizeSha256(value) {
+  const match = String(value || '').trim().match(/^sha256:([a-f0-9]{64})$/i);
+  return match ? match[1].toLowerCase() : '';
+}
+
 export async function getNativeAppInfo() {
   if (!Capacitor.isNativePlatform()) return null;
   const info = await App.getInfo();
@@ -50,6 +55,8 @@ export async function checkForAndroidUpdate() {
     version: parsed.version,
     build: parsed.build,
     apkUrl: apk.browser_download_url,
+    apkSize: Number(apk.size) || 0,
+    apkSha256: normalizeSha256(apk.digest),
     publishedAt: release?.published_at || release?.created_at || null,
   };
 
@@ -61,11 +68,16 @@ export async function checkForAndroidUpdate() {
   };
 }
 
-export async function installAndroidUpdate(apkUrl) {
+export async function installAndroidUpdate(release) {
   if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
     return { status: 'unsupported' };
   }
-  return AndroidUpdater.downloadAndInstall({ url: apkUrl });
+  const latest = typeof release === 'string' ? { apkUrl: release } : (release || {});
+  return AndroidUpdater.downloadAndInstall({
+    url: latest.apkUrl,
+    expectedBytes: Number(latest.apkSize) || 0,
+    sha256: normalizeSha256(latest.apkSha256 ? `sha256:${latest.apkSha256}` : ''),
+  });
 }
 
-export const __appUpdateTest = { parseReleaseBuild, pickReleaseApk };
+export const __appUpdateTest = { normalizeSha256, parseReleaseBuild, pickReleaseApk };

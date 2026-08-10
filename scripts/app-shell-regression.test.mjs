@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -26,6 +26,7 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/SettingsRoom.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/ChatRoom.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/FailoverRecoverySettings.jsx', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -64,7 +65,7 @@ test('Android shell is bundled, HTTPS-only, and excludes device backups', () => 
   assert.match(androidManifest, /android:usesCleartextTraffic="false"/);
 });
 
-test('native releases expose real build info and a user-approved in-app updater', () => {
+test('native releases expose real build info and a resilient user-approved in-app updater', () => {
   assert.match(offline, /Capacitor\.isNativePlatform\(\)/);
   assert.match(offline, /registration => registration\.unregister/);
   assert.match(offline, /name\.startsWith\('ourhome-'\)/);
@@ -72,26 +73,42 @@ test('native releases expose real build info and a user-approved in-app updater'
   assert.match(installSettings, /checkForAndroidUpdate/);
   assert.match(installSettings, /installAndroidUpdate/);
   assert.match(installSettings, /更新到最新版/);
+  assert.match(installSettings, /断点续传/);
   assert.match(appUpdate, /App\.getInfo\(\)/);
   assert.match(appUpdate, /releases\/latest/);
   assert.match(appUpdate, /latest\.build > Number\(current\?\.build/);
+  assert.match(appUpdate, /expectedBytes/);
+  assert.match(appUpdate, /apkSha256/);
   assert.match(gradle, /OURHOME_VERSION_CODE/);
   assert.match(gradle, /OURHOME_VERSION_NAME/);
-  assert.match(gradle, /\?: "4"/);
-  assert.match(gradle, /\?: "1\.0\.3"/);
+  assert.match(gradle, /\?: "5"/);
+  assert.match(gradle, /\?: "1\.0\.4"/);
   assert.match(androidManifest, /android\.permission\.REQUEST_INSTALL_PACKAGES/);
   assert.match(mainActivity, /registerPlugin\(OurHomeUpdaterPlugin\.class\)/);
   assert.match(updaterPlugin, /canRequestPackageInstalls/);
   assert.match(updaterPlugin, /ACTION_MANAGE_UNKNOWN_APP_SOURCES/);
   assert.match(updaterPlugin, /FileProvider\.getUriForFile/);
   assert.match(updaterPlugin, /suwu2004\/ourhome-frontend\/releases\/download/);
+  assert.match(updaterPlugin, /MAX_DOWNLOAD_ATTEMPTS/);
+  assert.match(updaterPlugin, /OurHome-latest\.apk\.part/);
+  assert.match(updaterPlugin, /Range/);
+  assert.match(updaterPlugin, /SHA-256/);
   assert.match(androidWorkflow, /contents: write/);
   assert.match(androidWorkflow, /100000 \+ GITHUB_RUN_NUMBER/);
-  assert.match(androidWorkflow, /VERSION_NAME="1\.0\.3"/);
+  assert.match(androidWorkflow, /VERSION_NAME="1\.0\.4"/);
   assert.match(androidWorkflow, /gh release create/);
   assert.match(androidWorkflow, /--latest/);
 });
 
+test('Android App console exposes guarded one-tap Supabase recovery', () => {
+  assert.match(installSettings, /FailoverRecoverySettings/);
+  assert.match(failoverRecovery, /failover\/status/);
+  assert.match(failoverRecovery, /failover\/replay/);
+  assert.match(failoverRecovery, /primary_ready/);
+  assert.match(failoverRecovery, /supabase-restored/);
+  assert.match(failoverRecovery, /安全回灌/);
+  assert.match(failoverRecovery, /pending_objects/);
+});
 
 test('Android notifications use native permission and local alarms while web keeps Web Push', () => {
   assert.match(androidManifest, /android\.permission\.POST_NOTIFICATIONS/);

@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION_NAME="1.0.3"
+          VERSION_NAME="1.0.4"
           VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))
           RELEASE_TAG="android-v${VERSION_NAME}-b${VERSION_CODE}"
           RELEASE_APK="OurHome-${VERSION_NAME}-b${VERSION_CODE}.apk"
