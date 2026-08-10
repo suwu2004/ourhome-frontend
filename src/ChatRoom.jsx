@@ -4,7 +4,26 @@ import { HighlightedText, Stars } from './ChatDecorations.jsx';
 import { ViewportChatImage } from './ViewportChatImage.jsx';
 
 const CHAT_DRAFT_PREFIX = 'ourhome_chat_draft:';
+const CHAT_CACHE_LIMIT = 12;
 const conversationCache = new Map();
+const pendingAttachmentCache = new Map();
+
+function rememberCache(cache, key, value) {
+  if (!key) return;
+  cache.delete(key);
+  cache.set(key, value);
+  while (cache.size > CHAT_CACHE_LIMIT) {
+    cache.delete(cache.keys().next().value);
+  }
+}
+
+function readCache(cache, key) {
+  if (!key || !cache.has(key)) return undefined;
+  const value = cache.get(key);
+  cache.delete(key);
+  cache.set(key, value);
+  return value;
+}
 
 function chatDraftKey(sessionId) {
   return sessionId ? `${CHAT_DRAFT_PREFIX}${sessionId}` : '';
@@ -66,6 +85,7 @@ export function ChatRoom(props) {
   const [cachedConversation, setCachedConversation] = useState(null);
   const [cachedSessionId, setCachedSessionId] = useState(null);
   const draftSessionRef = useRef(null);
+  const attachmentSessionRef = useRef(null);
   const messagesAtSessionChangeRef = useRef(msgs);
   const waitingForFreshMessagesRef = useRef(false);
   const showingCachedConversation = cachedSessionId === sessionId && cachedConversation !== null;
@@ -96,7 +116,7 @@ export function ChatRoom(props) {
     messagesAtSessionChangeRef.current = msgs;
     waitingForFreshMessagesRef.current = true;
     setCachedSessionId(sessionId);
-    setCachedConversation(conversationCache.get(String(sessionId)) || []);
+    setCachedConversation(readCache(conversationCache, String(sessionId)) || []);
   }, [sessionId]);
 
   useEffect(() => {
@@ -108,11 +128,23 @@ export function ChatRoom(props) {
       setCachedConversation(null);
     }
     const stableMessages = msgs.filter(message => !String(message?.id || '').startsWith('temp-'));
-    conversationCache.set(String(sessionId), stableMessages);
+    rememberCache(conversationCache, String(sessionId), stableMessages);
   }, [msgs, sessionId]);
 
   useEffect(() => {
-    if (!sessionId || editingMessage || draftSessionRef.current === sessionId) return;
+    const previousKey = attachmentSessionRef.current;
+    const nextKey = sessionId ? String(sessionId) : null;
+    if (previousKey && previousKey !== nextKey) {
+      if (pendingFile) rememberCache(pendingAttachmentCache, previousKey, pendingFile);
+      else pendingAttachmentCache.delete(previousKey);
+    }
+    attachmentSessionRef.current = nextKey;
+    if (!nextKey || editingMessage) return;
+    setPendingFile(readCache(pendingAttachmentCache, nextKey) || null);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || editingMessage || String(draftSessionRef.current) === String(sessionId)) return;
     draftSessionRef.current = sessionId;
     try {
       setInput(localStorage.getItem(chatDraftKey(sessionId)) || '');
@@ -146,6 +178,7 @@ export function ChatRoom(props) {
   const sendWithDraftCleanup = model => {
     if (!editingMessage && sessionId) {
       try { localStorage.removeItem(chatDraftKey(sessionId)); } catch { /* ignore storage failures */ }
+      pendingAttachmentCache.delete(String(sessionId));
     }
     return send(model);
   };

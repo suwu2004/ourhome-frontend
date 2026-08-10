@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, app, chatRoom, roomBoundary, vault, offline, installSettings, gradle] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -12,6 +12,9 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8'),
   readFile(new URL('../src/ThemeContext.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/Root.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/ChatRoom.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/RoomBoundary.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/VaultPage.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/offlineShell.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/AppInstallSettings.jsx', import.meta.url), 'utf8'),
@@ -70,9 +73,41 @@ test('expired private backgrounds recover without an upload loop', () => {
   assert.match(themeContext, /visibilitychange/);
 });
 
-test('home shelf uses one DOM observer for all injected room entries', () => {
+test('home shelf uses one observer and stops its retry timer after discovery', () => {
   assert.equal((root.match(/useHomeShelfTarget\(\)/g) || []).length, 2);
   assert.match(root, /function HomeShelfEntries/);
+  assert.match(root, /const stopRetry =/);
+  assert.match(root, /stopRetry\(\);\n      observer\?\.disconnect\(\)/);
+});
+
+test('core App defers its first mount but stays alive after the first core-room visit', () => {
+  assert.match(root, /persistentAppMounted/);
+  assert.match(root, /setPersistentAppMounted\(true\)/);
+  assert.match(root, /\{persistentAppMounted && \(/);
+  assert.doesNotMatch(root, /<App key=\{room\}/);
+});
+
+test('room recovery is isolated when navigating between persistent rooms', () => {
+  assert.match(roomBoundary, /componentDidUpdate\(previousProps\)/);
+  assert.match(roomBoundary, /previousProps\.room !== this\.props\.room/);
+});
+
+test('Chat ignores stale session reads and routes search jumps through normal switching', () => {
+  assert.match(app, /const targetSessionId = String\(id\)/);
+  assert.match(app, /String\(sessionIdRef\.current\) !== targetSessionId/);
+  assert.match(app, /setSessionSummary\(null\)/);
+  assert.match(app, /loadMessagesFor\(id\)\.catch\(console\.error\)/);
+  assert.match(app, /switchSession\(r\.session_id\)/);
+});
+
+test('Chat scopes attachments to their conversation and bounds memory caches', () => {
+  assert.match(chatRoom, /CHAT_CACHE_LIMIT = 12/);
+  assert.match(chatRoom, /pendingAttachmentCache/);
+  assert.match(chatRoom, /attachmentSessionRef/);
+  assert.match(chatRoom, /while \(cache\.size > CHAT_CACHE_LIMIT\)/);
+  assert.match(app, /const uploadSessionId = sessionIdRef\.current/);
+  assert.match(app, /String\(sessionIdRef\.current\) === String\(uploadSessionId\)/);
+  assert.match(app, /localStorage\.removeItem\(`ourhome_chat_draft:\$\{id\}`\)/);
 });
 
 test('vault fallback never presents demo money as real data', () => {
