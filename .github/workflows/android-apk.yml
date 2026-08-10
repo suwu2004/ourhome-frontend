@@ -11,6 +11,7 @@ on:
       - package.json
       - package-lock.json
       - .env.android
+      - .github/workflows/android-apk.yml
   push:
     branches: [main]
     paths:
@@ -21,6 +22,7 @@ on:
       - package.json
       - package-lock.json
       - .env.android
+      - .github/workflows/android-apk.yml
 
 permissions:
   contents: read
@@ -53,7 +55,7 @@ jobs:
       - run: npm run android:sync
       - name: Resolve Android release identity
         id: release_identity
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -81,7 +83,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Restore release keystore
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           KEYSTORE_BASE64: ${{ secrets.OURHOME_RELEASE_KEYSTORE_BASE64 }}
         run: |
@@ -89,7 +91,7 @@ jobs:
           test -n "$KEYSTORE_BASE64"
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/ourhome-release.jks"
       - name: Build signed release APK
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         working-directory: android
         env:
           OURHOME_RELEASE_KEYSTORE: ${{ runner.temp }}/ourhome-release.jks
@@ -98,13 +100,13 @@ jobs:
           OURHOME_RELEASE_KEY_PASSWORD: ${{ secrets.OURHOME_RELEASE_KEY_PASSWORD }}
         run: ./gradlew verifyReleaseSigning assembleRelease --no-daemon
       - name: Prepare signed release file
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
           cp android/app/build/outputs/apk/release/app-release.apk "$OURHOME_RELEASE_APK"
       - name: Upload signed release APK
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.release_identity.outputs.release_artifact }}
@@ -113,7 +115,7 @@ jobs:
           retention-days: 30
 
   publish-release:
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: android-apk
     runs-on: ubuntu-latest
     permissions:
