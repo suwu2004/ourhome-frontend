@@ -40,7 +40,7 @@ export default function AppInstallSettings({ compact = false }) {
     try {
       const result = await checkForAndroidUpdate();
       setUpdateState({ checking: false, current: result.current, latest: result.latest, available: result.available });
-      setNotice(result.available ? `发现新版本 v${result.latest.version}。` : '已经是最新版啦。');
+      setNotice(result.available ? `发现新版 v${result.latest.version} · build ${result.latest.build}。` : '已经是最新版啦。');
       return result;
     } catch (error) {
       setUpdateState(current => ({ ...current, checking: false }));
@@ -80,7 +80,7 @@ export default function AppInstallSettings({ compact = false }) {
   const nativeActionLabel = updateState.checking
     ? '检查中…'
     : updateState.available && updateState.latest
-      ? `更新到 v${updateState.latest.version}`
+      ? '更新到最新版'
       : '检查更新';
 
   if (compact) {
