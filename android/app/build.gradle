@@ -5,8 +5,8 @@ def releaseStorePassword = System.getenv("OURHOME_RELEASE_STORE_PASSWORD")
 def releaseKeyAlias = System.getenv("OURHOME_RELEASE_KEY_ALIAS")
 def releaseKeyPassword = System.getenv("OURHOME_RELEASE_KEY_PASSWORD")
 def hasReleaseSigning = [releaseKeystorePath, releaseStorePassword, releaseKeyAlias, releaseKeyPassword].every { it }
-def ourHomeVersionCode = Integer.parseInt(System.getenv("OURHOME_VERSION_CODE") ?: "4")
-def ourHomeVersionName = System.getenv("OURHOME_VERSION_NAME") ?: "1.0.3"
+def ourHomeVersionCode = Integer.parseInt(System.getenv("OURHOME_VERSION_CODE") ?: "5")
+def ourHomeVersionName = System.getenv("OURHOME_VERSION_NAME") ?: "1.0.4"
 
 android {
     namespace = "com.ourhome.app"
