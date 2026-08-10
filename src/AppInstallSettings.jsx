@@ -65,7 +65,7 @@ export default function AppInstallSettings({ compact = false }) {
       latest = checked.latest;
     }
     setUpdateState(current => ({ ...current, installing: true }));
-    setNotice('正在下载最新版安装包；网络短暂抖动会自动重试，重新点更新也会尽量接着上次继续。');
+    setNotice('正在下载最新版安装包；网络短暂抖动会自动重试，并支持断点续传。重新点更新也会尽量接着上次继续。');
     try {
       const result = await installAndroidUpdate(latest);
       if (result?.status === 'permission-required') {
@@ -77,7 +77,7 @@ export default function AppInstallSettings({ compact = false }) {
       }
     } catch (error) {
       console.error(error);
-      setNotice('这次网络还是没有撑到下载完成。已经下载的部分会尽量保留，网络稳一点后再点更新会继续尝试。');
+      setNotice('这次网络还是没有撑到下载完成。断点续传会尽量保留已经下载的部分；网络稳一点后再点更新会继续尝试。');
     } finally {
       setUpdateState(current => ({ ...current, installing: false }));
     }
