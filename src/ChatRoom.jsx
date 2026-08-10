@@ -1,7 +1,14 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LIGHT_THEME } from './theme.js';
 import { HighlightedText, Stars } from './ChatDecorations.jsx';
 import { ViewportChatImage } from './ViewportChatImage.jsx';
+
+const CHAT_DRAFT_PREFIX = 'ourhome_chat_draft:';
+const conversationCache = new Map();
+
+function chatDraftKey(sessionId) {
+  return sessionId ? `${CHAT_DRAFT_PREFIX}${sessionId}` : '';
+}
 
 function messageDateKey(date) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
@@ -55,13 +62,21 @@ export function ChatRoom(props) {
     modelsLoading, modelsError,
   } = props;
 
-  const visibleMessages = msgs.slice(0, Math.max(0, visible));
   const [chatModel, setChatModel] = useState(selectedModel || '');
+  const [cachedConversation, setCachedConversation] = useState(null);
+  const [cachedSessionId, setCachedSessionId] = useState(null);
+  const draftSessionRef = useRef(null);
+  const messagesAtSessionChangeRef = useRef(msgs);
+  const waitingForFreshMessagesRef = useRef(false);
+  const showingCachedConversation = cachedSessionId === sessionId && cachedConversation !== null;
+  const renderedMessages = showingCachedConversation ? cachedConversation : msgs;
+  const visibleMessages = renderedMessages.slice(0, showingCachedConversation ? renderedMessages.length : Math.max(0, visible));
   const modelOptions = [...new Set([
     chatModel,
     selectedModel,
     ...availableModels,
   ].map(item => String(item || '').trim()).filter(Boolean))];
+
   useEffect(() => {
     if (!availableModels.length) {
       if (!chatModel && selectedModel) setChatModel(selectedModel);
@@ -71,6 +86,41 @@ export function ChatRoom(props) {
     setChatModel(availableModels.includes(selectedModel) ? selectedModel : availableModels[0]);
   }, [availableModels, chatModel, selectedModel]);
 
+  useEffect(() => {
+    if (!sessionId) {
+      waitingForFreshMessagesRef.current = false;
+      setCachedSessionId(null);
+      setCachedConversation(null);
+      return;
+    }
+    messagesAtSessionChangeRef.current = msgs;
+    waitingForFreshMessagesRef.current = true;
+    setCachedSessionId(sessionId);
+    setCachedConversation(conversationCache.get(String(sessionId)) || []);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    if (waitingForFreshMessagesRef.current) {
+      if (msgs === messagesAtSessionChangeRef.current) return;
+      waitingForFreshMessagesRef.current = false;
+      setCachedSessionId(null);
+      setCachedConversation(null);
+    }
+    const stableMessages = msgs.filter(message => !String(message?.id || '').startsWith('temp-'));
+    conversationCache.set(String(sessionId), stableMessages);
+  }, [msgs, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || editingMessage || draftSessionRef.current === sessionId) return;
+    draftSessionRef.current = sessionId;
+    try {
+      setInput(localStorage.getItem(chatDraftKey(sessionId)) || '');
+    } catch {
+      setInput('');
+    }
+  }, [editingMessage, sessionId, setInput]);
+
   useLayoutEffect(() => {
     const textarea = chatInputRef.current;
     if (!textarea) return;
@@ -78,6 +128,27 @@ export function ChatRoom(props) {
     textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
     textarea.style.overflowY = textarea.scrollHeight > 120 ? 'auto' : 'hidden';
   }, [chatInputRef, input]);
+
+  const updateChatDraft = value => {
+    setInput(value);
+    if (!editingMessage && sessionId) {
+      try {
+        const key = chatDraftKey(sessionId);
+        if (value) localStorage.setItem(key, value);
+        else localStorage.removeItem(key);
+      } catch {
+        // Draft persistence is a convenience layer; storage failures must not block typing.
+      }
+    }
+    if (messageActionError) setMessageActionError("");
+  };
+
+  const sendWithDraftCleanup = model => {
+    if (!editingMessage && sessionId) {
+      try { localStorage.removeItem(chatDraftKey(sessionId)); } catch { /* ignore storage failures */ }
+    }
+    return send(model);
+  };
 
   return (
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "chat") ? 1 : 0, pointerEvents: (stage === "home" && view === "chat") ? "auto" : "none", transition: "opacity .4s ease" }}>
@@ -110,7 +181,7 @@ export function ChatRoom(props) {
             const isMe = m.role === "me";
             const isLast = idx === visibleMessages.length - 1;
             const dateKey = messageDateKey(m.createdAt);
-            const previousDateKey = idx > 0 ? messageDateKey(msgs[idx - 1].createdAt) : '';
+            const previousDateKey = idx > 0 ? messageDateKey(renderedMessages[idx - 1].createdAt) : '';
             const showDateDivider = Boolean(dateKey && dateKey !== previousDateKey);
             return (
               <div key={m.id} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 120px" }}>
@@ -146,7 +217,7 @@ export function ChatRoom(props) {
                     {m.text && (
                       <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>
                     )}
-                    {!isMe && isLast && !thinking && (
+                    {!isMe && isLast && !thinking && !showingCachedConversation && (
                       <button type="button" onClick={() => regenerateLast(chatModel)} disabled={regenerating} style={{ border: 0, padding: "3px 0", background: "transparent", fontSize: 10.5, color: C.muted, cursor: regenerating ? "default" : "pointer", alignSelf: "flex-start", fontFamily: "inherit" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</button>
                     )}
                   </div>
@@ -155,17 +226,17 @@ export function ChatRoom(props) {
                     <button
                       type="button"
                       onClick={() => openMessageActions(m)}
-                      disabled={thinking || messageActionLoading || String(m.id).startsWith('temp-')}
+                      disabled={showingCachedConversation || thinking || messageActionLoading || String(m.id).startsWith('temp-')}
                       aria-label={`${isMe ? '我的' : '陆泽的'}消息操作`}
-                      title="编辑或回到这里"
-                      style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "transparent", color: C.muted, cursor: thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: String(m.id).startsWith('temp-') ? .28 : .78, fontSize: 20, lineHeight: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 1, fontFamily: "inherit" }}
+                      title={showingCachedConversation ? "正在同步最新内容" : "编辑或回到这里"}
+                      style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "transparent", color: C.muted, cursor: showingCachedConversation || thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: showingCachedConversation || String(m.id).startsWith('temp-') ? .28 : .78, fontSize: 20, lineHeight: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 1, fontFamily: "inherit" }}
                     ><span aria-hidden="true" style={{ transform: "translateY(-2px)" }}>⌄</span></button>
                   </div>
                 </div>
               </div>
             );
           })}
-          {thinking && (
+          {thinking && !showingCachedConversation && (
             <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 14 }}>
               <Avatar isMe={false} src={partnerAvatar} theme={C} />
               <div style={{ padding: "10px 16px", borderRadius: "18px 18px 18px 4px", background: C.white, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, letterSpacing: ".15em", fontStyle: "italic" }}>想你中…</div>
@@ -260,8 +331,8 @@ export function ChatRoom(props) {
           <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
             <button type="button" onClick={() => chatImageInputRef.current?.click()} disabled={Boolean(editingMessage) || messageActionLoading} aria-label="添加图片或文件" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: editingMessage || messageActionLoading ? "default" : "pointer", opacity: editingMessage ? .3 : 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
             <input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} />
-            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫步"} value={input} onChange={e => { setInput(e.target.value); if (messageActionError) setMessageActionError(""); }} style={{ flex: 1, maxHeight: 120, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
-            <button type="button" onClick={() => send(chatModel)} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "background .2s, box-shadow .2s, opacity .2s, transform .15s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
+            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫步"} value={input} onChange={e => updateChatDraft(e.target.value)} style={{ flex: 1, maxHeight: 120, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
+            <button type="button" onClick={() => sendWithDraftCleanup(chatModel)} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "background .2s, box-shadow .2s, opacity .2s, transform .15s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
             <select aria-label="选择聊天模型" value={chatModel} onChange={e => { const nextModel = e.target.value; setMessageActionError(""); setChatModel(nextModel); chooseModel(nextModel); }} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>

@@ -30,6 +30,7 @@ const VaultPage = lazy(() => import('./VaultPage.jsx'));
 const TheaterRuleLibrary = lazy(() => import('./TheaterRuleLibrary.jsx'));
 
 const roomKeys = new Set(['chat', 'theater', 'music', 'reading', 'letters', 'memories', 'calendar', 'vault', 'photos', 'settings', 'toybox', 'luze-room']);
+const persistentAppRoomKeys = new Set(['chat', 'theater', 'music', 'letters', 'memories', 'calendar', 'photos', 'settings']);
 
 function roomFromHash() {
   const key = window.location.hash.replace(/^#/, '');
@@ -128,6 +129,10 @@ export default function Root() {
   const [unlocked, setUnlocked] = useOurHomeAccess();
   const [room, setRoom] = useState(roomFromHash);
   const [homeRefreshToken, setHomeRefreshToken] = useState(0);
+  const [lastPersistentRoom, setLastPersistentRoom] = useState(() => {
+    const initialRoom = roomFromHash();
+    return persistentAppRoomKeys.has(initialRoom) ? initialRoom : 'chat';
+  });
 
   useEffect(() => {
     const syncRoom = () => setRoom(roomFromHash());
@@ -138,6 +143,10 @@ export default function Root() {
       window.removeEventListener('popstate', syncRoom);
     };
   }, []);
+
+  useEffect(() => {
+    if (persistentAppRoomKeys.has(room)) setLastPersistentRoom(room);
+  }, [room]);
 
   useEffect(() => {
     if (!unlocked) {
@@ -171,52 +180,70 @@ export default function Root() {
     </RoomBoundary>
   );
 
-  if (room === 'vault') return roomShell(<VaultPage onClose={goHome} />);
-  if (room === 'luze-room') return roomShell(<LuzePrivateRoom onClose={goHome} />);
-  if (room === 'toybox') {
-    return roomShell(
+  let foregroundRoom = null;
+  if (room === 'vault') {
+    foregroundRoom = roomShell(<VaultPage onClose={goHome} />);
+  } else if (room === 'luze-room') {
+    foregroundRoom = roomShell(<LuzePrivateRoom onClose={goHome} />);
+  } else if (room === 'toybox') {
+    foregroundRoom = roomShell(
       <>
         <ToyBoxSharedRoom onClose={goHome} />
         <ToyBoxGomokuIntegrationV2 />
         <ToolBearGameDock />
       </>,
     );
-  }
-  if (room === 'reading') {
-    return roomShell(
+  } else if (room === 'reading') {
+    foregroundRoom = roomShell(
       <>
         <ReadingRoom onClose={goHome} />
         <ReadingShelfLiveNote />
         <ReadingCompanionPanel />
       </>,
     );
-  }
-  if (room !== 'home') {
-    return roomShell(
+  } else if (room === 'home') {
+    foregroundRoom = (
       <>
-        <App key={room} initialView={room} onHome={goHome} />
-        {room === 'theater' && <TheaterRuleLibrary />}
-        {room === 'settings' && (
-          <>
-            <ApiUsageLogPanel />
-            <LuzeAutonomySettingsPanel />
-          </>
-        )}
-      </>,
+        <HomeHub
+          onOpen={openRoom}
+          onRefresh={() => {
+            setHomeRefreshToken(value => value + 1);
+            refreshTheme();
+          }}
+          refreshToken={homeRefreshToken}
+        />
+        <HomeShelfEntries onOpen={openRoom} />
+      </>
     );
   }
 
+  const persistentAppVisible = persistentAppRoomKeys.has(room);
+
   return (
     <>
-      <HomeHub
-        onOpen={openRoom}
-        onRefresh={() => {
-          setHomeRefreshToken(value => value + 1);
-          refreshTheme();
+      {foregroundRoom}
+      <div
+        aria-hidden={!persistentAppVisible}
+        style={{
+          display: persistentAppVisible ? 'block' : 'none',
+          position: 'fixed',
+          inset: 0,
+          zIndex: persistentAppVisible ? 1 : -1,
         }}
-        refreshToken={homeRefreshToken}
-      />
-      <HomeShelfEntries onOpen={openRoom} />
+      >
+        <RoomBoundary room={lastPersistentRoom} onHome={goHome}>
+          <Suspense fallback={<div className="room-loading-shell" role="status">正在打开房间…</div>}>
+            <App initialView={lastPersistentRoom} onHome={goHome} />
+            {lastPersistentRoom === 'theater' && <TheaterRuleLibrary />}
+            {lastPersistentRoom === 'settings' && (
+              <>
+                <ApiUsageLogPanel />
+                <LuzeAutonomySettingsPanel />
+              </>
+            )}
+          </Suspense>
+        </RoomBoundary>
+      </div>
     </>
   );
 }
