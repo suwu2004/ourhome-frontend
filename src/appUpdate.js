@@ -68,16 +68,31 @@ export async function checkForAndroidUpdate() {
   };
 }
 
-export async function installAndroidUpdate(release) {
+export async function installAndroidUpdate(release, onProgress) {
   if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
     return { status: 'unsupported' };
   }
   const latest = typeof release === 'string' ? { apkUrl: release } : (release || {});
-  return AndroidUpdater.downloadAndInstall({
-    url: latest.apkUrl,
-    expectedBytes: Number(latest.apkSize) || 0,
-    sha256: normalizeSha256(latest.apkSha256 ? `sha256:${latest.apkSha256}` : ''),
-  });
+  let progressHandle = null;
+  try {
+    if (typeof onProgress === 'function') {
+      progressHandle = await AndroidUpdater.addListener('downloadProgress', event => {
+        onProgress({
+          phase: String(event?.phase || 'downloading'),
+          downloadedBytes: Math.max(0, Number(event?.downloadedBytes) || 0),
+          totalBytes: Math.max(0, Number(event?.totalBytes) || 0),
+          percent: Number.isFinite(Number(event?.percent)) ? Number(event.percent) : -1,
+        });
+      });
+    }
+    return await AndroidUpdater.downloadAndInstall({
+      url: latest.apkUrl,
+      expectedBytes: Number(latest.apkSize) || 0,
+      sha256: normalizeSha256(latest.apkSha256 ? `sha256:${latest.apkSha256}` : ''),
+    });
+  } finally {
+    try { await progressHandle?.remove?.(); } catch { /* progress cleanup must not affect updating */ }
+  }
 }
 
 export const __appUpdateTest = { normalizeSha256, parseReleaseBuild, pickReleaseApk };
