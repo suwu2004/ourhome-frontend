@@ -108,13 +108,42 @@ test('stale home cache self-heals with a read-only recheck after the cloud recov
   assert.ok(urls.includes('/api/milestones') || urls.includes(`${DIRECT_BACKEND}/milestones`));
 });
 
-test('cloud badge automatically rechecks stale reads and listens for recovery signals', async () => {
+test('cloud badge uses adaptive stale backoff while keeping immediate recovery signals', async () => {
   const badge = await readFile(new URL('../src/CloudSyncBadge.jsx', import.meta.url), 'utf8');
   assert.match(badge, /recheckCloudSync/);
   assert.match(badge, /FIRST_RECHECK_DELAY_MS/);
-  assert.match(badge, /STALE_RECHECK_INTERVAL_MS/);
+  assert.match(badge, /STALE_RECHECK_BACKOFF_MS/);
+  assert.match(badge, /15_000, 30_000, 60_000, 120_000, 300_000/);
+  assert.doesNotMatch(badge, /setInterval/);
   assert.match(badge, /addEventListener\('online'/);
   assert.match(badge, /visibilitychange/);
+});
+
+test('one stale recheck stops the round instead of probing every cached home endpoint', async () => {
+  const fresh = await import(`../src/api.js?cloud-round=${Date.now()}`);
+  storage.set('ourhome_token', 'test-token');
+  fresh.clearOurHomePrivateCache();
+
+  globalThis.fetch = async url => {
+    const body = String(url).includes('settings') ? '{"dark_mode":false}' : '[{"id":"m1"}]';
+    return new Response(body, { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  await fresh.apiFetch('/api/settings');
+  await fresh.apiFetch('/api/milestones');
+
+  globalThis.fetch = async () => { throw new TypeError('shared cloud outage'); };
+  assert.equal((await fresh.apiFetch('/api/settings')).headers.get('X-OurHome-Cache'), 'stale');
+  assert.equal((await fresh.apiFetch('/api/milestones')).headers.get('X-OurHome-Cache'), 'stale');
+  assert.equal(fresh.getCloudSyncState().paths.length, 2);
+
+  let recheckCalls = 0;
+  globalThis.fetch = async () => {
+    recheckCalls += 1;
+    throw new TypeError('still down');
+  };
+  assert.equal(await fresh.recheckCloudSync(), false);
+  assert.equal(recheckCalls, 3, 'one logical safe read gets two same-origin attempts plus one direct-route attempt');
+  assert.equal(fresh.getCloudSyncState().paths.length, 2);
 });
 
 test('chat and session reads never use the stale home cache after both routes fail', async () => {

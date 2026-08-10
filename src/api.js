@@ -171,15 +171,17 @@ function emitCloudSyncState() {
 
 function markCloudStale(path, cachedAt, logicalUrl = '') {
   const previous = staleCloudReads.get(path);
-  staleCloudReads.set(path, {
+  const next = {
     cachedAt: cachedAt || previous?.cachedAt || Date.now(),
     logicalUrl: logicalUrl || previous?.logicalUrl || '',
-  });
+  };
+  if (previous?.cachedAt === next.cachedAt && previous?.logicalUrl === next.logicalUrl) return;
+  staleCloudReads.set(path, next);
   emitCloudSyncState();
 }
 
 function markCloudFresh(path) {
-  if (!path) return;
+  if (!path || !staleCloudReads.has(path)) return;
   staleCloudReads.delete(path);
   emitCloudSyncState();
 }
@@ -239,11 +241,16 @@ export function recheckCloudSync() {
   cloudRecheckPromise = (async () => {
     for (const logicalUrl of logicalUrls) {
       try {
-        await apiFetch(logicalUrl, {
+        const response = await apiFetch(logicalUrl, {
           headers: { 'X-OurHome-Cloud-Recheck': '1' },
         });
+        // One stale-cache fallback is enough evidence that the shared cloud path
+        // is still unavailable. Stop this round instead of hammering the other
+        // safe home reads with the same doomed probe.
+        if (response.headers.get('X-OurHome-Cache') === 'stale') break;
       } catch {
         // Revalidation is read-only and best-effort. Keep the stale marker until a real read succeeds.
+        break;
       }
     }
     return staleCloudReads.size === 0;
