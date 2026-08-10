@@ -19,29 +19,27 @@ export const FONT_STYLES = {
   },
 };
 
-// The decorative home shell already loads the brush face once in Root.jsx.
-// Mark it ready here so the settings preview does not import the same 2.7 MB face again.
-const loaded = new Set(['system', 'brush']);
+const loaded = new Set(['system']);
+const loading = new Map();
 
 async function loadFontFiles(key) {
   if (loaded.has(key)) return;
-  if (key === 'round') await import('@fontsource/zcool-kuaile/chinese-simplified-400.css');
-  if (key === 'serif') await import('@fontsource/noto-serif-sc/chinese-simplified-400.css');
-  loaded.add(key);
+  if (!FONT_STYLES[key]) return;
+  let pending = loading.get(key);
+  if (!pending) {
+    pending = (async () => {
+      if (key === 'round') await import('@fontsource/zcool-kuaile/chinese-simplified-400.css');
+      if (key === 'serif') await import('@fontsource/noto-serif-sc/chinese-simplified-400.css');
+      if (key === 'brush') await import('@fontsource/ma-shan-zheng/chinese-simplified-400.css');
+      loaded.add(key);
+    })().finally(() => loading.delete(key));
+    loading.set(key, pending);
+  }
+  await pending;
 }
 
-export async function preloadFontOptions() {
-  const optionalFonts = Object.keys(FONT_STYLES).filter(key => key !== 'system' && !loaded.has(key));
-  for (const key of optionalFonts) {
-    await new Promise(resolve => {
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(resolve, { timeout: 1200 });
-      } else {
-        window.setTimeout(resolve, 80);
-      }
-    });
-    await loadFontFiles(key);
-  }
+export function ensureFontLoaded(key) {
+  return loadFontFiles(key);
 }
 
 export async function applyAppFont(key, { persist = true } = {}) {

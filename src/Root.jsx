@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { HomeHub } from './HomeHub.jsx';
 import OurHomeAccessGate, { useOurHomeAccess } from './OurHomeAccessGate.jsx';
 import RoomBoundary from './RoomBoundary.jsx';
-import '@fontsource/ma-shan-zheng/chinese-simplified-400.css';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
 import './ToyBoxBudget.css';

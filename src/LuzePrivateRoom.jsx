@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
+import { ensureFontLoaded } from './fonts.js';
 import './LuzePrivateRoom.css';
 import './LuzeDailyFolders.css';
 
@@ -188,6 +189,10 @@ export default function LuzePrivateRoom({ onClose }) {
   const [loading, setLoading] = useState(Boolean(pass));
   const [error, setError] = useState('');
   const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    ensureFontLoaded('brush').catch(error => console.warn('[font] brush face failed to load:', error));
+  }, []);
 
   const roomFetch = useCallback(async (path, options = {}) => {
     const headers = new Headers(options.headers || undefined);
