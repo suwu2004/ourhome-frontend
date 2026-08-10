@@ -5,6 +5,7 @@ import { ViewportChatImage } from './ViewportChatImage.jsx';
 
 const CHAT_DRAFT_PREFIX = 'ourhome_chat_draft:';
 const MAX_CHAT_SESSION_CACHE = 12;
+const MAX_CACHED_MESSAGES_PER_SESSION = 320;
 const conversationCache = new Map();
 const pendingAttachmentCache = new Map();
 
@@ -63,7 +64,7 @@ export function ChatRoom(props) {
   const {
     stage, view, C, leaveRoom, setDrawerOpen, setSearchOpen, setSearchQuery,
     setLastSearchQuery, setSearchResults, setSearchMeta, setSearchScope,
-    thinking, listRef, onListScroll, bgImage, bgColor, ready, msgs, visible, formatMsgTime, highlightMsgId,
+    thinking, listRef, onListScroll, bgImage, bgColor, ready, msgs, visible, hasMoreChatHistory, chatHistoryLoading, loadOlderMessages, formatMsgTime, highlightMsgId,
     highlightQuery, myAvatar, partnerAvatar, myBubbleColor, partnerBubbleColor,
     toggleThinking, openMessageActions, messageAction, messageActionLoading, regenerateLast,
     regenerating, editingMessage, cancelEditMsg, rollbackUndo, undoRollback,
@@ -122,7 +123,7 @@ export function ChatRoom(props) {
       setCachedConversation(null);
     }
     const stableMessages = msgs.filter(message => !String(message?.id || '').startsWith('temp-'));
-    setBoundedSessionCache(conversationCache, sessionId, stableMessages);
+    setBoundedSessionCache(conversationCache, sessionId, stableMessages.slice(-MAX_CACHED_MESSAGES_PER_SESSION));
   }, [msgs, sessionId]);
 
   useEffect(() => {
@@ -202,6 +203,13 @@ export function ChatRoom(props) {
           <div ref={listRef} onScroll={onListScroll} style={{ position: "absolute", inset: 0, overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch", padding: "16px 14px 8px" }}>
           {!ready && (
             <div style={{ textAlign: "center", fontSize: 11, color: C.muted, letterSpacing: ".15em", padding: "30px 0" }}>正在开门…</div>
+          )}
+          {ready && hasMoreChatHistory && !showingCachedConversation && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '2px 0 14px' }}>
+              <button type="button" onClick={loadOlderMessages} disabled={chatHistoryLoading} style={{ border: `1px solid ${C.border}`, background: C.white, color: C.honeyDeep, borderRadius: 999, padding: '6px 12px', fontSize: 10.5, fontFamily: 'inherit', cursor: chatHistoryLoading ? 'default' : 'pointer' }}>
+                {chatHistoryLoading ? '正在翻以前的聊天…' : '查看更早的消息'}
+              </button>
+            </div>
           )}
           {visibleMessages.map((m, idx) => {
             const isMe = m.role === "me";
@@ -309,9 +317,9 @@ export function ChatRoom(props) {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
                 {[
-                  [chatUsage.totalChars, '聊天字数'],
+                  [chatUsage.totalChars, hasMoreChatHistory ? '已加载字数' : '聊天字数'],
                   [chatUsage.currentContextTokens, '当前上下文'],
-                  [chatUsage.totalOutputTokens, '累计生成'],
+                  [chatUsage.totalOutputTokens, hasMoreChatHistory ? '已加载生成' : '累计生成'],
                 ].map(([value, label]) => (
                   <div key={label} style={{ minWidth: 0, textAlign: "center", background: "rgba(255,255,255,.68)", borderRadius: 10, padding: "7px 3px" }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.honeyDeep, overflow: "hidden", textOverflow: "ellipsis" }}>{Number(value).toLocaleString('zh-CN')}</div>

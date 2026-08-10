@@ -29,6 +29,7 @@ const SESSION_KEY = "ourhome_session_id";
 const MAX_BACKGROUND_IMAGE_BYTES = 6 * 1024 * 1024;
 const SESSION_TOKEN_SOFT_LIMIT = 250_000;
 const SESSION_TOKEN_HARD_LIMIT = 290_000;
+const CHAT_HISTORY_PAGE_SIZE = 240;
 const EMPTY_FAVORITE_DRAFT = {
   title: '',
   content: '',
@@ -150,6 +151,9 @@ export default function App({ initialView = 'chat', onHome }) {
   const [msgs, setMsgs] = useState(initMsgs);
   const [tokenUsageOpen, setTokenUsageOpen] = useState(false);
   const [visible, setVisible] = useState(0);
+  const [hasMoreChatHistory, setHasMoreChatHistory] = useState(false);
+  const [chatHistoryBefore, setChatHistoryBefore] = useState('');
+  const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [scrollToMsgId, setScrollToMsgId] = useState(null);
   const [highlightMsgId, setHighlightMsgId] = useState(null);
@@ -380,23 +384,72 @@ export default function App({ initialView = 'chat', onHome }) {
     setTimeout(() => setStage("home"), 1400);
   };
 
-  const loadMessagesFor = (id) => {
+  const loadMessagesFor = (id, { full = false } = {}) => {
     const targetSessionId = String(id);
+    const historyUrl = full
+      ? `${BACKEND}/sessions/${id}/messages`
+      : `${BACKEND}/sessions/${id}/messages?limit=${CHAT_HISTORY_PAGE_SIZE}`;
     setSessionSummaryError('');
     return Promise.all([
-      apiFetch(`${BACKEND}/sessions/${id}/messages`).then(r => r.json()),
+      apiFetch(historyUrl).then(async response => {
+        const data = await response.json().catch(() => ([]));
+        if (!response.ok) throw new Error(data?.error || '聊天记录没有回来');
+        return data;
+      }),
       apiFetch(`${BACKEND}/sessions/${id}/summary`).then(r => r.json()).catch(() => null),
     ])
       .then(([data, summary]) => {
-        const mapped = (Array.isArray(data) ? data : []).map(mapDbMessage);
+        const rows = Array.isArray(data) ? data : (Array.isArray(data?.messages) ? data.messages : []);
+        const mapped = rows.map(mapDbMessage);
         if (String(sessionIdRef.current) !== targetSessionId) return mapped;
         setMsgs(mapped);
         setVisible(mapped.length);
         setHasHistory(mapped.length > 0);
+        setHasMoreChatHistory(!full && !Array.isArray(data) && Boolean(data?.hasMore));
+        setChatHistoryBefore(!full && !Array.isArray(data) ? String(data?.nextBefore || '') : '');
         setSessionSummary(summary && summary.id ? summary : null);
         scrollChatToBottomNow();
         return mapped;
       });
+  };
+
+  const loadOlderMessages = async () => {
+    if (!sessionId || !hasMoreChatHistory || !chatHistoryBefore || chatHistoryLoading) return;
+    const targetSessionId = String(sessionId);
+    const list = listRef.current;
+    const previousHeight = list?.scrollHeight || 0;
+    const previousTop = list?.scrollTop || 0;
+    setChatHistoryLoading(true);
+    try {
+      const response = await apiFetch(`${BACKEND}/sessions/${sessionId}/messages?limit=${CHAT_HISTORY_PAGE_SIZE}&before=${encodeURIComponent(chatHistoryBefore)}`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || '更早的聊天记录没有回来');
+      if (String(sessionIdRef.current) !== targetSessionId) return;
+      const rows = Array.isArray(data) ? data : (Array.isArray(data?.messages) ? data.messages : []);
+      const mapped = rows.map(mapDbMessage);
+      if (Array.isArray(data)) {
+        setMsgs(mapped);
+        setVisible(mapped.length);
+        setHasMoreChatHistory(false);
+        setChatHistoryBefore('');
+        return;
+      }
+      if (mapped.length) {
+        setMsgs(current => [...mapped, ...current]);
+        setVisible(current => current + mapped.length);
+      }
+      setHasMoreChatHistory(Boolean(data?.hasMore));
+      setChatHistoryBefore(String(data?.nextBefore || ''));
+      requestAnimationFrame(() => {
+        const nextList = listRef.current;
+        if (!nextList) return;
+        nextList.scrollTop = previousTop + Math.max(0, nextList.scrollHeight - previousHeight);
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setChatHistoryLoading(false);
+    }
   };
 
   const generateCurrentSessionSummary = async () => {
@@ -425,7 +478,7 @@ export default function App({ initialView = 'chat', onHome }) {
     sessionIdRef.current = targetSessionId;
     setSessionId(targetSessionId);
     localStorage.setItem(SESSION_KEY, targetSessionId);
-    loadMessagesFor(targetSessionId)
+    loadMessagesFor(targetSessionId, { full: Boolean(targetMessageId) })
       .then(() => {
         if (String(sessionIdRef.current) !== String(targetSessionId)) return;
         if (targetMessageId) {
@@ -1319,7 +1372,7 @@ export default function App({ initialView = 'chat', onHome }) {
       .catch(console.error);
   };
 
-  const switchSession = (id) => {
+  const switchSession = (id, { full = false } = {}) => {
     const targetSessionId = String(id);
     if (String(sessionId) === targetSessionId) { setDrawerOpen(false); return; }
     if (editingMessage) {
@@ -1332,11 +1385,13 @@ export default function App({ initialView = 'chat', onHome }) {
     setMessageActionError("");
     setTokenUsageOpen(false);
     setSessionSummary(null);
+    setHasMoreChatHistory(false);
+    setChatHistoryBefore('');
     chatStickToBottomRef.current = true;
     sessionIdRef.current = id;
     setSessionId(id);
     localStorage.setItem(SESSION_KEY, id);
-    loadMessagesFor(id).catch(console.error);
+    loadMessagesFor(id, { full }).catch(console.error);
     setDrawerOpen(false);
   };
 
@@ -1837,9 +1892,12 @@ export default function App({ initialView = 'chat', onHome }) {
     const jump = { id: r.id, query: lastSearchQuery || searchQuery.trim() };
     if (String(r.session_id) === String(sessionId)) {
       setPendingSearchJump(jump);
+      if (!msgs.some(message => String(message.id) === String(r.id))) {
+        loadMessagesFor(sessionId, { full: true }).catch(console.error);
+      }
     } else {
       setPendingSearchJump(jump);
-      switchSession(r.session_id);
+      switchSession(r.session_id, { full: true });
     }
   };
 
@@ -2145,6 +2203,9 @@ export default function App({ initialView = 'chat', onHome }) {
         ready={ready}
         msgs={msgs}
         visible={visible}
+        hasMoreChatHistory={hasMoreChatHistory}
+        chatHistoryLoading={chatHistoryLoading}
+        loadOlderMessages={loadOlderMessages}
         formatMsgTime={formatMsgTime}
         highlightMsgId={highlightMsgId}
         highlightQuery={highlightQuery}
