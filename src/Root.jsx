@@ -14,6 +14,7 @@ import './UnifiedRoomHeaders.css';
 import './RoomHeaderFinal.css';
 import './DecorativeTypographyPolish.css';
 import { useTheme } from './ThemeContext.jsx';
+import { emitGlobalSync } from './globalSync.js';
 
 const App = lazy(() => import('./App.jsx'));
 const ReadingRoom = lazy(() => import('./ReadingRoom.jsx'));
@@ -220,6 +221,7 @@ export default function Root() {
           onOpen={openRoom}
           onRefresh={() => {
             setHomeRefreshToken(value => value + 1);
+            emitGlobalSync({ source: 'home', scope: 'all' });
             refreshTheme();
           }}
           refreshToken={homeRefreshToken}

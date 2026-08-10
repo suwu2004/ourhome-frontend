@@ -344,8 +344,11 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   useEffect(() => {
     loadMemos();
     loadMilestones();
+  }, [loadMemos, loadMilestones, refreshToken]);
+
+  useEffect(() => {
     loadMusicPreview();
-  }, [loadMemos, loadMilestones, loadMusicPreview, refreshToken]);
+  }, [loadMusicPreview]);
 
   useEffect(() => {
     if (!refreshing) return undefined;

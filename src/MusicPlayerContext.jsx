@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
+import { subscribeGlobalSync } from './globalSync.js';
 
 const MusicPlayerContext = createContext(null);
 
@@ -91,7 +92,11 @@ export function MusicPlayerProvider({ children }) {
   useEffect(() => {
     loadMusic();
     window.addEventListener('ourhome-auth-changed', loadMusic);
-    return () => window.removeEventListener('ourhome-auth-changed', loadMusic);
+    const unsubscribeGlobalSync = subscribeGlobalSync(loadMusic, { scope: 'music' });
+    return () => {
+      window.removeEventListener('ourhome-auth-changed', loadMusic);
+      unsubscribeGlobalSync();
+    };
   }, [loadMusic]);
 
   const pickTrack = useCallback((direction = 1) => {
