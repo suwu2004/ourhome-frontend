@@ -65,7 +65,7 @@ export default function AppInstallSettings({ compact = false }) {
       latest = checked.latest;
     }
     setUpdateState(current => ({ ...current, installing: true }));
-    setNotice('正在下载最新版安装包；网络短暂抖动会自动重试，重新点更新也会尽量接着上次继续。');
+    setNotice('正在下载最新版安装包；网络短暂抖动会自动重试，并支持断点续传。重新点更新也会尽量接着上次继续。');
     try {
       const result = await installAndroidUpdate(latest);
       if (result?.status === 'permission-required') {
@@ -77,7 +77,7 @@ export default function AppInstallSettings({ compact = false }) {
       }
     } catch (error) {
       console.error(error);
-      setNotice('这次网络还是没有撑到下载完成。没关系，已经下载的部分会尽量保留；网络稳一点后再点“更新到最新版”会继续尝试。');
+      setNotice('这次网络还是没有撑到下载完成。断点续传会尽量保留已经下载的部分；网络稳一点后再点更新会继续尝试。');
     } finally {
       setUpdateState(current => ({ ...current, installing: false }));
     }
@@ -100,16 +100,22 @@ export default function AppInstallSettings({ compact = false }) {
 
   const maintenancePanel = (
     <div className="app-install-settings app-data-maintenance-settings">
-      <div><strong>设备与数据状态</strong><span>{status}</span></div>
-      {state.native ? (
-        <>
-          <p>版本检查、主库与灾备都收在数据管理里；更新包支持网络抖动重试和断点续传，安装前会校验完整性。</p>
-          <button type="button" onClick={updateState.available ? updateNow : checkUpdate} disabled={nativeBusy}>{nativeActionLabel}</button>
-        </>
-      ) : state.installed ? <p>已经可以像普通 App 一样从桌面打开，设备维护与数据恢复都集中放在这里。</p>
-        : <><p>可以先安装桌面版；设备维护、备份和恢复都集中放在数据管理里。</p><button type="button" onClick={install}>{state.promptAvailable ? '安装 OurHome' : '查看安装方法'}</button></>}
-      {notice && <small role="status">{notice}</small>}
       {state.native && <FailoverRecoverySettings />}
+
+      <div className="app-device-status" style={{ display: 'grid', gap: 3, marginTop: state.native ? 12 : 0 }}>
+        <strong>设备与数据状态</strong>
+        <span style={{ fontSize: 10, opacity: .7, lineHeight: 1.45 }}>{status}</span>
+      </div>
+
+      {notice && <small role="status" style={{ display: 'block', marginTop: 8 }}>{notice}</small>}
+
+      <div className="app-maintenance-update" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(196,151,74,.18)' }}>
+        {state.native ? (
+          <button type="button" onClick={updateState.available ? updateNow : checkUpdate} disabled={nativeBusy}>{nativeActionLabel}</button>
+        ) : state.installed ? null : (
+          <button type="button" onClick={install}>{state.promptAvailable ? '安装 OurHome' : '查看安装方法'}</button>
+        )}
+      </div>
     </div>
   );
 
