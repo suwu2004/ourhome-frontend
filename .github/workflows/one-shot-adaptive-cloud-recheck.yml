@@ -7,13 +7,16 @@ on:
     paths:
       - .github/one-shot-adaptive-cloud-recheck.py
       - .github/workflows/one-shot-adaptive-cloud-recheck.yml
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch-and-verify:
-    if: github.event.head_commit.message == 'Stage adaptive cloud recheck optimization'
+    if: github.event_name == 'pull_request' || github.event.head_commit.message == 'Stage adaptive cloud recheck optimization'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +26,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Apply guarded optimization patch
-        run: python .github/one-shot-adaptive-cloud-recheck.py
+      - name: Apply guarded optimization patch once
+        run: |
+          if grep -q "STALE_RECHECK_BACKOFF_MS" src/CloudSyncBadge.jsx && grep -q "One stale-cache fallback is enough evidence" src/api.js; then
+            echo "Optimization already applied; verification only."
+          else
+            python .github/one-shot-adaptive-cloud-recheck.py
+          fi
       - run: npm ci
       - run: npm run test:api
       - run: npm run test:app
@@ -38,5 +46,3 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "Back off stale cloud rechecks adaptively"
           git push origin HEAD:agent/adaptive-cloud-recheck-20260810
-
-# trigger after workflow registration
