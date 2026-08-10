@@ -149,20 +149,32 @@ export function clearOurHomePrivateCache() {
   emitCloudSyncState();
 }
 
-function emitCloudSyncState() {
-  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
+function cloudSyncSnapshot() {
   const entries = [...staleCloudReads.entries()];
-  window.dispatchEvent(new CustomEvent('ourhome-cloud-sync', {
-    detail: {
-      state: entries.length ? 'stale' : 'online',
-      paths: entries.map(([path]) => path),
-      cachedAt: entries.length ? Math.min(...entries.map(([, value]) => value || Date.now())) : null,
-    },
-  }));
+  return {
+    state: entries.length ? 'stale' : 'online',
+    paths: entries.map(([path]) => path),
+    cachedAt: entries.length
+      ? Math.min(...entries.map(([, value]) => Number(value?.cachedAt || 0) || Date.now()))
+      : null,
+  };
 }
 
-function markCloudStale(path, cachedAt) {
-  staleCloudReads.set(path, cachedAt || Date.now());
+export function getCloudSyncState() {
+  return cloudSyncSnapshot();
+}
+
+function emitCloudSyncState() {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
+  window.dispatchEvent(new CustomEvent('ourhome-cloud-sync', { detail: cloudSyncSnapshot() }));
+}
+
+function markCloudStale(path, cachedAt, logicalUrl = '') {
+  const previous = staleCloudReads.get(path);
+  staleCloudReads.set(path, {
+    cachedAt: cachedAt || previous?.cachedAt || Date.now(),
+    logicalUrl: logicalUrl || previous?.logicalUrl || '',
+  });
   emitCloudSyncState();
 }
 
@@ -172,7 +184,7 @@ function markCloudFresh(path) {
   emitCloudSyncState();
 }
 
-function readCloudCache(path) {
+function readCloudCache(path, logicalUrl = '') {
   if (!path || typeof localStorage === 'undefined') return null;
   try {
     const raw = localStorage.getItem(cacheKey(path));
@@ -191,7 +203,7 @@ function readCloudCache(path) {
       'X-OurHome-Cache': 'stale',
       'X-OurHome-Cached-At': String(savedAt),
     });
-    markCloudStale(path, savedAt);
+    markCloudStale(path, savedAt, logicalUrl);
     return new Response(parsed.body, { status: 200, headers });
   } catch {
     return null;
@@ -211,6 +223,35 @@ async function rememberCloudRead(path, response) {
   } catch {
     // Caching is only a visual resilience layer; a cache write must never break the real response.
   }
+}
+
+let cloudRecheckPromise = null;
+
+export function recheckCloudSync() {
+  if (cloudRecheckPromise) return cloudRecheckPromise;
+  const logicalUrls = [...new Set(
+    [...staleCloudReads.values()]
+      .map(value => value?.logicalUrl)
+      .filter(Boolean),
+  )];
+  if (!logicalUrls.length) return Promise.resolve(staleCloudReads.size === 0);
+
+  cloudRecheckPromise = (async () => {
+    for (const logicalUrl of logicalUrls) {
+      try {
+        await apiFetch(logicalUrl, {
+          headers: { 'X-OurHome-Cloud-Recheck': '1' },
+        });
+      } catch {
+        // Revalidation is read-only and best-effort. Keep the stale marker until a real read succeeds.
+      }
+    }
+    return staleCloudReads.size === 0;
+  })().finally(() => {
+    cloudRecheckPromise = null;
+  });
+
+  return cloudRecheckPromise;
 }
 
 async function fetchWithSafeReadRetry(url, options, headers) {
@@ -289,7 +330,7 @@ export async function apiFetch(url, options = {}) {
   }
 
   if (!response) {
-    const cached = cloudPath ? readCloudCache(cloudPath) : null;
+    const cached = cloudPath ? readCloudCache(cloudPath, url) : null;
     if (cached) response = cached;
     else throw primaryError || new Error('网络请求没有完成');
   }
@@ -298,7 +339,7 @@ export async function apiFetch(url, options = {}) {
   // sync when the relay is briefly unavailable. Never mask authentication errors,
   // and never cache chat/session reads where stale data could target the wrong room.
   if (cloudPath && RETRYABLE_READ_STATUS.has(response.status)) {
-    response = readCloudCache(cloudPath) || response;
+    response = readCloudCache(cloudPath, url) || response;
   }
 
   if (response.status === 401 && token) {

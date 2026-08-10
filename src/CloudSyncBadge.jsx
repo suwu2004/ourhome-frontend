@@ -1,13 +1,43 @@
 import { useEffect, useState } from 'react';
+import { getCloudSyncState, recheckCloudSync } from './api.js';
+
+const FIRST_RECHECK_DELAY_MS = 1800;
+const STALE_RECHECK_INTERVAL_MS = 15_000;
 
 export default function CloudSyncBadge() {
-  const [stale, setStale] = useState(false);
+  const [stale, setStale] = useState(() => getCloudSyncState().state === 'stale');
 
   useEffect(() => {
     const handleSync = event => setStale(event?.detail?.state === 'stale');
+    const handleOnline = () => {
+      if (getCloudSyncState().state === 'stale') recheckCloudSync().catch(() => {});
+    };
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible' && getCloudSyncState().state === 'stale') {
+        recheckCloudSync().catch(() => {});
+      }
+    };
+
     window.addEventListener('ourhome-cloud-sync', handleSync);
-    return () => window.removeEventListener('ourhome-cloud-sync', handleSync);
+    window.addEventListener('online', handleOnline);
+    document.addEventListener('visibilitychange', handleVisible);
+    return () => {
+      window.removeEventListener('ourhome-cloud-sync', handleSync);
+      window.removeEventListener('online', handleOnline);
+      document.removeEventListener('visibilitychange', handleVisible);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!stale) return undefined;
+    const probe = () => recheckCloudSync().catch(() => {});
+    const firstTimer = window.setTimeout(probe, FIRST_RECHECK_DELAY_MS);
+    const interval = window.setInterval(probe, STALE_RECHECK_INTERVAL_MS);
+    return () => {
+      window.clearTimeout(firstTimer);
+      window.clearInterval(interval);
+    };
+  }, [stale]);
 
   if (!stale) return null;
 
