@@ -1,7 +1,13 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LIGHT_THEME } from './theme.js';
 import { HighlightedText, Stars } from './ChatDecorations.jsx';
 import { ViewportChatImage } from './ViewportChatImage.jsx';
+
+const CHAT_DRAFT_PREFIX = 'ourhome_chat_draft:';
+
+function chatDraftKey(sessionId) {
+  return sessionId ? `${CHAT_DRAFT_PREFIX}${sessionId}` : '';
+}
 
 function messageDateKey(date) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
@@ -57,11 +63,13 @@ export function ChatRoom(props) {
 
   const visibleMessages = msgs.slice(0, Math.max(0, visible));
   const [chatModel, setChatModel] = useState(selectedModel || '');
+  const draftSessionRef = useRef(null);
   const modelOptions = [...new Set([
     chatModel,
     selectedModel,
     ...availableModels,
   ].map(item => String(item || '').trim()).filter(Boolean))];
+
   useEffect(() => {
     if (!availableModels.length) {
       if (!chatModel && selectedModel) setChatModel(selectedModel);
@@ -71,6 +79,16 @@ export function ChatRoom(props) {
     setChatModel(availableModels.includes(selectedModel) ? selectedModel : availableModels[0]);
   }, [availableModels, chatModel, selectedModel]);
 
+  useEffect(() => {
+    if (!sessionId || editingMessage || draftSessionRef.current === sessionId) return;
+    draftSessionRef.current = sessionId;
+    try {
+      setInput(localStorage.getItem(chatDraftKey(sessionId)) || '');
+    } catch {
+      setInput('');
+    }
+  }, [editingMessage, sessionId, setInput]);
+
   useLayoutEffect(() => {
     const textarea = chatInputRef.current;
     if (!textarea) return;
@@ -78,6 +96,27 @@ export function ChatRoom(props) {
     textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
     textarea.style.overflowY = textarea.scrollHeight > 120 ? 'auto' : 'hidden';
   }, [chatInputRef, input]);
+
+  const updateChatDraft = value => {
+    setInput(value);
+    if (!editingMessage && sessionId) {
+      try {
+        const key = chatDraftKey(sessionId);
+        if (value) localStorage.setItem(key, value);
+        else localStorage.removeItem(key);
+      } catch {
+        // Draft persistence is a convenience layer; storage failures must not block typing.
+      }
+    }
+    if (messageActionError) setMessageActionError("");
+  };
+
+  const sendWithDraftCleanup = model => {
+    if (!editingMessage && sessionId) {
+      try { localStorage.removeItem(chatDraftKey(sessionId)); } catch { /* ignore storage failures */ }
+    }
+    return send(model);
+  };
 
   return (
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "chat") ? 1 : 0, pointerEvents: (stage === "home" && view === "chat") ? "auto" : "none", transition: "opacity .4s ease" }}>
@@ -260,8 +299,8 @@ export function ChatRoom(props) {
           <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
             <button type="button" onClick={() => chatImageInputRef.current?.click()} disabled={Boolean(editingMessage) || messageActionLoading} aria-label="添加图片或文件" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: editingMessage || messageActionLoading ? "default" : "pointer", opacity: editingMessage ? .3 : 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
             <input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} />
-            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫步"} value={input} onChange={e => { setInput(e.target.value); if (messageActionError) setMessageActionError(""); }} style={{ flex: 1, maxHeight: 120, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
-            <button type="button" onClick={() => send(chatModel)} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "background .2s, box-shadow .2s, opacity .2s, transform .15s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
+            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫步"} value={input} onChange={e => updateChatDraft(e.target.value)} style={{ flex: 1, maxHeight: 120, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
+            <button type="button" onClick={() => sendWithDraftCleanup(chatModel)} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "background .2s, box-shadow .2s, opacity .2s, transform .15s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
             <select aria-label="选择聊天模型" value={chatModel} onChange={e => { const nextModel = e.target.value; setMessageActionError(""); setChatModel(nextModel); chooseModel(nextModel); }} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
