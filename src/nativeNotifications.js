@@ -23,31 +23,28 @@ export async function openNativeNotificationSettings() {
   await NativeNotifications.openSettings();
 }
 
-export async function getNativeRemotePushStatus() {
-  if (!isNativeAndroidApp()) return { configured: false, enabled: false, topic: '' };
-  const result = await NativeNotifications.getRemotePushStatus();
+function normalizeRemoteStatus(result) {
   return {
     configured: Boolean(result?.configured),
     enabled: Boolean(result?.enabled),
-    topic: String(result?.topic || ''),
+    token: String(result?.token || ''),
     reason: String(result?.reason || ''),
   };
+}
+
+export async function getNativeRemotePushStatus() {
+  if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
+  return normalizeRemoteStatus(await NativeNotifications.getRemotePushStatus());
 }
 
 export async function registerNativeRemotePush() {
-  if (!isNativeAndroidApp()) return { configured: false, enabled: false, topic: '' };
-  const result = await NativeNotifications.registerRemotePush();
-  return {
-    configured: Boolean(result?.configured),
-    enabled: Boolean(result?.enabled),
-    topic: String(result?.topic || ''),
-    reason: String(result?.reason || ''),
-  };
+  if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
+  return normalizeRemoteStatus(await NativeNotifications.registerRemotePush());
 }
 
 export async function unregisterNativeRemotePush() {
-  if (!isNativeAndroidApp()) return { configured: false, enabled: false, topic: '' };
-  return NativeNotifications.unregisterRemotePush();
+  if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
+  return normalizeRemoteStatus(await NativeNotifications.unregisterRemotePush());
 }
 
 export async function consumeNativeRemotePushRoute() {
@@ -59,6 +56,12 @@ export async function consumeNativeRemotePushRoute() {
 export async function listenNativeRemotePushActions(handler) {
   if (!isNativeAndroidApp() || typeof handler !== 'function') return () => {};
   const handle = await NativeNotifications.addListener('remotePushAction', handler);
+  return () => handle?.remove?.();
+}
+
+export async function listenNativeRemotePushTokens(handler) {
+  if (!isNativeAndroidApp() || typeof handler !== 'function') return () => {};
+  const handle = await NativeNotifications.addListener('remotePushTokenChanged', handler);
   return () => handle?.remove?.();
 }
 
