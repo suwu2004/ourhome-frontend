@@ -65,7 +65,7 @@ test('native releases expose real build info and a user-approved in-app updater'
   assert.doesNotMatch(installSettings, /const APP_VERSION/);
   assert.match(installSettings, /checkForAndroidUpdate/);
   assert.match(installSettings, /installAndroidUpdate/);
-  assert.match(installSettings, /更新到 v/);
+  assert.match(installSettings, /更新到最新版/);
   assert.match(appUpdate, /App\.getInfo\(\)/);
   assert.match(appUpdate, /releases\/latest/);
   assert.match(appUpdate, /latest\.build > Number\(current\?\.build/);
