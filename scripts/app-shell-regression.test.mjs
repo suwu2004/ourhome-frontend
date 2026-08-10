@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -25,6 +25,7 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeReminderReceiver.java', import.meta.url), 'utf8'),
   readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/SettingsRoom.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/ChatRoom.jsx', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -107,6 +108,21 @@ test('Android notifications use native permission and local alarms while web kee
   assert.match(appSource, /serviceWorker.*PushManager/s);
   assert.match(settingsSource, /Android 系统通知/);
   assert.match(settingsSource, /原生云推送还需要接 FCM/);
+});
+
+test('Chat session switching rejects stale responses and scopes attachments', () => {
+  assert.match(appSource, /const targetSessionId = String\(id\)/);
+  assert.match(appSource, /String\(sessionIdRef\.current\) !== targetSessionId/);
+  assert.match(appSource, /setSessionSummary\(null\)/);
+  assert.match(appSource, /loadMessagesFor\(id\)\.catch/);
+  assert.match(appSource, /const uploadSessionId = sessionIdRef\.current/);
+  assert.match(appSource, /String\(sessionIdRef\.current\) === String\(uploadSessionId\)/);
+  assert.match(appSource, /switchSession\(r\.session_id\)/);
+  assert.match(appSource, /ourhome_chat_draft:\$\{id\}/);
+  assert.match(chatRoomSource, /MAX_CHAT_SESSION_CACHE = 12/);
+  assert.match(chatRoomSource, /pendingAttachmentCache/);
+  assert.match(chatRoomSource, /setBoundedSessionCache\(conversationCache/);
+  assert.match(chatRoomSource, /pendingAttachmentCache\.delete\(String\(sessionId\)\)/);
 });
 
 test('expired private backgrounds recover without an upload loop', () => {
