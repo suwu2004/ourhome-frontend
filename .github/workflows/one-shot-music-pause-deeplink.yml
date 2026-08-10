@@ -1,0 +1,41 @@
+name: One-shot music pause and QQ deep link
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: github.head_ref == 'agent/music-pause-deeplink-20260810'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply guarded music patch once
+        run: |
+          if grep -q "keepLocalIntent" src/MusicPlayerContext.jsx && grep -q "qqMusicDeepLink" src/MusicRoom.jsx; then
+            echo "Patch already applied; verification only."
+          else
+            python .github/one-shot-music-pause-deeplink.py
+          fi
+      - run: npm ci
+      - run: npm run test:api
+      - run: npm run test:app
+      - run: npm run build
+      - run: git diff --check
+      - name: Commit verified product changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/MusicPlayerContext.jsx src/MusicRoom.jsx scripts/music-playback-regression.test.mjs package.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Preserve Together Listening pause state"
+          git push origin HEAD:${{ github.head_ref }}
