@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { promptAppInstall, subscribeInstallState } from './appInstall.js';
 import { checkForAndroidUpdate, installAndroidUpdate } from './appUpdate.js';
+import FailoverRecoverySettings from './FailoverRecoverySettings.jsx';
 
 const BUILD_SHA = String(import.meta.env.VITE_BUILD_SHA || 'local').slice(0, 7);
 
@@ -100,6 +101,7 @@ export default function AppInstallSettings({ compact = false }) {
           <button type="button" onClick={install}>{state.promptAvailable ? '安装' : '安装方法'}</button>
         )}
         {notice && <small role="status">{notice}</small>}
+        {state.native && <FailoverRecoverySettings />}
       </div>
     );
   }
@@ -115,6 +117,7 @@ export default function AppInstallSettings({ compact = false }) {
       ) : state.installed ? <p>已经可以像普通 App 一样从桌面打开，更新仍会自动跟随我们的家。</p>
         : <><p>vivo 手机与华为平板都可以先安装桌面版；进入后没有浏览器地址栏。</p><button type="button" onClick={install}>{state.promptAvailable ? '安装 OurHome' : '查看安装方法'}</button></>}
       {notice && <small role="status">{notice}</small>}
+      {state.native && <FailoverRecoverySettings />}
     </div>
   );
 }
