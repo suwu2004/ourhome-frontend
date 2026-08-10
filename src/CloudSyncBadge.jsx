@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getCloudSyncState, recheckCloudSync } from './api.js';
 
 const FIRST_RECHECK_DELAY_MS = 1800;
-const STALE_RECHECK_INTERVAL_MS = 15_000;
+const STALE_RECHECK_BACKOFF_MS = [15_000, 30_000, 60_000, 120_000, 300_000];
 
 export default function CloudSyncBadge() {
   const [stale, setStale] = useState(() => getCloudSyncState().state === 'stale');
@@ -30,12 +30,24 @@ export default function CloudSyncBadge() {
 
   useEffect(() => {
     if (!stale) return undefined;
-    const probe = () => recheckCloudSync().catch(() => {});
-    const firstTimer = window.setTimeout(probe, FIRST_RECHECK_DELAY_MS);
-    const interval = window.setInterval(probe, STALE_RECHECK_INTERVAL_MS);
+    let cancelled = false;
+    let timer = null;
+    let backoffIndex = 0;
+
+    const schedule = delay => {
+      timer = window.setTimeout(async () => {
+        const fresh = await recheckCloudSync().catch(() => false);
+        if (cancelled || fresh) return;
+        const nextDelay = STALE_RECHECK_BACKOFF_MS[Math.min(backoffIndex, STALE_RECHECK_BACKOFF_MS.length - 1)];
+        backoffIndex += 1;
+        schedule(nextDelay);
+      }, delay);
+    };
+
+    schedule(FIRST_RECHECK_DELAY_MS);
     return () => {
-      window.clearTimeout(firstTimer);
-      window.clearInterval(interval);
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
     };
   }, [stale]);
 
