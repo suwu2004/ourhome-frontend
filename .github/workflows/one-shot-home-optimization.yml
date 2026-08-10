@@ -7,13 +7,21 @@ on:
     paths:
       - .github/one-shot-home-optimization.py
       - .github/workflows/one-shot-home-optimization.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/one-shot-home-optimization.py
+      - .github/workflows/one-shot-home-optimization.yml
+      - src/Root.jsx
+      - src/RoomBoundary.jsx
 
 permissions:
   contents: write
 
 jobs:
   patch-and-verify:
-    if: github.event.head_commit.message == 'Stage guarded OurHome optimization patch'
+    if: github.event_name == 'pull_request' || github.event.head_commit.message == 'Stage guarded OurHome optimization patch' || github.event.head_commit.message == 'Allow verified optimization patch on pull request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
