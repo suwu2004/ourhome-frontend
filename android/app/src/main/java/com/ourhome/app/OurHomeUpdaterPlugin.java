@@ -165,7 +165,7 @@ public class OurHomeUpdaterPlugin extends Plugin {
                 current = new URL(current, location);
                 continue;
             }
-            if (status == HttpURLConnection.HTTP_REQUESTED_RANGE_NOT_SATISFIABLE && offset > 0) {
+            if (status == 416 && offset > 0) {
                 connection.disconnect();
                 throw new IOException("Partial update range is stale; restarting safely.");
             }
