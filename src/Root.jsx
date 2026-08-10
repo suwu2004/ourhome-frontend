@@ -44,24 +44,30 @@ function useHomeShelfTarget() {
     let observer = null;
     let retryTimer = null;
 
+    const stopRetry = () => {
+      if (!retryTimer) return;
+      window.clearInterval(retryTimer);
+      retryTimer = null;
+    };
+
     const findShelf = () => {
       const shelf = document.querySelector('.home-room-shelf');
       if (!shelf) return false;
       setTarget(current => (current === shelf ? current : shelf));
+      stopRetry();
+      observer?.disconnect();
       return true;
     };
 
     if (!findShelf()) {
-      observer = new MutationObserver(() => {
-        if (findShelf()) observer?.disconnect();
-      });
+      observer = new MutationObserver(findShelf);
       observer.observe(document.body, { childList: true, subtree: true });
       retryTimer = window.setInterval(findShelf, 300);
     }
 
     return () => {
       observer?.disconnect();
-      if (retryTimer) window.clearInterval(retryTimer);
+      stopRetry();
     };
   }, []);
 
@@ -129,6 +135,7 @@ export default function Root() {
   const [unlocked, setUnlocked] = useOurHomeAccess();
   const [room, setRoom] = useState(roomFromHash);
   const [homeRefreshToken, setHomeRefreshToken] = useState(0);
+  const [persistentAppMounted, setPersistentAppMounted] = useState(() => persistentAppRoomKeys.has(roomFromHash()));
   const [lastPersistentRoom, setLastPersistentRoom] = useState(() => {
     const initialRoom = roomFromHash();
     return persistentAppRoomKeys.has(initialRoom) ? initialRoom : 'chat';
@@ -145,7 +152,9 @@ export default function Root() {
   }, []);
 
   useEffect(() => {
-    if (persistentAppRoomKeys.has(room)) setLastPersistentRoom(room);
+    if (!persistentAppRoomKeys.has(room)) return;
+    setPersistentAppMounted(true);
+    setLastPersistentRoom(room);
   }, [room]);
 
   useEffect(() => {
@@ -160,6 +169,10 @@ export default function Root() {
   }, [room, unlocked]);
 
   const openRoom = key => {
+    if (persistentAppRoomKeys.has(key)) {
+      setPersistentAppMounted(true);
+      setLastPersistentRoom(key);
+    }
     window.location.hash = key;
     setRoom(key);
   };
@@ -222,28 +235,30 @@ export default function Root() {
   return (
     <>
       {foregroundRoom}
-      <div
-        aria-hidden={!persistentAppVisible}
-        style={{
-          display: persistentAppVisible ? 'block' : 'none',
-          position: 'fixed',
-          inset: 0,
-          zIndex: persistentAppVisible ? 1 : -1,
-        }}
-      >
-        <RoomBoundary room={lastPersistentRoom} onHome={goHome}>
-          <Suspense fallback={<div className="room-loading-shell" role="status">正在打开房间…</div>}>
-            <App initialView={lastPersistentRoom} onHome={goHome} />
-            {lastPersistentRoom === 'theater' && <TheaterRuleLibrary />}
-            {lastPersistentRoom === 'settings' && (
-              <>
-                <ApiUsageLogPanel />
-                <LuzeAutonomySettingsPanel />
-              </>
-            )}
-          </Suspense>
-        </RoomBoundary>
-      </div>
+      {persistentAppMounted && (
+        <div
+          aria-hidden={!persistentAppVisible}
+          style={{
+            display: persistentAppVisible ? 'block' : 'none',
+            position: 'fixed',
+            inset: 0,
+            zIndex: persistentAppVisible ? 1 : -1,
+          }}
+        >
+          <RoomBoundary room={lastPersistentRoom} onHome={goHome}>
+            <Suspense fallback={<div className="room-loading-shell" role="status">正在打开房间…</div>}>
+              <App initialView={lastPersistentRoom} onHome={goHome} />
+              {lastPersistentRoom === 'theater' && <TheaterRuleLibrary />}
+              {lastPersistentRoom === 'settings' && (
+                <>
+                  <ApiUsageLogPanel />
+                  <LuzeAutonomySettingsPanel />
+                </>
+              )}
+            </Suspense>
+          </RoomBoundary>
+        </div>
+      )}
     </>
   );
 }
