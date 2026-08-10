@@ -33,12 +33,11 @@ public class OurHomeFirebaseMessagingService extends FirebaseMessagingService {
 
         Map<String, String> data = message.getData();
         String title = value(data, "title", "OurHome");
-        String body = value(data, "body", "有一条新消息。晚点打开也还在。 ");
+        String body = value(data, "body", "有一条新消息。晚点打开也还在。");
         String route = value(data, "route", "home");
         String type = value(data, "type", "remote_push");
-        int notificationId = OurHomeNotificationsPlugin.requestCodeFor(
-                message.getMessageId() == null ? `${System.currentTimeMillis()}` : message.getMessageId()
-        );
+        String messageKey = message.getMessageId() == null ? String.valueOf(System.currentTimeMillis()) : message.getMessageId();
+        int notificationId = OurHomeNotificationsPlugin.requestCodeFor(messageKey);
 
         Intent openIntent = new Intent(this, MainActivity.class);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
