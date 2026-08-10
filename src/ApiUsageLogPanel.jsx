@@ -2,7 +2,6 @@ import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { useTheme } from './ThemeContext.jsx';
-import { useSettingsGroupTarget } from './useSettingsGroupTarget.js';
 
 function number(value) {
   const n = Number(value);
@@ -50,9 +49,38 @@ function purposeLabel(value) {
   return '';
 }
 
+function useSettingsConsoleTarget() {
+  const [target, setTarget] = useState(null);
+
+  useEffect(() => {
+    let observer = null;
+    let disposed = false;
+
+    const findTarget = () => {
+      const next = document.querySelector('[data-settings-console-api-usage-target="true"]');
+      if (disposed) return Boolean(next);
+      setTarget(current => current === next ? current : next);
+      if (next) observer?.disconnect();
+      return Boolean(next);
+    };
+
+    if (!findTarget()) {
+      observer = new MutationObserver(findTarget);
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    return () => {
+      disposed = true;
+      observer?.disconnect();
+    };
+  }, []);
+
+  return target && document.body.contains(target) ? target : null;
+}
+
 export default function ApiUsageLogPanel() {
   const { theme: C } = useTheme();
-  const groupTarget = useSettingsGroupTarget({ key: 'api-models', title: 'API 与模型' });
+  const consoleTarget = useSettingsConsoleTarget();
   const [open, setOpen] = useState(false);
   const [logs, setLogs] = useState([]);
   const [summary, setSummary] = useState({ calls: 0, failed: 0, input_tokens: 0, output_tokens: 0 });
@@ -108,7 +136,7 @@ export default function ApiUsageLogPanel() {
 
   return (
     <>
-      {groupTarget && createPortal(groupEntry, groupTarget)}
+      {consoleTarget && createPortal(groupEntry, consoleTarget)}
 
       {open && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10050, background: 'rgba(41,27,16,.20)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setOpen(false)}>
