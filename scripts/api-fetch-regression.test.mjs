@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 const storage = new Map([['ourhome_token', 'test-token']]);
 
@@ -26,7 +27,7 @@ function installBrowserGlobals() {
 }
 
 installBrowserGlobals();
-const { apiFetch, DIRECT_BACKEND, getApiRouteState, clearOurHomePrivateCache } = await import('../src/api.js');
+const { apiFetch, DIRECT_BACKEND, getApiRouteState, getCloudSyncState, recheckCloudSync, clearOurHomePrivateCache } = await import('../src/api.js');
 
 test('transient GET failure is retried exactly once', async () => {
   let calls = 0;
@@ -77,6 +78,43 @@ test('small home reads can fall back to the last successful sync after both rout
   assert.equal(cached.status, 200);
   assert.equal(cached.headers.get('X-OurHome-Cache'), 'stale');
   assert.deepEqual(await cached.json(), [{ id: 'memo-1', content: '爱你' }]);
+});
+
+test('stale home cache self-heals with a read-only recheck after the cloud recovers', async () => {
+  storage.set('ourhome_token', 'test-token');
+  clearOurHomePrivateCache();
+  globalThis.fetch = async () => new Response('[{"id":"m1"}]', {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+  await apiFetch('/api/milestones');
+
+  globalThis.fetch = async () => { throw new TypeError('temporary outage'); };
+  const cached = await apiFetch('/api/milestones');
+  assert.equal(cached.headers.get('X-OurHome-Cache'), 'stale');
+  assert.equal(getCloudSyncState().state, 'stale');
+  assert.deepEqual(getCloudSyncState().paths, ['/api/milestones']);
+
+  const urls = [];
+  globalThis.fetch = async url => {
+    urls.push(String(url));
+    return new Response('[{"id":"m1"},{"id":"m2"}]', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  assert.equal(await recheckCloudSync(), true);
+  assert.equal(getCloudSyncState().state, 'online');
+  assert.ok(urls.includes('/api/milestones') || urls.includes(`${DIRECT_BACKEND}/milestones`));
+});
+
+test('cloud badge automatically rechecks stale reads and listens for recovery signals', async () => {
+  const badge = await readFile(new URL('../src/CloudSyncBadge.jsx', import.meta.url), 'utf8');
+  assert.match(badge, /recheckCloudSync/);
+  assert.match(badge, /FIRST_RECHECK_DELAY_MS/);
+  assert.match(badge, /STALE_RECHECK_INTERVAL_MS/);
+  assert.match(badge, /addEventListener\('online'/);
+  assert.match(badge, /visibilitychange/);
 });
 
 test('chat and session reads never use the stale home cache after both routes fail', async () => {
