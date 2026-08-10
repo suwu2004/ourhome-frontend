@@ -4,6 +4,7 @@ import { HighlightedText, Stars } from './ChatDecorations.jsx';
 import { ViewportChatImage } from './ViewportChatImage.jsx';
 
 const CHAT_DRAFT_PREFIX = 'ourhome_chat_draft:';
+const conversationCache = new Map();
 
 function chatDraftKey(sessionId) {
   return sessionId ? `${CHAT_DRAFT_PREFIX}${sessionId}` : '';
@@ -61,9 +62,15 @@ export function ChatRoom(props) {
     modelsLoading, modelsError,
   } = props;
 
-  const visibleMessages = msgs.slice(0, Math.max(0, visible));
   const [chatModel, setChatModel] = useState(selectedModel || '');
+  const [cachedConversation, setCachedConversation] = useState(null);
+  const [cachedSessionId, setCachedSessionId] = useState(null);
   const draftSessionRef = useRef(null);
+  const messagesAtSessionChangeRef = useRef(msgs);
+  const waitingForFreshMessagesRef = useRef(false);
+  const showingCachedConversation = cachedSessionId === sessionId && cachedConversation !== null;
+  const renderedMessages = showingCachedConversation ? cachedConversation : msgs;
+  const visibleMessages = renderedMessages.slice(0, showingCachedConversation ? renderedMessages.length : Math.max(0, visible));
   const modelOptions = [...new Set([
     chatModel,
     selectedModel,
@@ -78,6 +85,31 @@ export function ChatRoom(props) {
     if (availableModels.includes(chatModel)) return;
     setChatModel(availableModels.includes(selectedModel) ? selectedModel : availableModels[0]);
   }, [availableModels, chatModel, selectedModel]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      waitingForFreshMessagesRef.current = false;
+      setCachedSessionId(null);
+      setCachedConversation(null);
+      return;
+    }
+    messagesAtSessionChangeRef.current = msgs;
+    waitingForFreshMessagesRef.current = true;
+    setCachedSessionId(sessionId);
+    setCachedConversation(conversationCache.get(String(sessionId)) || []);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    if (waitingForFreshMessagesRef.current) {
+      if (msgs === messagesAtSessionChangeRef.current) return;
+      waitingForFreshMessagesRef.current = false;
+      setCachedSessionId(null);
+      setCachedConversation(null);
+    }
+    const stableMessages = msgs.filter(message => !String(message?.id || '').startsWith('temp-'));
+    conversationCache.set(String(sessionId), stableMessages);
+  }, [msgs, sessionId]);
 
   useEffect(() => {
     if (!sessionId || editingMessage || draftSessionRef.current === sessionId) return;
@@ -149,7 +181,7 @@ export function ChatRoom(props) {
             const isMe = m.role === "me";
             const isLast = idx === visibleMessages.length - 1;
             const dateKey = messageDateKey(m.createdAt);
-            const previousDateKey = idx > 0 ? messageDateKey(msgs[idx - 1].createdAt) : '';
+            const previousDateKey = idx > 0 ? messageDateKey(renderedMessages[idx - 1].createdAt) : '';
             const showDateDivider = Boolean(dateKey && dateKey !== previousDateKey);
             return (
               <div key={m.id} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 120px" }}>
@@ -185,7 +217,7 @@ export function ChatRoom(props) {
                     {m.text && (
                       <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>
                     )}
-                    {!isMe && isLast && !thinking && (
+                    {!isMe && isLast && !thinking && !showingCachedConversation && (
                       <button type="button" onClick={() => regenerateLast(chatModel)} disabled={regenerating} style={{ border: 0, padding: "3px 0", background: "transparent", fontSize: 10.5, color: C.muted, cursor: regenerating ? "default" : "pointer", alignSelf: "flex-start", fontFamily: "inherit" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</button>
                     )}
                   </div>
@@ -194,17 +226,17 @@ export function ChatRoom(props) {
                     <button
                       type="button"
                       onClick={() => openMessageActions(m)}
-                      disabled={thinking || messageActionLoading || String(m.id).startsWith('temp-')}
+                      disabled={showingCachedConversation || thinking || messageActionLoading || String(m.id).startsWith('temp-')}
                       aria-label={`${isMe ? '我的' : '陆泽的'}消息操作`}
-                      title="编辑或回到这里"
-                      style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "transparent", color: C.muted, cursor: thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: String(m.id).startsWith('temp-') ? .28 : .78, fontSize: 20, lineHeight: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 1, fontFamily: "inherit" }}
+                      title={showingCachedConversation ? "正在同步最新内容" : "编辑或回到这里"}
+                      style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "transparent", color: C.muted, cursor: showingCachedConversation || thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: showingCachedConversation || String(m.id).startsWith('temp-') ? .28 : .78, fontSize: 20, lineHeight: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 1, fontFamily: "inherit" }}
                     ><span aria-hidden="true" style={{ transform: "translateY(-2px)" }}>⌄</span></button>
                   </div>
                 </div>
               </div>
             );
           })}
-          {thinking && (
+          {thinking && !showingCachedConversation && (
             <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 14 }}>
               <Avatar isMe={false} src={partnerAvatar} theme={C} />
               <div style={{ padding: "10px 16px", borderRadius: "18px 18px 18px 4px", background: C.white, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, letterSpacing: ".15em", fontStyle: "italic" }}>想你中…</div>
