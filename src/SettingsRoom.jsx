@@ -232,7 +232,7 @@ export function SettingsRoom(props) {
           <SettingsSectionLabel theme={C}>连接与智能</SettingsSectionLabel>
           {view === 'settings' && (
             <>
-              <SettingsGroup theme={C} icon="AI" title="API 与模型" subtitle={selectedModel ? `当前：${selectedModel}` : '保存、切换站点并拉取全部模型'} resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+              <SettingsGroup theme={C} icon="AI" title="API 与模型" subtitle={selectedModel ? `当前：${selectedModel}` : '保存、切换站点并拉取全部模型'} resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal} mountOnOpen>
               <ApiProfilesSettings
                 apiFetch={apiFetch}
                 backend={BACKEND}
@@ -249,11 +249,11 @@ export function SettingsRoom(props) {
               />
               </SettingsGroup>
 
-              <SettingsGroup theme={C} icon="✉" title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+              <SettingsGroup theme={C} icon="✉" title="陆泽邮箱" subtitle="自主收发、实时收信与完整知情记录" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal} mountOnOpen>
                 <AgentMailSettings apiFetch={apiFetch} backend={BACKEND} theme={C} />
               </SettingsGroup>
 
-              <SettingsGroup theme={C} icon="⌁" title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal}>
+              <SettingsGroup theme={C} icon="⌁" title="联网与 MCP" subtitle="Linkup、Tavily 与远程只读工具" resetKey={settingsGroupsResetKey} openSignal={settingsGroupsOpenSignal} mountOnOpen>
                 <IntegrationSettings apiFetch={apiFetch} backend={BACKEND} theme={C} embedded />
               </SettingsGroup>
             </>
