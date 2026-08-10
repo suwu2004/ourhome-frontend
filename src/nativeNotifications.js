@@ -1,5 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
+// This bridge owns Android permission + local schedule reminders only.
+// Remote proactive notifications stay on Web Push until the native FCM channel is configured.
 const NativeNotifications = registerPlugin('OurHomeNotifications');
 
 export function isNativeAndroidApp() {
