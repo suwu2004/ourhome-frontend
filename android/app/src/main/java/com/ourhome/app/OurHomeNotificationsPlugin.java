@@ -134,12 +134,22 @@ public class OurHomeNotificationsPlugin extends Plugin {
     }
 
     private void resolvePermission(PluginCall call) {
-        boolean enabled = NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
+        String status;
+        boolean notificationsEnabled = NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            enabled = enabled && getPermissionState("notifications") == PermissionState.GRANTED;
+            PermissionState state = getPermissionState("notifications");
+            if (state == PermissionState.PROMPT) {
+                status = "default";
+            } else if (state == PermissionState.PROMPT_WITH_RATIONALE) {
+                status = "prompt-with-rationale";
+            } else {
+                status = state == PermissionState.GRANTED && notificationsEnabled ? "granted" : "denied";
+            }
+        } else {
+            status = notificationsEnabled ? "granted" : "denied";
         }
         JSObject result = new JSObject();
-        result.put("status", enabled ? "granted" : "denied");
+        result.put("status", status);
         call.resolve(result);
     }
 
