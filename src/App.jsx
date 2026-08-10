@@ -16,6 +16,14 @@ import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
 import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
 import { MILESTONE_KINDS, milestoneDisplay } from './milestoneDates.js';
+import {
+  cancelNativeScheduleReminder,
+  getNativeNotificationPermission,
+  isNativeAndroidApp,
+  openNativeNotificationSettings,
+  requestNativeNotificationPermission,
+  syncNativeScheduleReminders,
+} from './nativeNotifications.js';
 
 const SESSION_KEY = "ourhome_session_id";
 const MAX_BACKGROUND_IMAGE_BYTES = 6 * 1024 * 1024;
@@ -814,10 +822,17 @@ export default function App({ initialView = 'chat', onHome }) {
   const [savingSchedule, setSavingSchedule] = useState(false);
 
   const fetchSchedule = () => {
-    apiFetch(`${BACKEND}/schedule`)
+    return apiFetch(`${BACKEND}/schedule`)
       .then(r => r.json())
-      .then(data => setScheduleEvents(Array.isArray(data) ? data : []))
-      .catch(console.error);
+      .then(data => {
+        const events = Array.isArray(data) ? data : [];
+        setScheduleEvents(events);
+        return syncNativeScheduleReminders(events).then(() => events);
+      })
+      .catch(error => {
+        console.error(error);
+        return [];
+      });
   };
 
   const createScheduleEvent = () => {
@@ -830,7 +845,11 @@ export default function App({ initialView = 'chat', onHome }) {
     })
       .then(r => r.json())
       .then(data => {
-        setScheduleEvents(es => [...es, data].sort((a, b) => new Date(a.remind_at) - new Date(b.remind_at)));
+        setScheduleEvents(es => {
+          const next = [...es, data].sort((a, b) => new Date(a.remind_at) - new Date(b.remind_at));
+          syncNativeScheduleReminders(next).catch(console.error);
+          return next;
+        });
         setNewScheduleTitle("");
         setNewScheduleTime("");
         setSavingSchedule(false);
@@ -840,7 +859,10 @@ export default function App({ initialView = 'chat', onHome }) {
 
   const deleteScheduleEvent = (id) => {
     apiFetch(`${BACKEND}/schedule/${id}`, { method: 'DELETE' })
-      .then(() => setScheduleEvents(es => es.filter(e => e.id !== id)))
+      .then(() => {
+        setScheduleEvents(es => es.filter(e => e.id !== id));
+        cancelNativeScheduleReminder(id).catch(console.error);
+      })
       .catch(console.error);
   };
 
@@ -1823,7 +1845,27 @@ export default function App({ initialView = 'chat', onHome }) {
   const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
-    if (typeof Notification !== 'undefined') setNotifStatus(Notification.permission);
+    if (!isNativeAndroidApp()) {
+      if (typeof Notification !== 'undefined') setNotifStatus(Notification.permission);
+      return undefined;
+    }
+
+    const refreshNativePermission = () => {
+      getNativeNotificationPermission()
+        .then(status => setNotifStatus(status === 'prompt-with-rationale' ? 'default' : status))
+        .catch(() => setNotifStatus('default'));
+    };
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshNativePermission();
+    };
+
+    refreshNativePermission();
+    window.addEventListener('focus', refreshNativePermission);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshNativePermission);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, []);
 
   function urlBase64ToUint8Array(base64String) {
@@ -1844,6 +1886,26 @@ export default function App({ initialView = 'chat', onHome }) {
   }
 
   const enablePushNotifications = async () => {
+    if (isNativeAndroidApp()) {
+      const wasDenied = notifStatus === 'denied';
+      setSubscribing(true);
+      try {
+        const permission = await requestNativeNotificationPermission();
+        const normalizedPermission = permission === 'prompt-with-rationale' ? 'default' : permission;
+        setNotifStatus(normalizedPermission);
+        if (normalizedPermission === 'granted') {
+          await fetchSchedule();
+        } else if (normalizedPermission === 'denied' && wasDenied) {
+          await openNativeNotificationSettings();
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setSubscribing(false);
+      }
+      return;
+    }
+
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       window.alert('这个浏览器不支持推送通知');
       return;
@@ -2335,6 +2397,7 @@ export default function App({ initialView = 'chat', onHome }) {
         modelsLoading={modelsLoading}
         modelsError={modelsError}
         notifStatus={notifStatus}
+        notificationMode={isNativeAndroidApp() ? 'native-local' : 'web-push'}
         dailyJournalEnabled={dailyJournalEnabled}
         dailyJournalTime={dailyJournalTime}
         weatherCityInput={weatherCityInput}

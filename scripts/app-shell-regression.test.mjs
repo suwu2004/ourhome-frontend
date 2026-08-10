@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -20,6 +20,11 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeUpdaterPlugin.java', import.meta.url), 'utf8'),
   readFile(new URL('../android/app/src/main/java/com/ourhome/app/MainActivity.java', import.meta.url), 'utf8'),
   readFile(new URL('../.github/workflows/android-apk.yml', import.meta.url), 'utf8'),
+  readFile(new URL('../src/nativeNotifications.js', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeNotificationsPlugin.java', import.meta.url), 'utf8'),
+  readFile(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeReminderReceiver.java', import.meta.url), 'utf8'),
+  readFile(new URL('../src/App.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/SettingsRoom.jsx', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -84,6 +89,24 @@ test('native releases expose real build info and a user-approved in-app updater'
   assert.match(androidWorkflow, /VERSION_NAME="1\.0\.3"/);
   assert.match(androidWorkflow, /gh release create/);
   assert.match(androidWorkflow, /--latest/);
+});
+
+
+test('Android notifications use native permission and local alarms while web keeps Web Push', () => {
+  assert.match(androidManifest, /android\.permission\.POST_NOTIFICATIONS/);
+  assert.match(androidManifest, /OurHomeReminderReceiver/);
+  assert.match(mainActivity, /registerPlugin\(OurHomeNotificationsPlugin\.class\)/);
+  assert.match(nativeNotifications, /isNativeAndroidApp/);
+  assert.match(nativeNotifications, /syncNativeScheduleReminders/);
+  assert.match(notificationsPlugin, /requestPermissionForAlias/);
+  assert.match(notificationsPlugin, /PermissionState\.PROMPT/);
+  assert.match(notificationsPlugin, /setAndAllowWhileIdle/);
+  assert.match(reminderReceiver, /NotificationCompat\.Builder/);
+  assert.match(appSource, /if \(isNativeAndroidApp\(\)\)/);
+  assert.match(appSource, /await fetchSchedule\(\)/);
+  assert.match(appSource, /serviceWorker.*PushManager/s);
+  assert.match(settingsSource, /Android 系统通知/);
+  assert.match(settingsSource, /原生云推送还需要接 FCM/);
 });
 
 test('expired private backgrounds recover without an upload loop', () => {
