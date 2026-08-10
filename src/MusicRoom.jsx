@@ -41,6 +41,29 @@ function parseQqMusicShare(value) {
   };
 }
 
+function qqMusicSongMid(sourceUrl) {
+  try {
+    const url = new URL(sourceUrl);
+    const queryMid = url.searchParams.get('songmid') || url.searchParams.get('mid');
+    if (queryMid && /^[A-Za-z0-9]+$/.test(queryMid)) return queryMid;
+    const match = url.pathname.match(/(?:songDetail|song)\/([A-Za-z0-9]+)/i);
+    return match?.[1] || '';
+  } catch {
+    return '';
+  }
+}
+
+function qqMusicDeepLink(sourceUrl) {
+  const mid = qqMusicSongMid(sourceUrl);
+  if (!mid) return 'qqmusic://';
+  const payload = encodeURIComponent(JSON.stringify({ song: [{ type: '0', songmid: mid }], action: 'play' }));
+  return `qqmusic://qq.com/media/playSonglist?p=${payload}`;
+}
+
+function isMobileClient() {
+  return /Android|iPhone|iPad|iPod|HarmonyOS|Mobile/i.test(navigator.userAgent || '');
+}
+
 function lyricText(track) {
   const text = String(track?.lyrics || track?.note || '').trim();
   if (!text) return '歌词还没有回来，先听一小段。';
@@ -198,7 +221,22 @@ export function MusicRoom({ visible, theme, leaveRoom }) {
 
   const openSourceTrack = track => {
     if (!track?.source_url) return;
-    window.open(track.source_url, '_blank', 'noopener,noreferrer');
+    const parsed = parseQqMusicShare(track.source_url);
+    if (!parsed.valid || !isMobileClient()) {
+      window.open(track.source_url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    let cancelled = false;
+    const cancelFallback = () => {
+      if (document.visibilityState === 'hidden') cancelled = true;
+    };
+    document.addEventListener('visibilitychange', cancelFallback, { once: true });
+    window.location.href = qqMusicDeepLink(track.source_url);
+    window.setTimeout(() => {
+      document.removeEventListener('visibilitychange', cancelFallback);
+      if (!cancelled && document.visibilityState === 'visible') window.location.href = track.source_url;
+    }, 900);
   };
 
   const fillLyrics = async track => {
