@@ -156,9 +156,11 @@ export function SettingsRoom(props) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12.5, color: C.text }}>提醒通知</div>
                 <div style={{ marginTop: 3, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>
-                  {notificationMode === 'native-local'
-                    ? 'App 里的日程会走 Android 系统通知；陆泽主动敲门的原生云推送还需要接 FCM。'
-                    : '给日程提醒和陆泽主动敲门用；换设备后在这里重新登记。'}
+                  {notificationMode === 'native-fcm'
+                    ? 'Android 系统通知 + FCM 远程主动通知已经接通；陆泽主动消息、来信和远程提醒都能敲到这台手机。'
+                    : notificationMode === 'native-local'
+                      ? 'App 里的日程会走 Android 系统通知；这台 APK 还没有 Firebase 配置，所以远程主动通知暂未启用。'
+                      : '给日程提醒和陆泽主动敲门用；换设备后在这里重新登记。'}
                 </div>
               </div>
               <button
@@ -172,7 +174,9 @@ export function SettingsRoom(props) {
             </div>
             <div style={{ marginTop: 6, color: notifStatus === 'denied' ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>
               {notifStatus === 'granted'
-                ? (notificationMode === 'native-local' ? '这台 Android 设备已经允许 OurHome 日程通知。' : '这台设备已经允许通知。')
+                ? (notificationMode === 'native-fcm'
+                    ? '这台 Android 设备已经登记 FCM 远程主动通知。'
+                    : notificationMode === 'native-local' ? '这台 Android 设备已经允许 OurHome 日程通知。' : '这台设备已经允许通知。')
                 : notifStatus === 'denied'
                   ? (notificationMode === 'native-local' ? '系统没有允许通知；再次点“开启通知”会带你去手机设置。' : '系统已经拒绝通知，需要先在浏览器或手机设置里打开 OurHome 通知。')
                   : (notificationMode === 'native-local' ? '点按钮后同意 Android 系统弹出的通知权限。' : '点按钮后同意浏览器弹出的通知权限。')}

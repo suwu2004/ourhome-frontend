@@ -1,7 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
-// This bridge owns Android permission + local schedule reminders only.
-// Remote proactive notifications stay on Web Push until the native FCM channel is configured.
 const NativeNotifications = registerPlugin('OurHomeNotifications');
 
 export function isNativeAndroidApp() {
@@ -23,6 +21,48 @@ export async function requestNativeNotificationPermission() {
 export async function openNativeNotificationSettings() {
   if (!isNativeAndroidApp()) return;
   await NativeNotifications.openSettings();
+}
+
+function normalizeRemoteStatus(result) {
+  return {
+    configured: Boolean(result?.configured),
+    enabled: Boolean(result?.enabled),
+    token: String(result?.token || ''),
+    reason: String(result?.reason || ''),
+  };
+}
+
+export async function getNativeRemotePushStatus() {
+  if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
+  return normalizeRemoteStatus(await NativeNotifications.getRemotePushStatus());
+}
+
+export async function registerNativeRemotePush() {
+  if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
+  return normalizeRemoteStatus(await NativeNotifications.registerRemotePush());
+}
+
+export async function unregisterNativeRemotePush() {
+  if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
+  return normalizeRemoteStatus(await NativeNotifications.unregisterRemotePush());
+}
+
+export async function consumeNativeRemotePushRoute() {
+  if (!isNativeAndroidApp()) return null;
+  const payload = await NativeNotifications.consumeRemotePushRoute();
+  return payload && payload.route ? payload : null;
+}
+
+export async function listenNativeRemotePushActions(handler) {
+  if (!isNativeAndroidApp() || typeof handler !== 'function') return () => {};
+  const handle = await NativeNotifications.addListener('remotePushAction', handler);
+  return () => handle?.remove?.();
+}
+
+export async function listenNativeRemotePushTokens(handler) {
+  if (!isNativeAndroidApp() || typeof handler !== 'function') return () => {};
+  const handle = await NativeNotifications.addListener('remotePushTokenChanged', handler);
+  return () => handle?.remove?.();
 }
 
 function normalizeReminder(event) {

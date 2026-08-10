@@ -19,8 +19,11 @@ import { MILESTONE_KINDS, milestoneDisplay } from './milestoneDates.js';
 import {
   cancelNativeScheduleReminder,
   getNativeNotificationPermission,
+  getNativeRemotePushStatus,
   isNativeAndroidApp,
+  listenNativeRemotePushTokens,
   openNativeNotificationSettings,
+  registerNativeRemotePush,
   requestNativeNotificationPermission,
   syncNativeScheduleReminders,
 } from './nativeNotifications.js';
@@ -1903,6 +1906,7 @@ export default function App({ initialView = 'chat', onHome }) {
 
   const [notifStatus, setNotifStatus] = useState('default');
   const [subscribing, setSubscribing] = useState(false);
+  const [nativeRemotePushStatus, setNativeRemotePushStatus] = useState({ configured: false, enabled: false, token: '', reason: '' });
 
   useEffect(() => {
     if (!isNativeAndroidApp()) {
@@ -1910,9 +1914,29 @@ export default function App({ initialView = 'chat', onHome }) {
       return undefined;
     }
 
+    const registerRemoteTokenWithBackend = async token => {
+      const value = String(token || '').trim();
+      if (!value) return;
+      const response = await apiFetch(`${BACKEND}/push/native/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: value }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || '远程通知设备登记失败');
+      }
+    };
+
     const refreshNativePermission = () => {
-      getNativeNotificationPermission()
-        .then(status => setNotifStatus(status === 'prompt-with-rationale' ? 'default' : status))
+      Promise.all([getNativeNotificationPermission(), getNativeRemotePushStatus()])
+        .then(async ([status, remoteStatus]) => {
+          setNotifStatus(status === 'prompt-with-rationale' ? 'default' : status);
+          setNativeRemotePushStatus(remoteStatus);
+          if (remoteStatus?.configured && remoteStatus?.enabled && remoteStatus?.token) {
+            await registerRemoteTokenWithBackend(remoteStatus.token);
+          }
+        })
         .catch(() => setNotifStatus('default'));
     };
     const refreshWhenVisible = () => {
@@ -1922,9 +1946,15 @@ export default function App({ initialView = 'chat', onHome }) {
     refreshNativePermission();
     window.addEventListener('focus', refreshNativePermission);
     document.addEventListener('visibilitychange', refreshWhenVisible);
+    let removeTokenListener = () => {};
+    listenNativeRemotePushTokens(({ token }) => {
+      registerRemoteTokenWithBackend(token).catch(error => console.error('FCM token 更新登记失败', error));
+    }).then(remove => { removeTokenListener = remove; }).catch(() => {});
+
     return () => {
       window.removeEventListener('focus', refreshNativePermission);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
+      removeTokenListener();
     };
   }, []);
 
@@ -1954,6 +1984,19 @@ export default function App({ initialView = 'chat', onHome }) {
         const normalizedPermission = permission === 'prompt-with-rationale' ? 'default' : permission;
         setNotifStatus(normalizedPermission);
         if (normalizedPermission === 'granted') {
+          const remoteStatus = await registerNativeRemotePush();
+          setNativeRemotePushStatus(remoteStatus);
+          if (remoteStatus?.configured && remoteStatus?.enabled && remoteStatus?.token) {
+            const response = await apiFetch(`${BACKEND}/push/native/register`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: remoteStatus.token }),
+            });
+            if (!response.ok) {
+              const data = await response.json().catch(() => ({}));
+              throw new Error(data?.error || '远程通知设备登记失败');
+            }
+          }
           await fetchSchedule();
         } else if (normalizedPermission === 'denied' && wasDenied) {
           await openNativeNotificationSettings();
@@ -2460,7 +2503,7 @@ export default function App({ initialView = 'chat', onHome }) {
         modelsLoading={modelsLoading}
         modelsError={modelsError}
         notifStatus={notifStatus}
-        notificationMode={isNativeAndroidApp() ? 'native-local' : 'web-push'}
+        notificationMode={isNativeAndroidApp() ? (nativeRemotePushStatus.configured && nativeRemotePushStatus.enabled ? 'native-fcm' : 'native-local') : 'web-push'}
         dailyJournalEnabled={dailyJournalEnabled}
         dailyJournalTime={dailyJournalTime}
         weatherCityInput={weatherCityInput}
