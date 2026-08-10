@@ -1,0 +1,41 @@
+name: Wire Chat stability once
+
+on:
+  push:
+    branches:
+      - agent/chat-session-stability-20260810
+    paths:
+      - .github/one-shot-chat-stability.py
+      - .github/workflows/one-shot-chat-stability.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Stage guarded Chat stability patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/chat-session-stability-20260810
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply guarded Chat patch
+        run: python .github/one-shot-chat-stability.py
+      - name: Remove one-shot scaffolding
+        run: rm .github/one-shot-chat-stability.py .github/workflows/one-shot-chat-stability.yml
+      - run: npm ci
+      - run: npm run test:app
+      - run: npm run build
+      - run: git diff --check
+      - name: Commit guarded wiring
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/App.jsx src/ChatRoom.jsx scripts/app-shell-regression.test.mjs .github
+          git commit -m 'Harden Chat session switching and scoped drafts'
+          git push origin HEAD:agent/chat-session-stability-20260810
