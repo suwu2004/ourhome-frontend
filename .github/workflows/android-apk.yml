@@ -53,6 +53,18 @@ jobs:
       - run: npm ci
       - run: npm run test:app
       - run: npm run android:sync
+      - name: Restore optional Firebase Android config
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.OURHOME_FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "Firebase Android config is not configured; building with local-only notifications."
+            exit 0
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+          echo "Firebase Android config restored for FCM build."
       - name: Resolve Android release identity
         id: release_identity
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
