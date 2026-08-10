@@ -32,7 +32,7 @@ export function SettingsRoom(props) {
   const {
     stage, view, C, leaveRoom, settingsGroupsResetKey, settingsGroupsOpenSignal,
     setSettingsGroupsOpenSignal, darkMode, toggleDarkMode, fontStyle, changeFontStyle,
-    selectedModel, modelsLoading, modelsError, notifStatus, dailyJournalEnabled,
+    selectedModel, modelsLoading, modelsError, notifStatus, notificationMode, dailyJournalEnabled,
     dailyJournalTime, weatherCityInput, setWeatherCityInput, setWeatherCitySaved,
     saveWeatherCity, weatherCitySaved, homeDayBgImage, homeNightBgImage,
     homeMemoBgImage, uploadingHomeBg, uploadHomeBackground, resetHomeBackground,
@@ -154,7 +154,11 @@ export function SettingsRoom(props) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12.5, color: C.text }}>提醒通知</div>
-                <div style={{ marginTop: 3, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>给日程提醒和陆泽主动敲门用；换设备后在这里重新登记。</div>
+                <div style={{ marginTop: 3, fontSize: 10, color: C.muted, lineHeight: 1.5 }}>
+                  {notificationMode === 'native-local'
+                    ? 'App 里的日程会走 Android 系统通知；陆泽主动敲门的原生云推送还需要接 FCM。'
+                    : '给日程提醒和陆泽主动敲门用；换设备后在这里重新登记。'}
+                </div>
               </div>
               <button
                 type="button"
@@ -166,7 +170,11 @@ export function SettingsRoom(props) {
               </button>
             </div>
             <div style={{ marginTop: 6, color: notifStatus === 'denied' ? C.blushDeep : C.muted, fontSize: 9.5, lineHeight: 1.5 }}>
-              {notifStatus === 'granted' ? '这台设备已经允许通知。' : notifStatus === 'denied' ? '系统已经拒绝通知，需要先在浏览器或手机设置里打开 OurHome 通知。' : '点按钮后同意浏览器弹出的通知权限。'}
+              {notifStatus === 'granted'
+                ? (notificationMode === 'native-local' ? '这台 Android 设备已经允许 OurHome 日程通知。' : '这台设备已经允许通知。')
+                : notifStatus === 'denied'
+                  ? (notificationMode === 'native-local' ? '系统没有允许通知；再次点“开启通知”会带你去手机设置。' : '系统已经拒绝通知，需要先在浏览器或手机设置里打开 OurHome 通知。')
+                  : (notificationMode === 'native-local' ? '点按钮后同意 Android 系统弹出的通知权限。' : '点按钮后同意浏览器弹出的通知权限。')}
             </div>
           </div>
           </SettingsGroup>
