@@ -382,6 +382,7 @@ export default function App({ initialView = 'chat', onHome }) {
   };
 
   const loadMessagesFor = (id) => {
+    const targetSessionId = String(id);
     setSessionSummaryError('');
     return Promise.all([
       apiFetch(`${BACKEND}/sessions/${id}/messages`).then(r => r.json()),
@@ -389,11 +390,13 @@ export default function App({ initialView = 'chat', onHome }) {
     ])
       .then(([data, summary]) => {
         const mapped = (Array.isArray(data) ? data : []).map(mapDbMessage);
+        if (String(sessionIdRef.current) !== targetSessionId) return mapped;
         setMsgs(mapped);
         setVisible(mapped.length);
         setHasHistory(mapped.length > 0);
         setSessionSummary(summary && summary.id ? summary : null);
         scrollChatToBottomNow();
+        return mapped;
       });
   };
 
@@ -425,6 +428,7 @@ export default function App({ initialView = 'chat', onHome }) {
     localStorage.setItem(SESSION_KEY, targetSessionId);
     loadMessagesFor(targetSessionId)
       .then(() => {
+        if (String(sessionIdRef.current) !== String(targetSessionId)) return;
         if (targetMessageId) {
           setScrollToMsgId(targetMessageId);
           setHighlightMsgId(targetMessageId);
@@ -473,6 +477,7 @@ export default function App({ initialView = 'chat', onHome }) {
         const storedId = localStorage.getItem(SESSION_KEY);
         const target = valid.find(s => String(s.id) === storedId) || valid.find(s => s.name === '日常') || valid[0] || null;
         if (target) {
+          sessionIdRef.current = target.id;
           setSessionId(target.id);
           localStorage.setItem(SESSION_KEY, target.id);
           return loadMessagesFor(target.id).then(() => setReady(true));
@@ -484,6 +489,7 @@ export default function App({ initialView = 'chat', onHome }) {
           })
             .then(r => r.json())
             .then(data => {
+              sessionIdRef.current = data.id;
               setSessionId(data.id);
               localStorage.setItem(SESSION_KEY, data.id);
               setSessions([data]);
@@ -1315,7 +1321,8 @@ export default function App({ initialView = 'chat', onHome }) {
   };
 
   const switchSession = (id) => {
-    if (id === sessionId) { setDrawerOpen(false); return; }
+    const targetSessionId = String(id);
+    if (String(sessionId) === targetSessionId) { setDrawerOpen(false); return; }
     if (editingMessage) {
       setInput(editingMessage.draftBefore || "");
       setPendingFile(editingMessage.pendingFileBefore || null);
@@ -1325,20 +1332,12 @@ export default function App({ initialView = 'chat', onHome }) {
     setRollbackUndo(null);
     setMessageActionError("");
     setTokenUsageOpen(false);
+    setSessionSummary(null);
     chatStickToBottomRef.current = true;
     sessionIdRef.current = id;
     setSessionId(id);
     localStorage.setItem(SESSION_KEY, id);
-    apiFetch(`${BACKEND}/sessions/${id}/messages`)
-      .then(r => r.json())
-      .then(data => {
-        const mapped = (Array.isArray(data) ? data : []).map(mapDbMessage);
-        setMsgs(mapped);
-        setVisible(mapped.length);
-        setHasHistory(mapped.length > 0);
-        scrollChatToBottomNow();
-      })
-      .catch(console.error);
+    loadMessagesFor(id).catch(console.error);
     setDrawerOpen(false);
   };
 
@@ -1378,7 +1377,8 @@ export default function App({ initialView = 'chat', onHome }) {
     apiFetch(`${BACKEND}/sessions/${id}`, { method: 'DELETE' })
       .then(() => {
         fetchSessions();
-        if (id === sessionId) {
+        try { localStorage.removeItem(`ourhome_chat_draft:${id}`); } catch { /* ignore storage cleanup failures */ }
+        if (String(id) === String(sessionId)) {
           localStorage.removeItem(SESSION_KEY);
           apiFetch(`${BACKEND}/sessions`)
             .then(r => r.json())
@@ -1391,6 +1391,7 @@ export default function App({ initialView = 'chat', onHome }) {
                 setMsgs([]);
                 setVisible(0);
                 setHasHistory(false);
+                sessionIdRef.current = null;
                 setSessionId(null);
                 apiFetch(`${BACKEND}/sessions`, {
                   method: 'POST',
@@ -1399,6 +1400,7 @@ export default function App({ initialView = 'chat', onHome }) {
                 })
                   .then(r => r.json())
                   .then(data => {
+                    sessionIdRef.current = data.id;
                     setSessionId(data.id);
                     localStorage.setItem(SESSION_KEY, data.id);
                     fetchSessions();
@@ -1783,13 +1785,16 @@ export default function App({ initialView = 'chat', onHome }) {
 
   const pickFile = (file) => {
     if (!file) return;
+    const uploadSessionId = sessionIdRef.current;
     setImageUploading(true);
     const formData = new FormData();
     formData.append('file', file);
     apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData })
       .then(r => r.json())
       .then(data => {
-        setPendingFile({ url: data.url, type: data.type, name: data.name });
+        if (String(sessionIdRef.current) === String(uploadSessionId)) {
+          setPendingFile({ url: data.url, type: data.type, name: data.name });
+        }
         setImageUploading(false);
       })
       .catch(err => { console.error(err); setImageUploading(false); });
@@ -1831,13 +1836,11 @@ export default function App({ initialView = 'chat', onHome }) {
   const jumpToSearchResult = (r) => {
     setSearchOpen(false);
     const jump = { id: r.id, query: lastSearchQuery || searchQuery.trim() };
-    if (r.session_id === sessionId) {
+    if (String(r.session_id) === String(sessionId)) {
       setPendingSearchJump(jump);
     } else {
-      setSessionId(r.session_id);
-      localStorage.setItem(SESSION_KEY, r.session_id);
       setPendingSearchJump(jump);
-      loadMessagesFor(r.session_id).catch(console.error);
+      switchSession(r.session_id);
     }
   };
 
