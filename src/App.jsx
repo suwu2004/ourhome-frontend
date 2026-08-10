@@ -11,7 +11,7 @@ import { MusicRoom } from './MusicRoom.jsx';
 import { PhotoMemoryRoom } from './PhotoMemoryRoom.jsx';
 import { SettingsRoom } from './SettingsRoom.jsx';
 import { TheaterRoom } from './TheaterRoom.jsx';
-import { FONT_STYLES, applyAppFont, getSavedFont, preloadFontOptions } from './fonts.js';
+import { FONT_STYLES, applyAppFont, getSavedFont } from './fonts.js';
 import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
 import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
@@ -236,7 +236,6 @@ export default function App({ initialView = 'chat', onHome }) {
 
   useEffect(() => {
     if (view !== 'settings') return;
-    preloadFontOptions().catch(console.error);
     refreshTheme({ refreshAssets: true }).catch(console.error);
   }, [refreshTheme, view]);
 

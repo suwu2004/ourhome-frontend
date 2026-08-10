@@ -3,7 +3,7 @@ import ApiProfilesSettings from './ApiProfilesSettings.jsx';
 import IntegrationSettings from './IntegrationSettings.jsx';
 import { AgentMailSettings } from './AgentMailSettings.jsx';
 import { SettingsGroup } from './SettingsGroup.jsx';
-import { FONT_STYLES } from './fonts.js';
+import { FONT_STYLES, ensureFontLoaded } from './fonts.js';
 import { apiFetch, BACKEND } from './api.js';
 import AppInstallSettings from './AppInstallSettings.jsx';
 
@@ -80,7 +80,7 @@ export function SettingsRoom(props) {
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>字体</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
             {Object.keys(FONT_STYLES).map(key => (
-              <button type="button" aria-pressed={fontStyle === key} key={key} onClick={() => changeFontStyle(key)} style={{ fontFamily: FONT_STYLES[key].family, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, cursor: "pointer", color: fontStyle === key ? C.honeyDeep : C.text, background: fontStyle === key ? C.honeyLight : C.cream, border: `1px solid ${fontStyle === key ? C.honeyDeep : C.border}` }}>{FONT_STYLES[key].label}</button>
+              <button type="button" aria-pressed={fontStyle === key} key={key} onPointerEnter={() => ensureFontLoaded(key).catch(() => {})} onFocus={() => ensureFontLoaded(key).catch(() => {})} onClick={() => changeFontStyle(key)} style={{ fontFamily: FONT_STYLES[key].family, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, cursor: "pointer", color: fontStyle === key ? C.honeyDeep : C.text, background: fontStyle === key ? C.honeyLight : C.cream, border: `1px solid ${fontStyle === key ? C.honeyDeep : C.border}` }}>{FONT_STYLES[key].label}</button>
             ))}
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, letterSpacing: ".05em" }}>主页天气城市</div>
