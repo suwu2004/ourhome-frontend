@@ -15,6 +15,11 @@ import './RoomHeaderFinal.css';
 import './DecorativeTypographyPolish.css';
 import { useTheme } from './ThemeContext.jsx';
 import { emitGlobalSync } from './globalSync.js';
+import {
+  consumeNativeRemotePushRoute,
+  isNativeAndroidApp,
+  listenNativeRemotePushActions,
+} from './nativeNotifications.js';
 
 const App = lazy(() => import('./App.jsx'));
 const ReadingRoom = lazy(() => import('./ReadingRoom.jsx'));
@@ -148,6 +153,44 @@ export default function Root() {
     return () => {
       window.removeEventListener('hashchange', syncRoom);
       window.removeEventListener('popstate', syncRoom);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isNativeAndroidApp()) return undefined;
+    let disposed = false;
+    let removeListener = () => {};
+
+    const openRemotePushTarget = payload => {
+      if (disposed) return;
+      const requested = String(payload?.route || 'home');
+      const nextRoom = roomKeys.has(requested) ? requested : 'home';
+      if (nextRoom === 'home') {
+        window.history.pushState(null, '', `${window.location.pathname}${window.location.search}`);
+        setRoom('home');
+        return;
+      }
+      if (persistentAppRoomKeys.has(nextRoom)) {
+        setPersistentAppMounted(true);
+        setLastPersistentRoom(nextRoom);
+      }
+      window.location.hash = nextRoom;
+      setRoom(nextRoom);
+    };
+
+    (async () => {
+      try {
+        removeListener = await listenNativeRemotePushActions(openRemotePushTarget);
+        const pending = await consumeNativeRemotePushRoute();
+        if (pending) openRemotePushTarget(pending);
+      } catch (error) {
+        console.error('原生推送跳转没有接好', error);
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      removeListener();
     };
   }, []);
 
