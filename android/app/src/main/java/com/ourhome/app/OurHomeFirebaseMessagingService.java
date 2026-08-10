@@ -23,7 +23,7 @@ public class OurHomeFirebaseMessagingService extends FirebaseMessagingService {
     @Override
     public void onNewToken(String token) {
         super.onNewToken(token);
-        OurHomeNotificationsPlugin.restoreRemoteTopicSubscription(this);
+        OurHomeNotificationsPlugin.rememberRemoteToken(this, token);
     }
 
     @Override
