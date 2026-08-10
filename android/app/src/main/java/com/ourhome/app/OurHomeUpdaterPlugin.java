@@ -29,6 +29,7 @@ import java.util.concurrent.Executors;
 public class OurHomeUpdaterPlugin extends Plugin {
     private static final int MAX_DOWNLOAD_ATTEMPTS = 3;
     private static final long MIN_APK_BYTES = 100_000L;
+    private static final long PROGRESS_EMIT_STEP_BYTES = 256 * 1024L;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @PluginMethod
@@ -63,7 +64,9 @@ public class OurHomeUpdaterPlugin extends Plugin {
                 }
                 File apkFile = new File(updateDir, "OurHome-latest.apk");
                 File partialFile = new File(updateDir, "OurHome-latest.apk.part");
+                emitProgress("preparing", partialFile.exists() ? partialFile.length() : 0L, expectedBytes);
                 downloadApkWithRetry(url, partialFile, apkFile, expectedBytes, sha256);
+                emitProgress("opening-installer", apkFile.length(), expectedBytes);
 
                 Uri apkUri = FileProvider.getUriForFile(
                         getContext(),
@@ -105,13 +108,16 @@ public class OurHomeUpdaterPlugin extends Plugin {
         for (int attempt = 1; attempt <= MAX_DOWNLOAD_ATTEMPTS; attempt++) {
             try {
                 downloadApkAttempt(sourceUrl, partialFile, expectedBytes);
+                emitProgress("verifying", partialFile.length(), expectedBytes);
                 validateApk(partialFile, expectedBytes, sha256);
+                emitProgress("ready", partialFile.length(), expectedBytes);
                 replaceDestination(partialFile, destination);
                 return;
             } catch (IOException error) {
                 lastError = error;
                 if (isIntegrityFailure(error)) partialFile.delete();
                 if (attempt >= MAX_DOWNLOAD_ATTEMPTS) break;
+                emitProgress("retrying", partialFile.exists() ? partialFile.length() : 0L, expectedBytes);
                 try {
                     Thread.sleep(900L * attempt);
                 } catch (InterruptedException interrupted) {
@@ -129,17 +135,27 @@ public class OurHomeUpdaterPlugin extends Plugin {
 
         HttpURLConnection connection = openTrustedConnection(sourceUrl, existingBytes);
         boolean append = existingBytes > 0 && connection.getResponseCode() == HttpURLConnection.HTTP_PARTIAL;
+        long downloadedBytes = append ? existingBytes : 0L;
+        long lastEmittedBytes = downloadedBytes;
+        emitProgress("downloading", downloadedBytes, expectedBytes);
         try (InputStream input = connection.getInputStream();
              FileOutputStream output = new FileOutputStream(destination, append)) {
             byte[] buffer = new byte[64 * 1024];
             int read;
             while ((read = input.read(buffer)) != -1) {
                 output.write(buffer, 0, read);
+                downloadedBytes += read;
+                if (downloadedBytes - lastEmittedBytes >= PROGRESS_EMIT_STEP_BYTES
+                        || (expectedBytes > 0 && downloadedBytes >= expectedBytes)) {
+                    emitProgress("downloading", downloadedBytes, expectedBytes);
+                    lastEmittedBytes = downloadedBytes;
+                }
             }
             output.flush();
         } finally {
             connection.disconnect();
         }
+        if (downloadedBytes != lastEmittedBytes) emitProgress("downloading", downloadedBytes, expectedBytes);
 
         if (expectedBytes > 0 && destination.length() < expectedBytes) {
             throw new IOException("Update download incomplete; retry can resume.");
@@ -225,6 +241,20 @@ public class OurHomeUpdaterPlugin extends Plugin {
     private boolean isIntegrityFailure(IOException error) {
         return String.valueOf(error.getMessage()).startsWith("Integrity failure:")
                 || String.valueOf(error.getMessage()).contains("range is stale");
+    }
+
+    private void emitProgress(String phase, long downloadedBytes, long totalBytes) {
+        final long safeDownloaded = Math.max(0L, downloadedBytes);
+        final long safeTotal = Math.max(0L, totalBytes);
+        final int percent = safeTotal > 0L
+                ? (int) Math.max(0L, Math.min(100L, Math.round((safeDownloaded * 100.0d) / safeTotal)))
+                : -1;
+        JSObject data = new JSObject();
+        data.put("phase", phase);
+        data.put("downloadedBytes", safeDownloaded);
+        data.put("totalBytes", safeTotal);
+        data.put("percent", percent);
+        getActivity().runOnUiThread(() -> notifyListeners("downloadProgress", data));
     }
 
     private String normalizeSha256(String value) {
