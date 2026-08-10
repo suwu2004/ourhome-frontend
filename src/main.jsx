@@ -1,5 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import './chatNetworkGuard.js'
 import Root from './Root.jsx'
 import './styles.css'
 import './chatInputAlignment.css'
