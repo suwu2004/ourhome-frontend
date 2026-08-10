@@ -77,7 +77,7 @@ public class OurHomeUpdaterPlugin extends Plugin {
                     }
                 });
             } catch (Exception error) {
-                call.reject("Update download failed.", error);
+                getActivity().runOnUiThread(() -> call.reject("Update download failed.", error));
             }
         });
     }
@@ -116,7 +116,7 @@ public class OurHomeUpdaterPlugin extends Plugin {
             if (status >= 300 && status < 400) {
                 String location = connection.getHeaderField("Location");
                 connection.disconnect();
-                if (location == null || location.isBlank()) throw new IOException("Missing update redirect.");
+                if (location == null || location.trim().isEmpty()) throw new IOException("Missing update redirect.");
                 current = new URL(current, location);
                 continue;
             }
