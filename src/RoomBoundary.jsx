@@ -11,6 +11,12 @@ export default class RoomBoundary extends Component {
     console.error(`[room:${this.props.room || 'unknown'}] render failed`, error, info);
   }
 
+  componentDidUpdate(previousProps) {
+    if (previousProps.room !== this.props.room && this.state.failed) {
+      this.setState({ failed: false });
+    }
+  }
+
   render() {
     if (!this.state.failed) return this.props.children;
     return (
