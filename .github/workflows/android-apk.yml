@@ -22,6 +22,9 @@ on:
       - package-lock.json
       - .env.android
 
+permissions:
+  contents: write
+
 jobs:
   android-apk:
     runs-on: ubuntu-latest
@@ -42,6 +45,17 @@ jobs:
       - run: npm ci
       - run: npm run test:app
       - run: npm run android:sync
+      - name: Resolve Android release identity
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_NAME="1.0.3"
+          VERSION_CODE=$((100000 + GITHUB_RUN_NUMBER))
+          echo "OURHOME_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "OURHOME_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "OURHOME_RELEASE_TAG=android-v${VERSION_NAME}-b${VERSION_CODE}" >> "$GITHUB_ENV"
+          echo "OURHOME_RELEASE_APK=OurHome-${VERSION_NAME}-b${VERSION_CODE}.apk" >> "$GITHUB_ENV"
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
@@ -68,11 +82,34 @@ jobs:
           OURHOME_RELEASE_KEY_ALIAS: ${{ secrets.OURHOME_RELEASE_KEY_ALIAS }}
           OURHOME_RELEASE_KEY_PASSWORD: ${{ secrets.OURHOME_RELEASE_KEY_PASSWORD }}
         run: ./gradlew verifyReleaseSigning assembleRelease --no-daemon
+      - name: Prepare signed release file
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp android/app/build/outputs/apk/release/app-release.apk "$OURHOME_RELEASE_APK"
       - name: Upload signed release APK
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: OurHome-1.0.2-${{ github.sha }}-release-signed
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: OurHome-${{ env.OURHOME_VERSION_NAME }}-b${{ env.OURHOME_VERSION_CODE }}-release-signed
+          path: ${{ env.OURHOME_RELEASE_APK }}
           if-no-files-found: error
           retention-days: 30
+      - name: Publish latest signed APK
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$OURHOME_RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$OURHOME_RELEASE_TAG" "$OURHOME_RELEASE_APK" --clobber
+            gh release edit "$OURHOME_RELEASE_TAG" --title "OurHome Android ${OURHOME_VERSION_NAME} · build ${OURHOME_VERSION_CODE}" --latest
+          else
+            gh release create "$OURHOME_RELEASE_TAG" "$OURHOME_RELEASE_APK" \
+              --target "$GITHUB_SHA" \
+              --title "OurHome Android ${OURHOME_VERSION_NAME} · build ${OURHOME_VERSION_CODE}" \
+              --notes "OurHome Android 自动更新包。由 main 的签名构建生成。" \
+              --latest
+          fi
