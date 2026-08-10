@@ -42,7 +42,7 @@ public class OurHomeNotificationsPlugin extends Plugin {
     static final String PREFS = "ourhome_notification_reminders";
     private static final String PREF_IDS = "scheduled_ids";
     private static final String PREF_REMOTE_ENABLED = "remote_push_enabled";
-    static final String REMOTE_TOPIC = "ourhome-owner";
+    private static final String PREF_REMOTE_TOKEN = "remote_push_token";
     static final String EXTRA_PUSH_ROUTE = "ourhome_push_route";
     static final String EXTRA_PUSH_TYPE = "ourhome_push_type";
 
@@ -54,7 +54,9 @@ public class OurHomeNotificationsPlugin extends Plugin {
         super.load();
         activePlugin = new WeakReference<>(this);
         OurHomeReminderReceiver.createChannel(getContext());
-        if (isRemoteEnabled(getContext())) restoreRemoteTopicSubscription(getContext());
+        if (isRemoteEnabled(getContext()) && ensureFirebaseApp(getContext())) {
+            FirebaseMessaging.getInstance().getToken().addOnSuccessListener(token -> rememberRemoteToken(getContext(), token));
+        }
     }
 
     @PluginMethod
@@ -94,7 +96,7 @@ public class OurHomeNotificationsPlugin extends Plugin {
         boolean configured = ensureFirebaseApp(getContext());
         result.put("configured", configured);
         result.put("enabled", configured && isRemoteEnabled(getContext()));
-        result.put("topic", REMOTE_TOPIC);
+        result.put("token", configured ? readRemoteToken(getContext()) : "");
         call.resolve(result);
     }
 
@@ -104,25 +106,28 @@ public class OurHomeNotificationsPlugin extends Plugin {
             JSObject result = new JSObject();
             result.put("configured", false);
             result.put("enabled", false);
-            result.put("topic", REMOTE_TOPIC);
+            result.put("token", "");
             result.put("reason", "firebase-config-missing");
             call.resolve(result);
             return;
         }
-        FirebaseMessaging.getInstance().subscribeToTopic(REMOTE_TOPIC).addOnCompleteListener(task -> {
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
             JSObject result = new JSObject();
             result.put("configured", true);
-            result.put("topic", REMOTE_TOPIC);
-            if (task.isSuccessful()) {
+            if (task.isSuccessful() && task.getResult() != null && !task.getResult().isBlank()) {
+                String token = task.getResult();
                 getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                         .edit()
                         .putBoolean(PREF_REMOTE_ENABLED, true)
+                        .putString(PREF_REMOTE_TOKEN, token)
                         .apply();
                 result.put("enabled", true);
+                result.put("token", token);
                 call.resolve(result);
             } else {
                 result.put("enabled", false);
-                result.put("reason", task.getException() == null ? "subscribe-failed" : task.getException().getMessage());
+                result.put("token", "");
+                result.put("reason", task.getException() == null ? "token-unavailable" : task.getException().getMessage());
                 call.resolve(result);
             }
         });
@@ -130,28 +135,16 @@ public class OurHomeNotificationsPlugin extends Plugin {
 
     @PluginMethod
     public void unregisterRemotePush(PluginCall call) {
+        String token = readRemoteToken(getContext());
         getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putBoolean(PREF_REMOTE_ENABLED, false)
                 .apply();
-        if (!ensureFirebaseApp(getContext())) {
-            JSObject result = new JSObject();
-            result.put("configured", false);
-            result.put("enabled", false);
-            result.put("topic", REMOTE_TOPIC);
-            call.resolve(result);
-            return;
-        }
-        FirebaseMessaging.getInstance().unsubscribeFromTopic(REMOTE_TOPIC).addOnCompleteListener(task -> {
-            JSObject result = new JSObject();
-            result.put("configured", true);
-            result.put("enabled", false);
-            result.put("topic", REMOTE_TOPIC);
-            if (!task.isSuccessful()) {
-                result.put("reason", task.getException() == null ? "unsubscribe-failed" : task.getException().getMessage());
-            }
-            call.resolve(result);
-        });
+        JSObject result = new JSObject();
+        result.put("configured", ensureFirebaseApp(getContext()));
+        result.put("enabled", false);
+        result.put("token", token);
+        call.resolve(result);
     }
 
     @PluginMethod
@@ -279,6 +272,11 @@ public class OurHomeNotificationsPlugin extends Plugin {
                 .getBoolean(PREF_REMOTE_ENABLED, false);
     }
 
+    static String readRemoteToken(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(PREF_REMOTE_TOKEN, "");
+    }
+
     static boolean ensureFirebaseApp(Context context) {
         try {
             if (!FirebaseApp.getApps(context).isEmpty()) return true;
@@ -288,9 +286,18 @@ public class OurHomeNotificationsPlugin extends Plugin {
         }
     }
 
-    static void restoreRemoteTopicSubscription(Context context) {
-        if (!isRemoteEnabled(context) || !ensureFirebaseApp(context)) return;
-        FirebaseMessaging.getInstance().subscribeToTopic(REMOTE_TOPIC);
+    static void rememberRemoteToken(Context context, String token) {
+        if (token == null || token.isBlank()) return;
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(PREF_REMOTE_TOKEN, token)
+                .apply();
+        OurHomeNotificationsPlugin plugin = activePlugin.get();
+        if (plugin != null && isRemoteEnabled(context)) {
+            JSObject payload = new JSObject();
+            payload.put("token", token);
+            plugin.notifyListeners("remotePushTokenChanged", payload, true);
+        }
     }
 
     static void handleRemoteIntent(Intent intent) {
