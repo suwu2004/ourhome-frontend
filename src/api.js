@@ -6,6 +6,7 @@ export const DIRECT_BACKEND = (configuredDirectBackend || 'https://ourhome-backe
 export const TOKEN_KEY = 'ourhome_token';
 
 const RETRYABLE_READ_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const CLOUD_CACHE_FALLBACK_STATUS = new Set([402, ...RETRYABLE_READ_STATUS]);
 const ROUTE_FALLBACK_STATUS = new Set([502, 504]);
 const READ_RETRY_DELAY_MS = 280;
 const CLOUD_CACHE_PREFIX = 'ourhome_cloud_read:';
@@ -151,8 +152,10 @@ export function clearOurHomePrivateCache() {
 
 function cloudSyncSnapshot() {
   const entries = [...staleCloudReads.entries()];
+  const quotaBlocked = entries.some(([, value]) => value?.reason === 'quota');
   return {
     state: entries.length ? 'stale' : 'online',
+    reason: quotaBlocked ? 'quota' : entries.length ? 'unreachable' : null,
     paths: entries.map(([path]) => path),
     cachedAt: entries.length
       ? Math.min(...entries.map(([, value]) => Number(value?.cachedAt || 0) || Date.now()))
@@ -169,13 +172,16 @@ function emitCloudSyncState() {
   window.dispatchEvent(new CustomEvent('ourhome-cloud-sync', { detail: cloudSyncSnapshot() }));
 }
 
-function markCloudStale(path, cachedAt, logicalUrl = '') {
+function markCloudStale(path, cachedAt, logicalUrl = '', reason = '') {
   const previous = staleCloudReads.get(path);
   const next = {
     cachedAt: cachedAt || previous?.cachedAt || Date.now(),
     logicalUrl: logicalUrl || previous?.logicalUrl || '',
+    reason: reason || previous?.reason || 'unreachable',
   };
-  if (previous?.cachedAt === next.cachedAt && previous?.logicalUrl === next.logicalUrl) return;
+  if (previous?.cachedAt === next.cachedAt
+    && previous?.logicalUrl === next.logicalUrl
+    && previous?.reason === next.reason) return;
   staleCloudReads.set(path, next);
   emitCloudSyncState();
 }
@@ -186,7 +192,7 @@ function markCloudFresh(path) {
   emitCloudSyncState();
 }
 
-function readCloudCache(path, logicalUrl = '') {
+function readCloudCache(path, logicalUrl = '', reason = '') {
   if (!path || typeof localStorage === 'undefined') return null;
   try {
     const raw = localStorage.getItem(cacheKey(path));
@@ -205,7 +211,7 @@ function readCloudCache(path, logicalUrl = '') {
       'X-OurHome-Cache': 'stale',
       'X-OurHome-Cached-At': String(savedAt),
     });
-    markCloudStale(path, savedAt, logicalUrl);
+    markCloudStale(path, savedAt, logicalUrl, reason);
     return new Response(parsed.body, { status: 200, headers });
   } catch {
     return null;
@@ -337,7 +343,7 @@ export async function apiFetch(url, options = {}) {
   }
 
   if (!response) {
-    const cached = cloudPath ? readCloudCache(cloudPath, url) : null;
+    const cached = cloudPath ? readCloudCache(cloudPath, url, 'unreachable') : null;
     if (cached) response = cached;
     else throw primaryError || new Error('网络请求没有完成');
   }
@@ -345,8 +351,9 @@ export async function apiFetch(url, options = {}) {
   // Home-facing configuration is tiny and safe to show from the last successful
   // sync when the relay is briefly unavailable. Never mask authentication errors,
   // and never cache chat/session reads where stale data could target the wrong room.
-  if (cloudPath && RETRYABLE_READ_STATUS.has(response.status)) {
-    response = readCloudCache(cloudPath, url) || response;
+  if (cloudPath && CLOUD_CACHE_FALLBACK_STATUS.has(response.status)) {
+    const reason = response.status === 402 ? 'quota' : 'unreachable';
+    response = readCloudCache(cloudPath, url, reason) || response;
   }
 
   if (response.status === 401 && token) {

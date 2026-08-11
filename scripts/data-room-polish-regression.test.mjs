@@ -2,11 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [installSettings, recovery, room, folders] = await Promise.all([
+const [installSettings, recovery, room, folders, toybox, toyboxStyles, gomokuStyles] = await Promise.all([
   readFile(new URL('../src/AppInstallSettings.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/FailoverRecoverySettings.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/LuzePrivateRoom.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/LuzeDailyFolders.css', import.meta.url), 'utf8'),
+  readFile(new URL('../src/ToyBoxSharedRoom.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/ToyBoxRoom.css', import.meta.url), 'utf8'),
+  readFile(new URL('../src/ToyBoxGomoku.css', import.meta.url), 'utf8'),
 ]);
 
 test('data management puts recovery first and update last', () => {
@@ -55,4 +58,12 @@ test('Luze room can surface the balanced learning source mode', () => {
   assert.match(room, /每天的搜索一半跟着 OurHome 和最近聊天里的线索走，一半留给自己的随机好奇/);
   assert.match(folders, /luze-learning-mode/);
   assert.match(folders, /luze-day-folder::before/);
+});
+
+test('Toy Bear history shows the actual harmony answers and keeps game cards in one palette', () => {
+  assert.match(toybox, /我们都选了「\$\{shared\}」/);
+  assert.match(toybox, /你选「\$\{mine \|\| '—'\}」 · 陆泽选「\$\{luze \|\| '—'\}」/);
+  const sharedCardBackground = /linear-gradient\(145deg, rgba\(255,250,241,\.98\), rgba\(246,229,190,\.76\)\)/g;
+  assert.equal((toyboxStyles.match(sharedCardBackground) || []).length, 3);
+  assert.match(gomokuStyles, sharedCardBackground);
 });
