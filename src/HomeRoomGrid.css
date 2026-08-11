@@ -118,6 +118,100 @@
   height: 34px;
 }
 
+/* Eight rooms share one small cat-head frame. The glyphs keep their identities;
+   only the circle, ears, edge and shadow become one visual family. */
+.home-scene .home-music-garden .home-room-app > span,
+.home-scene .home-music-garden .home-room-app--music > span {
+  --home-cat-icon-bg: color-mix(in srgb, var(--home-card-solid) 76%, var(--home-lemon) 4%);
+  --home-cat-icon-edge: color-mix(in srgb, var(--home-honey) 34%, transparent);
+  position: relative;
+  isolation: isolate;
+  width: 42px !important;
+  height: 35px !important;
+  overflow: visible !important;
+  color: var(--home-honey-deep) !important;
+  background: var(--home-cat-icon-bg) !important;
+  border: 1px solid var(--home-cat-icon-edge) !important;
+  border-radius: 47% 47% 44% 44% / 43% 43% 57% 57% !important;
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--home-shadow) 34%, transparent) !important;
+  backdrop-filter: blur(8px);
+}
+
+.home-scene .home-music-garden .home-room-app > span::before,
+.home-scene .home-music-garden .home-room-app > span::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: -6px;
+  width: 14px;
+  height: 12px;
+  pointer-events: none;
+  background: var(--home-cat-icon-bg);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(0 -0.7px 0 var(--home-cat-icon-edge));
+}
+
+.home-scene .home-music-garden .home-room-app > span::before {
+  left: 3px;
+  transform: rotate(-9deg);
+}
+
+.home-scene .home-music-garden .home-room-app > span::after {
+  right: 3px;
+  transform: rotate(9deg);
+}
+
+.home-scene .home-music-garden .home-room-app > span > * {
+  position: relative;
+  z-index: 1;
+}
+
+.home-scene .home-music-garden .home-room-app > span > .home-cat-whiskers {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: block;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+}
+
+.home-scene .home-music-garden .home-cat-whiskers::before,
+.home-scene .home-music-garden .home-cat-whiskers::after {
+  content: "";
+  position: absolute;
+  top: 19px;
+  width: 9px;
+  height: 1px;
+  border-radius: 999px;
+  background: var(--home-cat-icon-edge);
+  box-shadow: 0 4px 0 var(--home-cat-icon-edge);
+  opacity: .92;
+}
+
+.home-scene .home-music-garden .home-cat-whiskers::before {
+  left: -8px;
+  transform: rotate(8deg);
+  transform-origin: right center;
+}
+
+.home-scene .home-music-garden .home-cat-whiskers::after {
+  right: -8px;
+  transform: rotate(-8deg);
+  transform-origin: left center;
+}
+
+.home-scene .home-music-garden .home-room-app .home-room-glyph,
+.home-scene .home-music-garden .home-room-app .home-luze-door-glyph {
+  width: 26px !important;
+  height: 26px !important;
+}
+
+.home-scene .home-music-garden .home-room-app strong {
+  color: color-mix(in srgb, var(--home-honey-deep) 76%, var(--home-ink)) !important;
+  font-weight: 560;
+}
+
 @media (max-width: 380px) {
   .home-scene .home-music-garden {
     min-height: 238px;
@@ -136,5 +230,11 @@
   .home-scene .home-music-garden .home-room-app--luze {
     max-width: 82px !important;
     min-height: 60px !important;
+  }
+
+  .home-scene .home-music-garden .home-room-app > span,
+  .home-scene .home-music-garden .home-room-app--music > span {
+    width: 40px !important;
+    height: 34px !important;
   }
 }

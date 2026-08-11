@@ -481,11 +481,11 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
 
           <div className="home-room-shelf">
             <button className="home-room-app home-room-app--music" type="button" onClick={() => onOpen('music')} aria-label="打开一起听">
-              <span aria-hidden="true">♪</span>
+              <span aria-hidden="true">♪<i className="home-cat-whiskers" /></span>
               <strong>一起听</strong>
             </button>
             <button className="home-room-app home-room-app--letters" type="button" onClick={() => onOpen('letters')} aria-label="打开时光信差">
-              <span><EnvelopeIcon /></span>
+              <span><EnvelopeIcon /><i className="home-cat-whiskers" aria-hidden="true" /></span>
               <strong>时光信差</strong>
             </button>
             <button className="home-room-app home-room-app--theater" type="button" onClick={() => onOpen('theater')} aria-label="打开小剧场">
@@ -495,15 +495,16 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
                   <path d="M11 13h14M11 18h10M11 23h7" />
                   <path d="M27 7l4 4M31 7l-4 4" />
                 </svg>
+                <i className="home-cat-whiskers" aria-hidden="true" />
               </span>
               <strong>小剧场</strong>
             </button>
             <button className="home-room-app home-room-app--vault" type="button" onClick={() => onOpen('vault')} aria-label="打开猫的金库">
-              <span><CoinIcon /></span>
+              <span><CoinIcon /><i className="home-cat-whiskers" aria-hidden="true" /></span>
               <strong>猫的金库</strong>
             </button>
             <button className="home-room-app home-room-app--photos" type="button" onClick={() => onOpen('photos')} aria-label="打开光影相册">
-              <span><PhotoIcon /></span>
+              <span><PhotoIcon /><i className="home-cat-whiskers" aria-hidden="true" /></span>
               <strong>光影相册</strong>
             </button>
           </div>
