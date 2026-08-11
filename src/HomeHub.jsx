@@ -116,6 +116,33 @@ function PhotoIcon() {
   );
 }
 
+function ReadingIcon() {
+  return (
+    <svg className="home-room-glyph" viewBox="0 0 36 36" aria-hidden="true">
+      <path d="M5.5 8.5h10c1.8 0 2.5 1 2.5 2.8v17.2c0-1.8-.7-2.8-2.5-2.8h-10V8.5Zm25 0h-10c-1.8 0-2.5 1-2.5 2.8v17.2c0-1.8-.7-2.8-2.5-2.8h-10V8.5Z" />
+      <path d="M9 13h5M22 13h5M9 17h5M22 17h5" />
+    </svg>
+  );
+}
+
+function LuzeDoorIcon() {
+  return (
+    <svg className="home-room-glyph home-luze-door-glyph" viewBox="0 0 36 36" aria-hidden="true">
+      <path d="M10 29V10.8c0-2 1.2-3.3 3.1-3.3h10c1.9 0 2.9 1.3 2.9 3.3V29" />
+      <path d="M13.7 29V12h8.6v17M7.5 29h21" />
+      <circle cx="20" cy="20.5" r="1.15" />
+      <path d="M16.1 11.2h3.8" />
+    </svg>
+  );
+}
+
+function atmosphereFor(weatherCode, darkMode) {
+  const code = Number(weatherCode);
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(code)) return 'rain';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow';
+  return darkMode ? 'night' : 'day';
+}
+
 function OccasionReminder({ occasion }) {
   if (!occasion) return null;
   if (occasion.days === 0) return <>今天是「{occasion.label}」♡</>;
@@ -424,10 +451,17 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
   const memoPaperStyle = memoPaperImage
     ? { '--home-memo-paper-image': `url(${JSON.stringify(memoPaperImage)})` }
     : undefined;
+  const atmosphere = atmosphereFor(weather?.weatherCode, darkMode);
 
   return (
-    <main className={`home-scene ourhome-shell ${darkMode ? 'home-scene--night' : 'home-scene--day'} ${homeBackground ? 'home-scene--custom' : ''}`} style={homeBackgroundStyle}>
+    <main className={`home-scene ourhome-shell ${darkMode ? 'home-scene--night' : 'home-scene--day'} home-scene--weather-${atmosphere} ${homeBackground ? 'home-scene--custom' : ''}`} style={homeBackgroundStyle}>
       <div className="home-room-light" aria-hidden="true"><i /><i /><i /></div>
+      <div className="home-atmosphere" aria-hidden="true">
+        <i className="home-window-sweep" />
+        <div className="home-weather-particles">
+          {Array.from({ length: 12 }, (_, index) => <span key={index} />)}
+        </div>
+      </div>
       <div className="home-layout">
         <header className="home-hero">
           <div className="home-title-lockup">
@@ -507,6 +541,18 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
             <button className="home-room-app home-room-app--photos" type="button" onClick={() => onOpen('photos')} aria-label="打开光影相册">
               <span><PhotoIcon /><HomeCatFrame /></span>
               <strong>光影相册</strong>
+            </button>
+            <button className="home-room-app home-room-app--reading" type="button" onClick={() => onOpen('reading')} aria-label="打开共读小屋">
+              <span><ReadingIcon /><HomeCatFrame /></span>
+              <strong>共读小屋</strong>
+            </button>
+            <button className="home-room-app home-room-app--toybox" type="button" onClick={() => onOpen('toybox')} aria-label="打开玩具熊">
+              <span><span className="home-toolbear-symbol" aria-hidden="true">୨୧</span><HomeCatFrame /></span>
+              <strong>玩具熊</strong>
+            </button>
+            <button className="home-room-app home-room-app--luze" type="button" onClick={() => onOpen('luze-room')} aria-label="去陆泽的房间敲门">
+              <span><LuzeDoorIcon /><HomeCatFrame /></span>
+              <strong>陆泽的房间</strong>
             </button>
           </div>
         </section>
