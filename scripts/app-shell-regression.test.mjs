@@ -165,9 +165,11 @@ test('expired private backgrounds recover without an upload loop', () => {
   assert.match(themeContext, /visibilitychange/);
 });
 
-test('home shelf uses one DOM observer for all injected room entries', () => {
-  assert.equal((root.match(/useHomeShelfTarget\(\)/g) || []).length, 2);
-  assert.match(root, /function HomeShelfEntries/);
+test('home shelf owns all room entries without portal injection', () => {
+  assert.doesNotMatch(root, /useHomeShelfTarget/);
+  assert.doesNotMatch(root, /HomeShelfEntries/);
+  assert.doesNotMatch(root, /createPortal/);
+  assert.equal((homeHubSource.match(/className="home-room-app home-room-app--/g) || []).length, 8);
 });
 
 test('all eight home room icons share one pointed cat-ear frame', () => {
@@ -177,9 +179,21 @@ test('all eight home room icons share one pointed cat-ear frame', () => {
   assert.match(homeCatFrame, /viewBox="0 0 72 58"/);
   assert.match(homeCatFrame, /className="home-cat-frame__face"/);
   assert.match(homeCatFrame, /className="home-cat-frame__whiskers"/);
-  assert.equal((homeHubSource.match(/<HomeCatFrame \/>/g) || []).length, 5);
-  assert.equal((root.match(/<HomeCatFrame \/>/g) || []).length, 3);
+  assert.match(homeCatFrame, /home-cat-frame__ear--left/);
+  assert.match(homeCatFrame, /home-cat-frame__ear--right/);
+  assert.equal((homeHubSource.match(/<HomeCatFrame \/>/g) || []).length, 8);
+  assert.equal((root.match(/<HomeCatFrame \/>/g) || []).length, 0);
   assert.doesNotMatch(homeRoomGrid, /clip-path/);
+});
+
+test('home atmosphere is visible, weather-aware, and motion-safe', () => {
+  assert.match(homeHubSource, /home-window-sweep/);
+  assert.match(homeHubSource, /home-weather-particles/);
+  assert.match(homeHubSource, /home-scene--weather-/);
+  assert.match(homeRoomGrid, /@keyframes home-cat-arrive/);
+  assert.match(homeRoomGrid, /@keyframes home-cat-ear-twitch/);
+  assert.match(homeRoomGrid, /\.home-chat-button::before/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
 test('home desktop polish adds depth without changing touch interactions', () => {
