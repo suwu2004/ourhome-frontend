@@ -160,6 +160,15 @@ test('home shelf uses one DOM observer for all injected room entries', () => {
   assert.match(root, /function HomeShelfEntries/);
 });
 
+test('home desktop polish adds depth without changing touch interactions', () => {
+  assert.match(styles, /@media \(hover: hover\) and \(pointer: fine\)/);
+  assert.match(styles, /\.home-refresh:hover:not\(:active\)/);
+  assert.match(styles, /\.home-note-card:hover:not\(:active\)/);
+  assert.match(styles, /\.home-room-app:hover > span/);
+  assert.match(styles, /\.home-dock > button:hover/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
 test('vault fallback never presents demo money as real data', () => {
   assert.match(vault, /const EMPTY_DATA/);
   assert.match(vault, /isUntouchedLegacyDemo/);

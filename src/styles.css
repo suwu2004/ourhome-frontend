@@ -670,6 +670,7 @@ textarea { display: block; margin: 0; }
   border-radius: 15px;
   box-shadow: 0 8px 24px var(--home-shadow), inset 0 1px rgba(255, 255, 255, 0.42);
   backdrop-filter: blur(13px);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
 .home-refresh svg {
@@ -872,6 +873,7 @@ textarea { display: block; margin: 0; }
   border-radius: 19px 25px 20px 23px;
   box-shadow: 0 9px 25px var(--home-shadow), inset 0 1px rgba(255, 255, 255, 0.38);
   backdrop-filter: blur(14px);
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
 .home-note-card--custom {
@@ -1141,6 +1143,7 @@ textarea { display: block; margin: 0; }
   border: 0;
   border-radius: 0;
   box-shadow: none;
+  transition: transform 190ms ease, color 190ms ease, background-color 190ms ease, box-shadow 190ms ease;
 }
 
 .home-room-app strong {
@@ -1149,6 +1152,7 @@ textarea { display: block; margin: 0; }
   font-weight: 520;
   letter-spacing: 0.05em;
   white-space: nowrap;
+  transition: color 190ms ease, transform 190ms ease;
 }
 
 .home-room-glyph {
@@ -1205,7 +1209,9 @@ textarea { display: block; margin: 0; }
   gap: 3px;
   cursor: pointer;
   background: transparent;
+  border-radius: 16px;
   font-size: clamp(10px, 2.8vw, 13px);
+  transition: color 180ms ease, background-color 180ms ease;
 }
 
 .home-dock > button > svg {
@@ -1216,6 +1222,40 @@ textarea { display: block; margin: 0; }
   stroke-width: 1.35;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: transform 180ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-refresh:hover:not(:active) {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--home-honey-deep) 34%, var(--home-edge)) !important;
+    box-shadow: 0 12px 28px var(--home-shadow), 0 0 0 4px color-mix(in srgb, var(--home-butter) 22%, transparent), inset 0 1px rgba(255, 255, 255, 0.52);
+  }
+
+  .home-note-card:hover:not(:active) {
+    transform: translateY(-3px) rotate(-0.12deg);
+    border-color: color-mix(in srgb, var(--home-honey-deep) 27%, var(--home-edge)) !important;
+    box-shadow: 0 15px 34px var(--home-shadow), 0 0 0 4px color-mix(in srgb, var(--home-butter) 16%, transparent), inset 0 1px rgba(255, 255, 255, 0.48);
+  }
+
+  .home-room-app:hover > span {
+    color: var(--home-honey-deep);
+    background-color: color-mix(in srgb, var(--home-card-solid) 68%, transparent);
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--home-shadow) 58%, transparent), 0 0 0 5px color-mix(in srgb, var(--home-butter) 20%, transparent);
+    transform: translateY(-3px) scale(1.055);
+  }
+
+  .home-room-app:hover strong {
+    color: var(--home-honey-deep);
+    transform: translateY(-1px);
+  }
+
+  .home-dock > button:hover {
+    color: var(--home-honey-deep);
+    background: color-mix(in srgb, var(--home-butter) 28%, transparent);
+  }
+
+  .home-dock > button:hover > svg { transform: translateY(-2px); }
 }
 
 .home-chat-button { position: relative; overflow: visible; }

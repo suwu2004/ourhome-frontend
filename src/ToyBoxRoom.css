@@ -93,10 +93,10 @@
 .toybox-game-card strong { font-size: 18px; font-weight: 600; letter-spacing: .04em; }
 .toybox-game-card small { color: var(--toy-soft-ink); margin-top: 6px; line-height: 1.55; min-height: 42px; }
 .toybox-game-card i { margin-top: auto; font-style: normal; font-size: 12px; color: #b47d2e; }
-.toybox-game-card--harmony { background: linear-gradient(145deg, rgba(255,250,241,.96), rgba(252,235,232,.92)); }
+.toybox-game-card--harmony { background: linear-gradient(145deg, rgba(255,250,241,.98), rgba(246,229,190,.76)); }
 .toybox-game-card--cat2048 { background: linear-gradient(145deg, rgba(255,250,241,.96), rgba(246,229,190,.9)); }
-.toybox-game-card--drawing { background: linear-gradient(145deg, rgba(255,250,241,.96), rgba(225,239,224,.9)); }
-.toybox-game-card--secret { background: linear-gradient(145deg, rgba(255,250,241,.96), rgba(224,236,243,.92)); }
+.toybox-game-card--drawing { background: linear-gradient(145deg, rgba(255,250,241,.98), rgba(246,229,190,.76)); }
+.toybox-game-card--secret { background: linear-gradient(145deg, rgba(255,250,241,.98), rgba(246,229,190,.76)); }
 .toybox-room--night .toybox-game-card { background: var(--toy-paper); }
 .toybox-footnote { margin: 22px 0 0; text-align: center; color: var(--toy-soft-ink); font-size: 11px; opacity: .78; }
 

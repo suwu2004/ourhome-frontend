@@ -80,6 +80,32 @@ test('small home reads can fall back to the last successful sync after both rout
   assert.deepEqual(await cached.json(), [{ id: 'memo-1', content: '爱你' }]);
 });
 
+test('Supabase quota 402 uses the safe home cache without retrying the blocked route', async () => {
+  const fresh = await import(`../src/api.js?quota-cache=${Date.now()}`);
+  storage.set('ourhome_token', 'test-token');
+  fresh.clearOurHomePrivateCache();
+  globalThis.fetch = async () => new Response('[{"id":"memo-quota","content":"留在家里"}]', {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+  await fresh.apiFetch('/api/home-memos');
+
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response('{"message":"exceed_egress_quota"}', {
+      status: 402,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  const cached = await fresh.apiFetch('/api/home-memos');
+  assert.equal(calls, 1, 'quota responses should not be retried or cross-routed');
+  assert.equal(cached.headers.get('X-OurHome-Cache'), 'stale');
+  assert.deepEqual(await cached.json(), [{ id: 'memo-quota', content: '留在家里' }]);
+  assert.equal(fresh.getCloudSyncState().reason, 'quota');
+});
+
 test('stale home cache self-heals with a read-only recheck after the cloud recovers', async () => {
   storage.set('ourhome_token', 'test-token');
   clearOurHomePrivateCache();
@@ -117,6 +143,11 @@ test('cloud badge uses adaptive stale backoff while keeping immediate recovery s
   assert.doesNotMatch(badge, /setInterval/);
   assert.match(badge, /addEventListener\('online'/);
   assert.match(badge, /visibilitychange/);
+  assert.match(badge, /云端额度暂时受限/);
+  assert.match(badge, /NOTICE_VISIBLE_MS = 3600/);
+  assert.match(badge, /setNoticeVisible\(false\)/);
+  assert.match(badge, /subscribeGlobalSync/);
+  assert.match(badge, /if \(!stale \|\| !noticeVisible\) return null/);
 });
 
 test('one stale recheck stops the round instead of probing every cached home endpoint', async () => {

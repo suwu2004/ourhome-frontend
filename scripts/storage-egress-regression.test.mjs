@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const chatRoom = await readFile(new URL('../src/ChatRoom.jsx', import.meta.url), 'utf8');
 const viewportImage = await readFile(new URL('../src/ViewportChatImage.jsx', import.meta.url), 'utf8');
+const photoRoom = await readFile(new URL('../src/PhotoMemoryRoom.jsx', import.meta.url), 'utf8');
 
 test('historical chat images are rendered through the viewport gate', () => {
   assert.match(chatRoom, /<ViewportChatImage\s+src=\{m\.image\}/);
@@ -20,4 +21,8 @@ test('viewport gate does not assign image src until IntersectionObserver admits 
 
 test('recent upload preview remains immediate and is not routed through historical lazy gate', () => {
   assert.match(chatRoom, /<img\s+src=\{pendingFile\.url\}/);
+});
+
+test('photo album defers offscreen originals instead of downloading the whole wall at once', () => {
+  assert.match(photoRoom, /<img src=\{memory\.image_url\} alt="" loading="lazy" decoding="async"/);
 });

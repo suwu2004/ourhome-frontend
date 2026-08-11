@@ -190,7 +190,7 @@ export function PhotoMemoryRoom({ visible, theme, leaveRoom }) {
               {memories.map(memory => (
                 <article key={memory.id} style={{ overflow: 'hidden', border: `1px solid ${C.borderLight}`, borderRadius: 16, background: C.surface }}>
                   {memory.image_url ? (
-                    <img src={memory.image_url} alt="" style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', display: 'block' }} />
+                    <img src={memory.image_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', display: 'block' }} />
                   ) : (
                     <div style={{ aspectRatio: '4 / 3', display: 'grid', placeItems: 'center', background: C.honeyLight, color: C.honeyDeep, fontSize: 12 }}>没有照片预览</div>
                   )}

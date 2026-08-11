@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react';
 import { getCloudSyncState, recheckCloudSync } from './api.js';
+import { subscribeGlobalSync } from './globalSync.js';
 
 const FIRST_RECHECK_DELAY_MS = 1800;
 const STALE_RECHECK_BACKOFF_MS = [15_000, 30_000, 60_000, 120_000, 300_000];
+const NOTICE_VISIBLE_MS = 3600;
 
 export default function CloudSyncBadge() {
-  const [stale, setStale] = useState(() => getCloudSyncState().state === 'stale');
+  const [syncState, setSyncState] = useState(getCloudSyncState);
+  const [noticeVisible, setNoticeVisible] = useState(() => getCloudSyncState().state === 'stale');
+  const stale = syncState.state === 'stale';
 
   useEffect(() => {
-    const handleSync = event => setStale(event?.detail?.state === 'stale');
+    const handleSync = event => {
+      const nextState = event?.detail || getCloudSyncState();
+      setSyncState(nextState);
+      setNoticeVisible(nextState.state === 'stale');
+    };
     const handleOnline = () => {
       if (getCloudSyncState().state === 'stale') recheckCloudSync().catch(() => {});
     };
@@ -21,12 +29,22 @@ export default function CloudSyncBadge() {
     window.addEventListener('ourhome-cloud-sync', handleSync);
     window.addEventListener('online', handleOnline);
     document.addEventListener('visibilitychange', handleVisible);
+    const unsubscribeRefresh = subscribeGlobalSync(() => {
+      if (getCloudSyncState().state === 'stale') setNoticeVisible(true);
+    });
     return () => {
       window.removeEventListener('ourhome-cloud-sync', handleSync);
       window.removeEventListener('online', handleOnline);
       document.removeEventListener('visibilitychange', handleVisible);
+      unsubscribeRefresh();
     };
   }, []);
+
+  useEffect(() => {
+    if (!stale || !noticeVisible) return undefined;
+    const timer = window.setTimeout(() => setNoticeVisible(false), NOTICE_VISIBLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [noticeVisible, stale]);
 
   useEffect(() => {
     if (!stale) return undefined;
@@ -51,7 +69,11 @@ export default function CloudSyncBadge() {
     };
   }, [stale]);
 
-  if (!stale) return null;
+  if (!stale || !noticeVisible) return null;
+
+  const message = syncState.reason === 'quota'
+    ? '云端额度暂时受限 · 已显示上次同步'
+    : '云端连接中 · 已显示上次同步';
 
   return (
     <div
@@ -79,7 +101,7 @@ export default function CloudSyncBadge() {
         pointerEvents: 'none',
       }}
     >
-      云端连接中 · 先显示上次同步
+      {message}
     </div>
   );
 }

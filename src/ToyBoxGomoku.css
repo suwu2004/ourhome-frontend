@@ -1,4 +1,4 @@
-.toybox-game-card--gomoku { background: linear-gradient(145deg, rgba(249,239,214,.96), rgba(229,202,151,.82)); }
+.toybox-game-card--gomoku { background: linear-gradient(145deg, rgba(255,250,241,.98), rgba(246,229,190,.76)); }
 .toybox-game-card--gomoku > span { filter: drop-shadow(2px 3px 0 rgba(74,48,25,.12)); }
 
 .toybox-gomoku-invite-active .toy-invite-banner { display: none !important; }

@@ -123,6 +123,26 @@ const GAME_META = {
   secret: { icon: '🔐', title: '暗号猜猜', note: '随机题材，不被固定词库绑住' },
 };
 
+function harmonyChoiceText(run, choice) {
+  const state = run?.state || {};
+  const key = String(choice || '').toUpperCase();
+  if (key === 'A') return state.option_a || 'A';
+  if (key === 'B') return state.option_b || 'B';
+  return String(choice || '').trim();
+}
+
+function harmonyRunSummary(run) {
+  const result = run?.result || {};
+  const mine = harmonyChoiceText(run, result.user_choice);
+  const luze = harmonyChoiceText(run, result.luze_choice);
+  if (result.matched) {
+    const shared = mine || luze;
+    return shared ? `我们都选了「${shared}」` : '想到一起了 ♡';
+  }
+  if (mine || luze) return `你选「${mine || '—'}」 · 陆泽选「${luze || '—'}」`;
+  return '这题答案不一样';
+}
+
 function runSummary(run) {
   if (!run) return '';
   const state = run.state || {};
@@ -130,7 +150,7 @@ function runSummary(run) {
   if (run.status === 'invited') return '等你接招';
   if (run.status === 'active') return '正在玩';
   if (run.status === 'abandoned') return '这局中途收起来了';
-  if (run.game === 'harmony') return result.matched ? '♡ 这题想到一起了' : '↯ 这题答案不同';
+  if (run.game === 'harmony') return harmonyRunSummary(run);
   if (run.game === 'secret') return result.won ? `猜中了「${result.answer || state.answer || ''}」` : `答案是「${result.answer || state.answer || ''}」`;
   if (run.game === 'drawing') return result.guess ? `陆泽猜：${result.guess}` : '画完啦';
   return '玩完一局';
