@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery, localFirstSettings, localFirstStore] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -27,6 +27,8 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../src/SettingsRoom.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/ChatRoom.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/FailoverRecoverySettings.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/LocalFirstSettings.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/localFirstStore.js', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -113,6 +115,11 @@ test('Android update and Supabase recovery live under data management instead of
   assert.match(failoverRecovery, /supabase-restored/);
   assert.match(failoverRecovery, /安全回灌/);
   assert.match(failoverRecovery, /pending_objects/);
+  assert.match(installSettings, /LocalFirstSettings/);
+  assert.match(localFirstSettings, /设备里的 OurHome/);
+  assert.match(localFirstSettings, /双云受限时先用这里的数据撑起页面/);
+  assert.match(localFirstStore, /indexedDB\.open\(DB_NAME, DB_VERSION\)/);
+  assert.match(localFirstStore, /requestPersistentLocalStorage/);
 });
 
 test('Android notifications keep local alarms, support optional private FCM, and web keeps Web Push', () => {
