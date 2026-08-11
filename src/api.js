@@ -1,3 +1,13 @@
+import {
+  localFirstReadPath,
+  listPendingMutations,
+  readLocalFirstResponse,
+  rememberPendingMutation,
+  rememberLocalFirstRead,
+  removeMatchingPendingMutation,
+  removePendingMutation,
+} from './localFirstStore.js';
+
 const configuredBackend = import.meta.env?.VITE_BACKEND_URL?.trim();
 const configuredDirectBackend = import.meta.env?.VITE_DIRECT_BACKEND_URL?.trim();
 
@@ -139,6 +149,20 @@ function safeCachedBody(path, body) {
   }
 }
 
+function quotaIsKnown() {
+  return [...staleCloudReads.values()].some(value => value?.reason === 'quota');
+}
+
+async function readBestAvailableCache(localPath, cloudPath, logicalUrl, reason) {
+  const local = localPath ? await readLocalFirstResponse(localPath) : null;
+  const response = local || (cloudPath ? readCloudCache(cloudPath, logicalUrl, reason) : null);
+  if (!response) return null;
+  const markerPath = cloudPath || localPath;
+  const cachedAt = Number(response.headers.get('X-OurHome-Cached-At') || 0) || Date.now();
+  markCloudStale(markerPath, cachedAt, logicalUrl, reason);
+  return response;
+}
+
 export function clearOurHomePrivateCache() {
   staleCloudReads.clear();
   if (typeof localStorage !== 'undefined') {
@@ -245,26 +269,68 @@ export function recheckCloudSync() {
   if (!logicalUrls.length) return Promise.resolve(staleCloudReads.size === 0);
 
   cloudRecheckPromise = (async () => {
-    for (const logicalUrl of logicalUrls) {
-      try {
-        const response = await apiFetch(logicalUrl, {
-          headers: { 'X-OurHome-Cloud-Recheck': '1' },
-        });
-        // One stale-cache fallback is enough evidence that the shared cloud path
-        // is still unavailable. Stop this round instead of hammering the other
-        // safe home reads with the same doomed probe.
-        if (response.headers.get('X-OurHome-Cache') === 'stale') break;
-      } catch {
-        // Revalidation is read-only and best-effort. Keep the stale marker until a real read succeeds.
-        break;
-      }
+    try {
+      const response = await apiFetch(logicalUrls[0], {
+        headers: { 'X-OurHome-Cloud-Recheck': '1' },
+      });
+      if (response.headers.get('X-OurHome-Cache') === 'stale' || !response.ok) return false;
+      // Quota restrictions are shared by the whole data plane. One real probe is
+      // enough to reopen normal reads; room data refreshes only when it is viewed.
+      staleCloudReads.clear();
+      emitCloudSyncState();
+      syncLocalFirstOutbox().catch(() => {});
+      return true;
+    } catch {
+      return false;
     }
-    return staleCloudReads.size === 0;
   })().finally(() => {
     cloudRecheckPromise = null;
   });
 
   return cloudRecheckPromise;
+}
+
+let outboxSyncPromise = null;
+
+export function syncLocalFirstOutbox() {
+  if (outboxSyncPromise) return outboxSyncPromise;
+  outboxSyncPromise = (async () => {
+    const token = localStorage.getItem(TOKEN_KEY) || '';
+    if (!token) return { applied: 0, remaining: (await listPendingMutations()).length };
+    const pending = await listPendingMutations({ replayableOnly: true });
+    let applied = 0;
+    for (const item of pending) {
+      const headers = new Headers({
+        'Content-Type': item.contentType || 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-OurHome-Request-Id': item.requestId,
+        'X-OurHome-Local-Replay': '1',
+      });
+      let response;
+      try {
+        response = await fetch(backendUrl(`${BACKEND}${item.path}`), {
+          method: item.method,
+          headers,
+          body: item.body || undefined,
+        });
+      } catch {
+        break;
+      }
+      if (!response.ok && !(item.method === 'DELETE' && response.status === 404)) break;
+      await removePendingMutation(item.id);
+      applied += 1;
+    }
+    const remaining = (await listPendingMutations()).length;
+    if (applied && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ourhome-global-sync', {
+        detail: { source: 'local-first-replay', scope: 'all', requestedAt: new Date().toISOString() },
+      }));
+    }
+    return { applied, remaining };
+  })().finally(() => {
+    outboxSyncPromise = null;
+  });
+  return outboxSyncPromise;
 }
 
 async function fetchWithSafeReadRetry(url, options, headers) {
@@ -316,21 +382,37 @@ export async function apiFetch(url, options = {}) {
   if (!headers.has('X-OurHome-Request-Id')) headers.set('X-OurHome-Request-Id', requestId());
 
   const cloudPath = cacheableCloudRead(url, options);
+  const localPath = localFirstReadPath(url, options);
+  const markerPath = cloudPath || localPath;
+  const recheckingCloud = headers.get('X-OurHome-Cloud-Recheck') === '1';
+  const method = requestMethod(options);
+  const mutationRequestId = headers.get('X-OurHome-Request-Id') || '';
   const requestUrl = backendUrl(url);
   let response;
   let primaryError = null;
-  try {
-    // Only idempotent reads get one quiet retry. Writes, Chat sends and model calls
-    // remain strictly single-shot so a network wobble can never duplicate data or cost.
-    response = await fetchWithSafeReadRetry(requestUrl, options, headers);
-  } catch (error) {
-    primaryError = error;
+
+  // Once a quota response is known, render the device copy immediately instead
+  // of making every mounted room hit the same locked data plane again.
+  if (localPath && quotaIsKnown() && !recheckingCloud) {
+    response = await readBestAvailableCache(localPath, cloudPath, url, 'quota');
+  }
+
+  if (!response) {
+    try {
+      // Only idempotent reads get one quiet retry. Writes, Chat sends and model calls
+      // remain strictly single-shot so a network wobble can never duplicate data or cost.
+      response = await fetchWithSafeReadRetry(requestUrl, options, headers);
+    } catch (error) {
+      primaryError = error;
+    }
   }
 
   // If the same-origin Vercel relay itself is unreachable, one idempotent GET may
   // probe the direct Render route. A successful alternate read pins the rest of
   // this page session to that route. POST/PATCH/DELETE never enter this branch.
-  if (mayTryAlternateRead(url, options) && (primaryError || ROUTE_FALLBACK_STATUS.has(response?.status))) {
+  if (!response?.headers?.get('X-OurHome-Cache')
+    && mayTryAlternateRead(url, options)
+    && (primaryError || ROUTE_FALLBACK_STATUS.has(response?.status))) {
     try {
       const alternateResponse = await fetchAlternateRead(url, options, headers);
       if (!ROUTE_FALLBACK_STATUS.has(alternateResponse.status) || primaryError) {
@@ -343,17 +425,20 @@ export async function apiFetch(url, options = {}) {
   }
 
   if (!response) {
-    const cached = cloudPath ? readCloudCache(cloudPath, url, 'unreachable') : null;
+    if (primaryError?.name === 'AbortError') throw primaryError;
+    const cached = await readBestAvailableCache(localPath, cloudPath, url, 'unreachable');
     if (cached) response = cached;
-    else throw primaryError || new Error('网络请求没有完成');
+    else {
+      if (method !== 'GET') await rememberPendingMutation(url, options, mutationRequestId, 0);
+      throw primaryError || new Error('网络请求没有完成');
+    }
   }
 
-  // Home-facing configuration is tiny and safe to show from the last successful
-  // sync when the relay is briefly unavailable. Never mask authentication errors,
-  // and never cache chat/session reads where stale data could target the wrong room.
-  if (cloudPath && CLOUD_CACHE_FALLBACK_STATUS.has(response.status)) {
+  // Household reads may use only their exact device snapshot when the data plane
+  // is unavailable. Authentication errors are never masked by a cached response.
+  if ((localPath || cloudPath) && CLOUD_CACHE_FALLBACK_STATUS.has(response.status)) {
     const reason = response.status === 402 ? 'quota' : 'unreachable';
-    response = readCloudCache(cloudPath, url, reason) || response;
+    response = await readBestAvailableCache(localPath, cloudPath, url, reason) || response;
   }
 
   if (response.status === 401 && token) {
@@ -362,7 +447,23 @@ export async function apiFetch(url, options = {}) {
     window.dispatchEvent(new Event('ourhome-auth-changed'));
   }
 
-  if (cloudPath && response.ok) await rememberCloudRead(cloudPath, response);
+  if (method !== 'GET' && response.status === 402) {
+    await rememberPendingMutation(url, options, mutationRequestId, 402);
+  } else if (method !== 'GET' && response.ok) {
+    await removeMatchingPendingMutation(url, options);
+  }
+
+  if (response.ok && response.headers.get('X-OurHome-Cache') !== 'stale') {
+    const cacheWrites = [];
+    if (cloudPath) cacheWrites.push(rememberCloudRead(cloudPath, response));
+    if (localPath) cacheWrites.push(rememberLocalFirstRead(
+      localPath,
+      response,
+      body => safeCachedBody(localPath, body),
+    ));
+    await Promise.all(cacheWrites);
+    if (markerPath) markCloudFresh(markerPath);
+  }
 
   const fallbackBody = response.clone();
   const safeJson = async () => {

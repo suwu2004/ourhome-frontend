@@ -13,12 +13,14 @@ import { registerOfflineShell } from './offlineShell.js'
 import OfflineUpdateNotice from './OfflineUpdateNotice.jsx'
 import { initializeInstallExperience } from './appInstall.js'
 import { initializeNativeApp } from './nativeApp.js'
+import { requestPersistentLocalStorage } from './localFirstStore.js'
 
 applyAppFont(getSavedFont(), { persist: false })
 installMessageModelLabels()
 registerOfflineShell()
 initializeInstallExperience()
 initializeNativeApp().catch(error => console.warn('[native-app] initialization failed:', error))
+requestPersistentLocalStorage().catch(() => {})
 
 const updateViewportHeight = () => {
   const viewportHeight = window.visualViewport?.height || window.innerHeight

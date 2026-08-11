@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { promptAppInstall, subscribeInstallState } from './appInstall.js';
 import { checkForAndroidUpdate, installAndroidUpdate } from './appUpdate.js';
 import FailoverRecoverySettings from './FailoverRecoverySettings.jsx';
+import LocalFirstSettings from './LocalFirstSettings.jsx';
 import { useSettingsGroupTarget } from './useSettingsGroupTarget.js';
 
 const BUILD_SHA = String(import.meta.env.VITE_BUILD_SHA || 'local').slice(0, 7);
@@ -144,8 +145,9 @@ export default function AppInstallSettings({ compact = false }) {
   const maintenancePanel = (
     <div className="app-install-settings app-data-maintenance-settings">
       {state.native && <FailoverRecoverySettings />}
+      <LocalFirstSettings />
 
-      <div className="app-device-status" style={{ display: 'grid', gap: 3, marginTop: state.native ? 12 : 0 }}>
+      <div className="app-device-status" style={{ display: 'grid', gap: 3, marginTop: 12 }}>
         <strong>设备与数据状态</strong>
         <span style={{ fontSize: 10, opacity: .7, lineHeight: 1.45 }}>{status}</span>
       </div>

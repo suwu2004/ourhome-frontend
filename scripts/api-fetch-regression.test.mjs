@@ -27,7 +27,85 @@ function installBrowserGlobals() {
 }
 
 installBrowserGlobals();
-const { apiFetch, DIRECT_BACKEND, getApiRouteState, getCloudSyncState, recheckCloudSync, clearOurHomePrivateCache } = await import('../src/api.js');
+const { apiFetch, DIRECT_BACKEND, getApiRouteState, getCloudSyncState, recheckCloudSync, clearOurHomePrivateCache, syncLocalFirstOutbox } = await import('../src/api.js');
+const {
+  clearLocalFirstData,
+  getLocalFirstStats,
+  listPendingMutations,
+  localFirstMutation,
+  localFirstReadPath,
+} = await import('../src/localFirstStore.js');
+
+test('local-first cache covers household data and excludes volatile or mutating routes', () => {
+  assert.equal(localFirstReadPath('/api/sessions/one/messages?limit=80'), '/sessions/one/messages?limit=80');
+  assert.equal(localFirstReadPath('/api/letters?category=future'), '/letters?category=future');
+  assert.equal(localFirstReadPath('/api/messages/search?q=海棠'), '/messages/search?q=%E6%B5%B7%E6%A3%A0');
+  assert.equal(localFirstReadPath('/api/vault'), '/vault');
+  assert.equal(localFirstReadPath('/api/reading/books'), '/reading/books');
+  assert.equal(localFirstReadPath('/api/weather?city=武汉'), '');
+  assert.equal(localFirstReadPath('/api/backup'), '');
+  assert.equal(localFirstReadPath('/api/letters', { method: 'POST' }), '');
+});
+
+test('local-first outbox accepts only bounded, safe household mutations', () => {
+  const safeOptions = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: '买花和牛奶' }),
+  };
+  const first = localFirstMutation('/api/home-memos', safeOptions, 'request-one', 402);
+  const duplicate = localFirstMutation('/api/home-memos', safeOptions, 'request-two', 402);
+  assert.equal(first?.replayable, true);
+  assert.equal(first?.id, duplicate?.id, 'the same logical write must deduplicate across retries');
+
+  assert.equal(localFirstMutation('/api/chat', safeOptions, 'chat', 402), null);
+  assert.equal(localFirstMutation('/api/upload', safeOptions, 'upload', 402), null);
+  assert.equal(localFirstMutation('/api/settings', {
+    ...safeOptions,
+    method: 'PATCH',
+    body: JSON.stringify({ api_key: 'never-store-me' }),
+  }, 'secret', 402), null);
+  assert.equal(localFirstMutation('/api/letters', {
+    method: 'POST',
+    body: new FormData(),
+  }, 'form', 402), null);
+});
+
+test('explicit quota failures queue one safe write and recovery replays it only once', async () => {
+  await clearLocalFirstData();
+  storage.set('ourhome_token', 'test-token');
+  const options = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: '留在设备里', testMarker: 'quota-outbox' }),
+  };
+  globalThis.fetch = async () => new Response('{"message":"exceed_egress_quota"}', {
+    status: 402,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  assert.equal((await apiFetch('/api/home-memos', options)).status, 402);
+  assert.equal((await apiFetch('/api/home-memos', options)).status, 402);
+  let pending = await listPendingMutations();
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0].replayable, true);
+
+  let replayCalls = 0;
+  globalThis.fetch = async (url, replayOptions) => {
+    replayCalls += 1;
+    assert.equal(String(url), '/api/home-memos');
+    assert.equal(replayOptions.headers.get('X-OurHome-Local-Replay'), '1');
+    return new Response('{"id":"memo-local"}', {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  assert.deepEqual(await syncLocalFirstOutbox(), { applied: 1, remaining: 0 });
+  assert.deepEqual(await syncLocalFirstOutbox(), { applied: 0, remaining: 0 });
+  assert.equal(replayCalls, 1);
+  pending = await listPendingMutations();
+  assert.equal(pending.length, 0);
+});
 
 test('transient GET failure is retried exactly once', async () => {
   let calls = 0;
@@ -42,6 +120,21 @@ test('transient GET failure is retried exactly once', async () => {
   assert.equal(response.status, 200);
   assert.equal(calls, 2);
   assert.deepEqual(await response.json(), []);
+});
+
+test('full household reads fall back to the device copy after the cloud goes away', async () => {
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    throw new TypeError('both clouds are locked');
+  };
+
+  const response = await apiFetch('/api/sessions');
+  assert.equal(calls, 3);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('X-OurHome-Local-First'), '1');
+  assert.deepEqual(await response.json(), []);
+  assert.ok((await getLocalFirstStats()).entries >= 1);
 });
 
 test('network wobble on GET gets one quiet retry', async () => {
@@ -177,15 +270,17 @@ test('one stale recheck stops the round instead of probing every cached home end
   assert.equal(fresh.getCloudSyncState().paths.length, 2);
 });
 
-test('chat and session reads never use the stale home cache after both routes fail', async () => {
+test('chat and session reads use their own device snapshot after both routes fail', async () => {
   let calls = 0;
   globalThis.fetch = async () => {
     calls += 1;
     throw new TypeError('network down');
   };
 
-  await assert.rejects(() => apiFetch('/api/sessions/1/messages'), /network down/);
+  const response = await apiFetch('/api/sessions/1/messages');
   assert.equal(calls, 3);
+  assert.equal(response.headers.get('X-OurHome-Local-First'), '1');
+  assert.deepEqual(await response.json(), [{ id: 1 }]);
 });
 
 test('a failed same-origin GET may pin the page session to direct Render', async () => {
