@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { HomeHub } from './HomeHub.jsx';
 import OurHomeAccessGate, { useOurHomeAccess } from './OurHomeAccessGate.jsx';
 import RoomBoundary from './RoomBoundary.jsx';
+import HomeCatFrame from './HomeCatFrame.jsx';
 import './ReadingHomeEntry.css';
 import './HomeRoomGrid.css';
 import './ToyBoxBudget.css';
@@ -87,7 +88,7 @@ function ReadingHomeEntry({ onOpen, target }) {
           <path d="M5.5 8.5h10c1.8 0 2.5 1 2.5 2.8v17.2c0-1.8-.7-2.8-2.5-2.8h-10V8.5Zm25 0h-10c-1.8 0-2.5 1-2.5 2.8v17.2c0-1.8-.7-2.8-2.5-2.8h-10V8.5Z" />
           <path d="M9 13h5M22 13h5M9 17h5M22 17h5" />
         </svg>
-        <i className="home-cat-whiskers" aria-hidden="true" />
+        <HomeCatFrame />
       </span>
       <strong>共读小屋</strong>
     </button>,
@@ -100,7 +101,7 @@ function ToyboxHomeEntry({ onOpen, target }) {
     <button className="home-room-app home-room-app--toybox" type="button" onClick={onOpen} aria-label="打开玩具熊">
       <span>
         <span className="home-toolbear-symbol" aria-hidden="true">୨୧</span>
-        <i className="home-cat-whiskers" aria-hidden="true" />
+        <HomeCatFrame />
       </span>
       <strong>玩具熊</strong>
     </button>,
@@ -118,7 +119,7 @@ function LuzeRoomHomeEntry({ onOpen, target }) {
           <circle cx="20" cy="20.5" r="1.15" />
           <path d="M16.1 11.2h3.8" />
         </svg>
-        <i className="home-cat-whiskers" aria-hidden="true" />
+        <HomeCatFrame />
       </span>
       <strong>陆泽的房间</strong>
     </button>,

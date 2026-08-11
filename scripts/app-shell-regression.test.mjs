@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery, localFirstSettings, localFirstStore, homeRoomGrid] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery, localFirstSettings, localFirstStore, homeRoomGrid, homeHubSource, homeCatFrame] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -30,6 +30,8 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../src/LocalFirstSettings.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/localFirstStore.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/HomeRoomGrid.css', import.meta.url), 'utf8'),
+  readFile(new URL('../src/HomeHub.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/HomeCatFrame.jsx', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -170,13 +172,14 @@ test('home shelf uses one DOM observer for all injected room entries', () => {
 
 test('all eight home room icons share one pointed cat-ear frame', () => {
   assert.match(homeRoomGrid, /--home-cat-icon-bg/);
-  assert.match(homeRoomGrid, /width:\s*42px !important/);
-  assert.match(homeRoomGrid, /border-radius:\s*47% 47% 44% 44%/);
-  assert.match(homeRoomGrid, /span::before/);
-  assert.match(homeRoomGrid, /span::after/);
-  assert.match(homeRoomGrid, /clip-path:\s*polygon\(50% 0, 100% 100%, 0 100%\)/);
-  assert.match(homeRoomGrid, /home-cat-whiskers::before/);
-  assert.match(homeRoomGrid, /home-cat-whiskers::after/);
+  assert.match(homeRoomGrid, /home-cat-frame__face/);
+  assert.match(homeRoomGrid, /home-cat-frame__whiskers/);
+  assert.match(homeCatFrame, /viewBox="0 0 72 58"/);
+  assert.match(homeCatFrame, /className="home-cat-frame__face"/);
+  assert.match(homeCatFrame, /className="home-cat-frame__whiskers"/);
+  assert.equal((homeHubSource.match(/<HomeCatFrame \/>/g) || []).length, 5);
+  assert.equal((root.match(/<HomeCatFrame \/>/g) || []).length, 3);
+  assert.doesNotMatch(homeRoomGrid, /clip-path/);
 });
 
 test('home desktop polish adds depth without changing touch interactions', () => {
