@@ -116,7 +116,7 @@ export function LettersRoom(props) {
     whisperBgImage, whisperBgColor, lettersLoading, orderedRootLetters,
     revealedIds, toggleReveal, newLetterTitle, setNewLetterTitle,
     selectedPaperStyle, setSelectedPaperStyle, newLetterText, setNewLetterText,
-    submitNewLetter, savingLetter,
+    submitNewLetter, savingLetter, selectedModel,
   } = props;
 
   const getPaperStyle = key => {
@@ -149,6 +149,11 @@ export function LettersRoom(props) {
         <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
           <span onClick={lettersCategory ? backToCabin : leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
           <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>{lettersCategory || "时光信差"}</span>
+          {lettersCategory === '幸福日记' && (
+            <small title={selectedModel || '当前 Chat 模型'} aria-label={`幸福日记跟随 Chat 模型：${selectedModel || '当前选择'}`} style={{ marginLeft: 'auto', maxWidth: 126, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '4px 8px', borderRadius: 999, color: C.honeyDeep, background: C.honeyLight, fontSize: 9.5, letterSpacing: '.04em' }}>
+              跟随 Chat 模型
+            </small>
+          )}
         </header>
 
         {!lettersCategory ? (
@@ -306,4 +311,3 @@ export function LettersRoom(props) {
       </div>
   );
 }
-
