@@ -134,6 +134,14 @@
   line-height: 1.75;
 }
 
+.reading-shelf-intro .reading-import-hint {
+  margin: 10px 0 0;
+  color: color-mix(in srgb, var(--reading-muted) 82%, transparent);
+  font-size: 9.5px;
+  line-height: 1.55;
+  letter-spacing: .025em;
+}
+
 .reading-shelf-intro button {
   border: 0;
   border-radius: 999px;
