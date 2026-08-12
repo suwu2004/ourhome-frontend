@@ -65,7 +65,7 @@ export default function LocalFirstSettings() {
   }, [refresh]);
 
   return (
-    <section style={{ marginTop: 12, padding: '12px 13px', border: '1px solid rgba(196,151,74,.22)', borderRadius: 14, background: 'rgba(255,255,255,.46)' }}>
+    <section className="local-first-settings-card" style={{ marginTop: 12, padding: '12px 13px', border: '1px solid rgba(196,151,74,.22)', borderRadius: 14, background: 'rgba(255,255,255,.46)' }}>
       <div style={{ fontSize: 11.5, fontWeight: 700 }}>设备里的 OurHome</div>
       <div style={{ marginTop: 3, fontSize: 9.8, opacity: .72, lineHeight: 1.55 }}>
         已保留 {stats.entries} 份房间数据 · {formatBytes(stats.bytes)} · {formatSavedAt(stats.newestAt)}

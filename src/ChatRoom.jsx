@@ -286,7 +286,7 @@ export function ChatRoom(props) {
                 <div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>正在重新编辑这条消息</div>
                 <div style={{ fontSize: 10, lineHeight: 1.5, color: C.muted, marginTop: 2 }}>发送后会收起后面的 {editingMessage.afterCount} 条，陆泽会按新内容重新回复。</div>
               </div>
-              <button type="button" onClick={cancelEditMsg} disabled={messageActionLoading} style={{ flexShrink: 0, minWidth: 44, minHeight: 34, border: 0, borderRadius: 999, background: "rgba(255,255,255,.72)", color: C.muted, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>取消</button>
+              <button type="button" onClick={cancelEditMsg} disabled={messageActionLoading} style={{ flexShrink: 0, minWidth: 44, minHeight: 34, border: 0, borderRadius: 999, background: C.surface, color: C.muted, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>取消</button>
             </div>
           )}
           {rollbackUndo && !editingMessage && (
@@ -313,7 +313,7 @@ export function ChatRoom(props) {
             <div id="chat-token-usage" style={{ marginBottom: 8, padding: "10px 11px", borderRadius: 14, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
                 <div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>当前对话用量</div>
-                <button type="button" onClick={() => setTokenUsageOpen(false)} aria-label="收起 token 用量" style={{ width: 28, height: 28, border: 0, borderRadius: "50%", background: "rgba(255,255,255,.68)", color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✕</button>
+                <button type="button" onClick={() => setTokenUsageOpen(false)} aria-label="收起 token 用量" style={{ width: 28, height: 28, border: 0, borderRadius: "50%", background: C.surface, color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✕</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
                 {[
@@ -321,7 +321,7 @@ export function ChatRoom(props) {
                   [chatUsage.currentContextTokens, '当前上下文'],
                   [chatUsage.totalOutputTokens, hasMoreChatHistory ? '已加载生成' : '累计生成'],
                 ].map(([value, label]) => (
-                  <div key={label} style={{ minWidth: 0, textAlign: "center", background: "rgba(255,255,255,.68)", borderRadius: 10, padding: "7px 3px" }}>
+                  <div key={label} style={{ minWidth: 0, textAlign: "center", background: C.surface, borderRadius: 10, padding: "7px 3px" }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.honeyDeep, overflow: "hidden", textOverflow: "ellipsis" }}>{Number(value).toLocaleString('zh-CN')}</div>
                     <div style={{ fontSize: 9.5, color: C.muted, marginTop: 1 }}>{label}</div>
                   </div>

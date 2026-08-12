@@ -203,7 +203,7 @@ function GameHistory({ game, open, onClose, theme }) {
             <p className="toy-game-result">{summarizeRun(resolvedDetail)}</p>
             {drawingImage && (
               <figure style={{ margin: '10px 0 14px', padding: 8, border: `1px solid ${theme.border}`, borderRadius: 15, background: theme.cream }}>
-                <img src={drawingImage} alt="这一局保存的画" style={{ display: 'block', width: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: 10, background: '#fffaf1' }} />
+                <img src={drawingImage} alt="这一局保存的画" style={{ display: 'block', width: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: 10, background: 'var(--tg-cream)' }} />
                 <figcaption style={{ marginTop: 6, textAlign: 'center', color: theme.muted, fontSize: 9 }}>这张画已经留在云端记录里。</figcaption>
               </figure>
             )}

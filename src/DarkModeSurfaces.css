@@ -1,0 +1,165 @@
+/* Final night-mode surface pass. This file is intentionally loaded last so
+   older room polish cannot paint light cards over semantic theme colors. */
+:root[data-theme="dark"] {
+  --night-bg: #1c140c;
+  --night-surface: #2a2018;
+  --night-surface-soft: #241b12;
+  --night-surface-raised: #33271d;
+  --night-text: #f0e4d2;
+  --night-muted: #b39a78;
+  --night-border: #4a3926;
+  --night-honey: #f0c878;
+}
+
+/* Tool Bear and all of its overlays. */
+:root[data-theme="dark"] body[data-ourhome-room="toybox"] .toybox-game-card,
+:root[data-theme="dark"] body[data-ourhome-room="toybox"] .toybox-game-card--harmony,
+:root[data-theme="dark"] body[data-ourhome-room="toybox"] .toybox-game-card--drawing,
+:root[data-theme="dark"] body[data-ourhome-room="toybox"] .toybox-game-card--secret,
+:root[data-theme="dark"] body[data-ourhome-room="toybox"] .toybox-game-card--gomoku {
+  border-color: var(--toy-line) !important;
+  background: var(--toy-paper) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .16) !important;
+}
+
+:root[data-theme="dark"] body[data-ourhome-room="toybox"] .gomoku-header {
+  background: rgba(42, 32, 24, .96) !important;
+}
+
+:root[data-theme="dark"] body[data-ourhome-room="toybox"] .gomoku-invite-float {
+  border-color: var(--gomoku-line);
+  background: linear-gradient(135deg, #4a3829, #35291f);
+  color: var(--gomoku-ink);
+}
+
+:root[data-theme="dark"] body[data-ourhome-room="toybox"] .gomoku-invite-float small {
+  color: var(--gomoku-soft);
+}
+
+:root[data-theme="dark"] .toy-game-actions button {
+  border-color: var(--night-border);
+  background: rgba(42, 32, 24, .95);
+  color: var(--night-honey);
+}
+
+:root[data-theme="dark"] .toy-game-actions button.is-chat {
+  background: #a8732d;
+  color: #fff6e6;
+}
+
+:root[data-theme="dark"] .toy-canvas {
+  background: #d8c6a5;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .2);
+}
+
+/* Shared room headers and recovery/install cards. */
+:root[data-theme="dark"] .room-loading-shell,
+:root[data-theme="dark"] .room-recovery-shell {
+  color: var(--night-text);
+  background: var(--night-bg);
+}
+
+:root[data-theme="dark"] .room-recovery-card,
+:root[data-theme="dark"] .app-install-settings > div,
+:root[data-theme="dark"] .local-first-settings-card,
+:root[data-theme="dark"] .failover-recovery-card {
+  border-color: var(--night-border) !important;
+  background: var(--night-surface) !important;
+}
+
+:root[data-theme="dark"] .room-recovery-card button {
+  border-color: var(--night-border);
+  background: var(--night-surface-raised);
+}
+
+:root[data-theme="dark"] .offline-update-notice {
+  border-color: var(--night-border);
+  color: var(--night-text);
+  background: rgba(42, 32, 24, .96);
+}
+
+/* Theater rule library used a separate, light-only palette. */
+:root[data-theme="dark"] .theater-rule-library-trigger {
+  border-color: var(--night-border) !important;
+  background: #49391f;
+  color: var(--night-honey);
+}
+
+:root[data-theme="dark"] .theater-rule-library {
+  border-color: var(--night-border);
+  background: radial-gradient(circle at 92% 4%, rgba(185, 128, 45, .15), transparent 25%), linear-gradient(155deg, #2d2219, #241b14 70%, #1c1713);
+  color: var(--night-text);
+}
+
+:root[data-theme="dark"] .theater-rule-library-head,
+:root[data-theme="dark"] .theater-rule-summary { border-color: var(--night-border); }
+:root[data-theme="dark"] .theater-rule-library-head p,
+:root[data-theme="dark"] .theater-rule-card > p,
+:root[data-theme="dark"] .theater-rule-editor > label > span,
+:root[data-theme="dark"] .theater-rule-editor-note { color: var(--night-muted); }
+
+:root[data-theme="dark"] .theater-rule-library-head > button,
+:root[data-theme="dark"] .theater-rule-summary button,
+:root[data-theme="dark"] .theater-rule-card,
+:root[data-theme="dark"] .theater-rule-card footer button,
+:root[data-theme="dark"] .theater-rule-editor-title button,
+:root[data-theme="dark"] .theater-rule-editor,
+:root[data-theme="dark"] .theater-rule-editor input,
+:root[data-theme="dark"] .theater-rule-editor textarea,
+:root[data-theme="dark"] .theater-rule-editor-actions button.is-quiet,
+:root[data-theme="dark"] .theater-rule-empty {
+  border-color: var(--night-border);
+  background: var(--night-surface-raised);
+  color: var(--night-text);
+}
+
+/* Reading companion sidebar and saved-note cards. */
+:root[data-theme="dark"] .reading-companion-fab,
+:root[data-theme="dark"] .reading-companion-panel {
+  border-color: var(--night-border);
+  background: linear-gradient(180deg, #29231f, #1e1916);
+  color: var(--night-text);
+}
+
+:root[data-theme="dark"] .reading-companion-header,
+:root[data-theme="dark"] .reading-companion-toolbar { border-color: var(--night-border); }
+:root[data-theme="dark"] .reading-companion-header p,
+:root[data-theme="dark"] .reading-companion-toolbar label > span,
+:root[data-theme="dark"] .reading-companion-meta,
+:root[data-theme="dark"] .reading-companion-note p,
+:root[data-theme="dark"] .reading-companion-empty { color: var(--night-muted); }
+
+:root[data-theme="dark"] .reading-companion-close,
+:root[data-theme="dark"] .reading-companion-toolbar select,
+:root[data-theme="dark"] .reading-companion-toolbar button,
+:root[data-theme="dark"] .reading-companion-instruction textarea,
+:root[data-theme="dark"] .reading-companion-annotation,
+:root[data-theme="dark"] .reading-companion-note,
+:root[data-theme="dark"] .reading-companion-bookmark footer button {
+  border-color: var(--night-border);
+  background: var(--night-surface-raised);
+  color: var(--night-text);
+}
+
+:root[data-theme="dark"] .reading-companion-annotation blockquote { color: #e5d8c6; }
+:root[data-theme="dark"] .reading-companion-bubble--tan { background: #4a312f; color: #f1d8d2; }
+:root[data-theme="dark"] .reading-companion-bubble--luze { background: #29394b; color: #d8e7f8; }
+:root[data-theme="dark"] .reading-companion-stats > div { background: #29333e; }
+:root[data-theme="dark"] .reading-companion-bookmark.is-pinned::before { background: #49391f; color: #f0c878; }
+:root[data-theme="dark"] .reading-companion-error {
+  border-color: #68413a;
+  background: #3b2420;
+  color: #e5a197;
+}
+:root[data-theme="dark"] .reading-companion-pending { color: var(--night-muted); }
+:root[data-theme="dark"] .reading-companion-pending.status-failed {
+  border-color: #68413a;
+  color: #e5a197;
+}
+
+/* Fixed banners should never flash a pale capsule after a theme switch. */
+:root[data-theme="dark"] .cloud-sync-badge {
+  border-color: var(--night-border) !important;
+  background: rgba(42, 32, 24, .96) !important;
+  color: var(--night-honey) !important;
+}
