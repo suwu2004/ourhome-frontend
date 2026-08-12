@@ -1,0 +1,47 @@
+.vault-room {
+  --vault-bg: #fff8f0;
+  --vault-surface: #fffdf8;
+  --vault-border: #efe4cc;
+  --vault-border-strong: #e9d8b8;
+  --vault-text: #2e1f12;
+  --vault-muted: #9a7a50;
+  --vault-faint: #b89a6a;
+  --vault-accent: #9a621a;
+  --vault-accent-soft: #fff3d6;
+  --vault-track: #f2e7d2;
+  --vault-hero-a: #fff7de;
+  --vault-hero-b: #f8dfab;
+  --vault-mini: rgba(255, 255, 255, .58);
+  --vault-error: #9c5147;
+  --vault-error-bg: #fff1ed;
+  --vault-error-border: #f0d0c8;
+  --vault-danger: #b75d50;
+  --vault-income: #5d8c62;
+  --vault-delete: #c7a77a;
+  --vault-fill: #dd9a33;
+  --vault-primary: #c8892a;
+}
+
+:root[data-theme="dark"] .vault-room {
+  --vault-bg: #1c140c;
+  --vault-surface: #2a2018;
+  --vault-border: #3a2e1e;
+  --vault-border-strong: #594329;
+  --vault-text: #f0e4d2;
+  --vault-muted: #bca27f;
+  --vault-faint: #9a8262;
+  --vault-accent: #f0c878;
+  --vault-accent-soft: #3a2c18;
+  --vault-track: #463622;
+  --vault-hero-a: #4b381e;
+  --vault-hero-b: #342719;
+  --vault-mini: rgba(28, 20, 12, .42);
+  --vault-error: #e5a197;
+  --vault-error-bg: #3b2420;
+  --vault-error-border: #68413a;
+  --vault-danger: #e39b8d;
+  --vault-income: #92c99a;
+  --vault-delete: #caa879;
+  --vault-fill: #e8b45a;
+  --vault-primary: #c8892a;
+}

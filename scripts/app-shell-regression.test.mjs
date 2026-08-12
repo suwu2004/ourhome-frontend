@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery, localFirstSettings, localFirstStore, homeRoomGrid, homeHubSource, homeCatFrame, lettersRoomSource, luzeAutonomySource, luzeRoomSource] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery, localFirstSettings, localFirstStore, homeRoomGrid, homeHubSource, homeCatFrame, lettersRoomSource, luzeAutonomySource, luzeRoomSource, mainSource, darkSurfaces, vaultStyles, toolBearDock] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -35,6 +35,10 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../src/LettersRoom.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/LuzeAutonomySettingsPanel.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/LuzePrivateRoom.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/main.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/DarkModeSurfaces.css', import.meta.url), 'utf8'),
+  readFile(new URL('../src/VaultPage.css', import.meta.url), 'utf8'),
+  readFile(new URL('../src/ToolBearGameDock.jsx', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -214,6 +218,18 @@ test('personal prose surfaces disclose that they follow the current Chat model',
   assert.match(luzeAutonomySource, /固定跟随当前 Chat 模型/);
   assert.match(luzeRoomSource, /写成笔记时跟随当前 Chat 模型/);
   assert.doesNotMatch(luzeRoomSource, /settings\.synthesis_model/);
+});
+
+test('night mode owns every large legacy light surface', () => {
+  assert.match(mainSource, /DarkModeSurfaces\.css/);
+  assert.match(darkSurfaces, /data-theme="dark"[^}]*toybox-game-card/);
+  assert.match(darkSurfaces, /data-theme="dark"[^}]*gomoku-header/);
+  assert.match(darkSurfaces, /data-theme="dark"[^}]*theater-rule-library/);
+  assert.match(darkSurfaces, /data-theme="dark"[^}]*reading-companion-panel/);
+  assert.match(darkSurfaces, /data-theme="dark"[^}]*local-first-settings-card/);
+  assert.match(vaultStyles, /data-theme="dark"[^}]*vault-room/);
+  assert.match(vault, /className="ourhome-shell vault-room"/);
+  assert.doesNotMatch(toolBearDock, /background: '#fffaf1'/);
 });
 
 test('vault fallback never presents demo money as real data', () => {

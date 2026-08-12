@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { getCloudSyncState, recheckCloudSync } from './api.js';
 import { subscribeGlobalSync } from './globalSync.js';
+import { useTheme } from './ThemeContext.jsx';
 
 const FIRST_RECHECK_DELAY_MS = 1800;
 const STALE_RECHECK_BACKOFF_MS = [15_000, 30_000, 60_000, 120_000, 300_000];
 const NOTICE_VISIBLE_MS = 3600;
 
 export default function CloudSyncBadge() {
+  const { theme: C } = useTheme();
   const [syncState, setSyncState] = useState(getCloudSyncState);
   const [noticeVisible, setNoticeVisible] = useState(() => getCloudSyncState().state === 'stale');
   const stale = syncState.state === 'stale';
@@ -79,6 +81,7 @@ export default function CloudSyncBadge() {
     <div
       role="status"
       aria-live="polite"
+      className="cloud-sync-badge"
       style={{
         position: 'fixed',
         zIndex: 9999,
@@ -87,11 +90,11 @@ export default function CloudSyncBadge() {
         transform: 'translateX(-50%)',
         maxWidth: 'calc(100vw - 32px)',
         padding: '7px 12px',
-        border: '1px solid rgba(183, 132, 48, .22)',
+        border: `1px solid ${C.border}`,
         borderRadius: 999,
-        background: 'rgba(255, 249, 232, .94)',
+        background: C.white,
         boxShadow: '0 4px 16px rgba(93, 64, 29, .10)',
-        color: '#8a6326',
+        color: C.honeyDeep,
         fontSize: 11,
         lineHeight: 1.2,
         letterSpacing: '.04em',

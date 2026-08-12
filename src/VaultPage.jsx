@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
+import './VaultPage.css';
 
 const STORAGE_KEY = 'ourhome_cat_vault_v1';
 const today = () => new Date().toISOString().slice(0, 10);
@@ -15,15 +16,15 @@ const EMPTY_DATA = {
 };
 
 const CARD = {
-  background: '#FFFDF8',
-  border: '1px solid #EFE4CC',
+  background: 'var(--vault-surface)',
+  border: '1px solid var(--vault-border)',
   borderRadius: 18,
   boxShadow: '0 6px 20px rgba(78,46,16,.06)',
 };
 const SOFT_BUTTON = {
-  border: '1px solid #EFD8A6',
-  background: '#FFF3D6',
-  color: '#9A621A',
+  border: '1px solid var(--vault-border-strong)',
+  background: 'var(--vault-accent-soft)',
+  color: 'var(--vault-accent)',
   borderRadius: 12,
   padding: '8px 12px',
   fontWeight: 650,
@@ -34,11 +35,11 @@ const SOFT_BUTTON = {
 const INPUT = {
   width: '100%',
   boxSizing: 'border-box',
-  border: '1px solid #E9D8B8',
+  border: '1px solid var(--vault-border-strong)',
   borderRadius: 12,
   padding: 11,
-  background: '#FFFDF8',
-  color: '#2E1F12',
+  background: 'var(--vault-surface)',
+  color: 'var(--vault-text)',
   fontSize: 12.5,
   fontFamily: 'inherit',
 };
@@ -48,7 +49,7 @@ const PRIMARY_BUTTON = {
   border: 0,
   borderRadius: 14,
   padding: 14,
-  background: '#C8892A',
+  background: 'var(--vault-primary)',
   color: '#fff',
   fontWeight: 800,
   fontSize: 12,
@@ -58,7 +59,7 @@ const PRIMARY_BUTTON = {
 const TEXT_BUTTON = {
   border: 0,
   background: 'transparent',
-  color: '#9A621A',
+  color: 'var(--vault-accent)',
   fontWeight: 700,
   padding: 5,
   fontSize: 11.5,
@@ -69,7 +70,7 @@ const SECTION_TITLE = {
   margin: 0,
   fontSize: 13,
   fontWeight: 700,
-  color: '#2E1F12',
+  color: 'var(--vault-text)',
   letterSpacing: '.04em',
 };
 
@@ -552,12 +553,12 @@ export default function VaultPage({ onClose }) {
   const budgetProgress = data.budget > 0 ? Math.min(100, (totals.expense / data.budget) * 100) : 0;
 
   return (
-    <div className="ourhome-shell" style={{ position: 'relative', zIndex: 9999, background: '#FFF8F0', color: '#2E1F12', fontFamily: 'var(--app-font)', fontSize: 13, display: 'flex', flexDirection: 'column' }}>
-      <header className="ourhome-safe-top" style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 0, background: '#FFFDF8', borderBottom: '1px solid #EFE4CC', flexShrink: 0 }}>
+    <div className="ourhome-shell vault-room" style={{ position: 'relative', zIndex: 9999, background: 'var(--vault-bg)', color: 'var(--vault-text)', fontFamily: 'var(--app-font)', fontSize: 13, display: 'flex', flexDirection: 'column' }}>
+      <header className="ourhome-safe-top" style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 0, background: 'var(--vault-surface)', borderBottom: '1px solid var(--vault-border)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 10 }}>
-          <button type="button" onClick={onClose} aria-label="返回主页" style={{ border: 0, background: 'transparent', fontSize: 18, color: '#9A621A', cursor: 'pointer', padding: 4, fontFamily: 'inherit' }}>←</button>
-          <span style={{ fontSize: 16, fontWeight: 700, color: '#2E1F12', letterSpacing: '.04em' }}>猫の金库</span>
-          <span title={syncError || syncStatus} style={{ marginLeft: 'auto', color: syncError ? '#B75D50' : '#B89A6A', fontSize: 10.5, whiteSpace: 'nowrap' }}>
+          <button type="button" onClick={onClose} aria-label="返回主页" style={{ border: 0, background: 'transparent', fontSize: 18, color: 'var(--vault-accent)', cursor: 'pointer', padding: 4, fontFamily: 'inherit' }}>←</button>
+          <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--vault-text)', letterSpacing: '.04em' }}>猫の金库</span>
+          <span title={syncError || syncStatus} style={{ marginLeft: 'auto', color: syncError ? 'var(--vault-danger)' : 'var(--vault-faint)', fontSize: 10.5, whiteSpace: 'nowrap' }}>
             {syncError ? '云端待重试' : syncStatus}
           </span>
         </div>
@@ -573,7 +574,7 @@ export default function VaultPage({ onClose }) {
               key={key}
               aria-selected={tab === key}
               onClick={() => setTab(key)}
-              style={{ flex: 1, border: 0, borderBottom: tab === key ? '2px solid #9A621A' : '2px solid transparent', background: 'transparent', color: tab === key ? '#9A621A' : '#B89A6A', fontSize: 11.5, fontWeight: tab === key ? 700 : 400, padding: '8px 0 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ flex: 1, border: 0, borderBottom: tab === key ? '2px solid var(--vault-accent)' : '2px solid transparent', background: 'transparent', color: tab === key ? 'var(--vault-accent)' : 'var(--vault-faint)', fontSize: 11.5, fontWeight: tab === key ? 700 : 400, padding: '8px 0 10px', cursor: 'pointer', fontFamily: 'inherit' }}
             >{label}</button>
           ))}
         </div>
@@ -581,14 +582,14 @@ export default function VaultPage({ onClose }) {
 
       <main style={{ flex: 1, overflowY: 'auto', padding: '16px 14px 24px' }}>
         {syncError && (
-          <div role="status" style={{ marginBottom: 12, padding: '10px 12px', border: '1px solid #F0D0C8', borderRadius: 12, background: '#FFF1ED', color: '#9C5147', fontSize: 11.5, lineHeight: 1.55 }}>
+          <div role="status" style={{ marginBottom: 12, padding: '10px 12px', border: '1px solid var(--vault-error-border)', borderRadius: 12, background: 'var(--vault-error-bg)', color: 'var(--vault-error)', fontSize: 11.5, lineHeight: 1.55 }}>
             {syncError} 本机副本仍然保留，没有丢账。
           </div>
         )}
         {tab === 'home' && (
           <>
-            <section style={{ ...CARD, padding: 18, background: 'linear-gradient(145deg,#FFF7DE,#F8DFAB)' }}>
-              <div style={{ color: '#9A7A50', fontSize: 11.5 }}>净资产</div>
+            <section style={{ ...CARD, padding: 18, background: 'linear-gradient(145deg,var(--vault-hero-a),var(--vault-hero-b))' }}>
+              <div style={{ color: 'var(--vault-muted)', fontSize: 11.5 }}>净资产</div>
               <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.35 }}>¥ {money(totals.net)}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
                 <Mini label="本月收入" value={totals.income} plus />
@@ -610,11 +611,11 @@ export default function VaultPage({ onClose }) {
                   <span style={{ fontSize: 20 }}>{group.emoji}</span>
                   <span style={{ flex: 1 }}>
                     <b style={{ fontSize: 13 }}>{group.name}</b>
-                    <small style={{ display: 'block', color: '#B89A6A', fontSize: 10.5, marginTop: 2 }}>{group.accounts.length} 个子账户 · 点开查看</small>
+                    <small style={{ display: 'block', color: 'var(--vault-faint)', fontSize: 10.5, marginTop: 2 }}>{group.accounts.length} 个子账户 · 点开查看</small>
                   </span>
                   <span style={{ textAlign: 'right' }}>
-                    <b style={{ color: groupNet(group) < 0 ? '#C36F5C' : 'inherit', fontSize: 13 }}>¥ {money(groupNet(group))}</b>
-                    <small style={{ display: 'block', color: '#B89A6A', fontSize: 10.5 }}>›</small>
+                    <b style={{ color: groupNet(group) < 0 ? 'var(--vault-danger)' : 'inherit', fontSize: 13 }}>¥ {money(groupNet(group))}</b>
+                    <small style={{ display: 'block', color: 'var(--vault-faint)', fontSize: 10.5 }}>›</small>
                   </span>
                 </button>
               ))}
@@ -631,14 +632,14 @@ export default function VaultPage({ onClose }) {
                 <span>已用 ¥ {money(totals.expense)}</span>
                 <span>预算 ¥ {money(data.budget)}</span>
               </div>
-              <div style={{ height: 10, borderRadius: 99, background: '#F2E7D2', overflow: 'hidden', marginTop: 10 }}>
-                <div style={{ height: '100%', width: `${budgetProgress}%`, background: totals.expense > data.budget && data.budget > 0 ? '#C36F5C' : '#DD9A33', transition: 'width .25s ease' }} />
+              <div style={{ height: 10, borderRadius: 99, background: 'var(--vault-track)', overflow: 'hidden', marginTop: 10 }}>
+                <div style={{ height: '100%', width: `${budgetProgress}%`, background: totals.expense > data.budget && data.budget > 0 ? 'var(--vault-danger)' : 'var(--vault-fill)', transition: 'width .25s ease' }} />
               </div>
-              <div style={{ marginTop: 9, color: '#9A7A50', fontSize: 10.5 }}>非必要支出 ¥ {money(totals.unnecessary)}</div>
+              <div style={{ marginTop: 9, color: 'var(--vault-muted)', fontSize: 10.5 }}>非必要支出 ¥ {money(totals.unnecessary)}</div>
             </section>
 
             <section style={{ ...CARD, padding: 16, marginTop: 16, textAlign: 'center' }}>
-              <small style={{ color: '#B89A6A', fontSize: 10.5 }}>老公的话 · 根据本月收支更新</small>
+              <small style={{ color: 'var(--vault-faint)', fontSize: 10.5 }}>老公的话 · 根据本月收支更新</small>
               <div style={{ marginTop: 9, lineHeight: 1.7, fontSize: 12.5 }}>“{husbandMessage}”</div>
             </section>
           </>
@@ -658,13 +659,13 @@ export default function VaultPage({ onClose }) {
                     <span style={{ fontSize: 20 }}>{row.type === 'income' ? '🌱' : '🧾'}</span>
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <b style={{ fontSize: 12.5 }}>{row.note || row.category}</b>
-                      <small style={{ display: 'block', color: '#B89A6A', fontSize: 10, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <small style={{ display: 'block', color: 'var(--vault-faint)', fontSize: 10, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {row.date} · {account ? `${account.groupName}/${account.name}` : (row.groupName && row.accountName ? `${row.groupName}/${row.accountName}（已删除）` : '已删除账户')} · {row.tag || ''}
                       </small>
                     </span>
                     <span style={{ textAlign: 'right' }}>
-                      <b style={{ color: row.type === 'income' ? '#5D8C62' : '#C36F5C', fontSize: 12.5 }}>{row.type === 'income' ? '+' : '-'}¥ {money(row.amount)}</b>
-                      <button type="button" onClick={() => deleteTransaction(row)} style={{ display: 'block', marginLeft: 'auto', border: 0, background: 'transparent', color: '#C7A77A', fontSize: 10, fontFamily: 'inherit', cursor: 'pointer' }}>删除</button>
+                      <b style={{ color: row.type === 'income' ? 'var(--vault-income)' : 'var(--vault-danger)', fontSize: 12.5 }}>{row.type === 'income' ? '+' : '-'}¥ {money(row.amount)}</b>
+                      <button type="button" onClick={() => deleteTransaction(row)} style={{ display: 'block', marginLeft: 'auto', border: 0, background: 'transparent', color: 'var(--vault-delete)', fontSize: 10, fontFamily: 'inherit', cursor: 'pointer' }}>删除</button>
                     </span>
                   </div>
                 );
@@ -690,10 +691,10 @@ export default function VaultPage({ onClose }) {
                       <button type="button" onClick={() => openGoalForm(goal)} style={TEXT_BUTTON}>修改</button>
                     </div>
                     <div style={{ marginTop: 8, fontSize: 12 }}>¥ {money(goal.current)} / ¥ {money(goal.target)}</div>
-                    <div style={{ height: 9, borderRadius: 99, background: '#F2E7D2', overflow: 'hidden', marginTop: 10 }}>
-                      <div style={{ height: '100%', width: `${progress}%`, background: '#DD9A33' }} />
+                    <div style={{ height: 9, borderRadius: 99, background: 'var(--vault-track)', overflow: 'hidden', marginTop: 10 }}>
+                      <div style={{ height: '100%', width: `${progress}%`, background: 'var(--vault-fill)' }} />
                     </div>
-                    <small style={{ display: 'block', marginTop: 8, color: '#9A7A50', fontSize: 10.5 }}>已完成 {Math.round(progress)}%</small>
+                    <small style={{ display: 'block', marginTop: 8, color: 'var(--vault-muted)', fontSize: 10.5 }}>已完成 {Math.round(progress)}%</small>
                   </section>
                 );
               })}
@@ -752,10 +753,10 @@ export default function VaultPage({ onClose }) {
         <Modal close={() => setOpenGroupId(null)}>
           <Title text={`${openGroup.emoji} ${openGroup.name}`} close={() => setOpenGroupId(null)} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8 }}>
-            <span style={{ color: '#9A7A50', fontSize: 12 }}>合计净额 ¥ {money(groupNet(openGroup))}</span>
+            <span style={{ color: 'var(--vault-muted)', fontSize: 12 }}>合计净额 ¥ {money(groupNet(openGroup))}</span>
             <span style={{ display: 'flex', gap: 4 }}>
               <button type="button" onClick={() => setAccountEditor({ kind: 'group', id: openGroup.id, name: openGroup.name, emoji: openGroup.emoji })} style={TEXT_BUTTON}>修改分组</button>
-              <button type="button" onClick={() => deleteGroup(openGroup)} style={{ ...TEXT_BUTTON, color: '#B75D50' }}>删除分组</button>
+              <button type="button" onClick={() => deleteGroup(openGroup)} style={{ ...TEXT_BUTTON, color: 'var(--vault-danger)' }}>删除分组</button>
             </span>
           </div>
           <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
@@ -764,13 +765,13 @@ export default function VaultPage({ onClose }) {
                 <span style={{ fontSize: 22 }}>{account.emoji}</span>
                 <span style={{ flex: 1 }}>
                   <b>{account.name}</b>
-                  <small style={{ display: 'block', color: '#B89A6A' }}>{account.type === 'debt' ? '待还负债' : '可用资产'}</small>
+                  <small style={{ display: 'block', color: 'var(--vault-faint)' }}>{account.type === 'debt' ? '待还负债' : '可用资产'}</small>
                 </span>
                 <span style={{ textAlign: 'right' }}>
-                  <b style={{ display: 'block', color: account.type === 'debt' ? '#C36F5C' : 'inherit' }}>¥ {money(account.balance)}</b>
+                  <b style={{ display: 'block', color: account.type === 'debt' ? 'var(--vault-danger)' : 'inherit' }}>¥ {money(account.balance)}</b>
                   <span style={{ display: 'flex', justifyContent: 'flex-end', gap: 2, marginTop: 3 }}>
                     <button type="button" onClick={() => setAccountEditor({ kind: 'account', groupId: openGroup.id, ...account, balance: String(account.balance) })} style={{ ...TEXT_BUTTON, fontSize: 10.5 }}>编辑</button>
-                    <button type="button" onClick={() => deleteAccount(openGroup, account)} style={{ ...TEXT_BUTTON, color: '#B75D50', fontSize: 10.5 }}>删除</button>
+                    <button type="button" onClick={() => deleteAccount(openGroup, account)} style={{ ...TEXT_BUTTON, color: 'var(--vault-danger)', fontSize: 10.5 }}>删除</button>
                   </span>
                 </span>
               </div>
@@ -845,7 +846,7 @@ export default function VaultPage({ onClose }) {
             <Field label="已经存下">
               <input value={goalEditor.current} onChange={event => setGoalEditor({ ...goalEditor, current: event.target.value })} inputMode="decimal" style={INPUT} />
             </Field>
-            {goalEditor.id && <button type="button" onClick={() => deleteGoal(goalEditor)} style={{ ...SOFT_BUTTON, width: '100%', marginTop: 18, color: '#B75D50' }}>删除这个目标</button>}
+            {goalEditor.id && <button type="button" onClick={() => deleteGoal(goalEditor)} style={{ ...SOFT_BUTTON, width: '100%', marginTop: 18, color: 'var(--vault-danger)' }}>删除这个目标</button>}
             <button type="submit" style={PRIMARY_BUTTON}>{goalEditor.id ? '保存修改' : '添加目标'}</button>
           </form>
         </Modal>
@@ -857,7 +858,7 @@ export default function VaultPage({ onClose }) {
 function Modal({ close, children, layer = 10000 }) {
   return (
     <div onClick={close} role="presentation" style={{ position: 'fixed', inset: 0, zIndex: layer, background: 'rgba(36,24,12,.35)', display: 'flex', alignItems: 'flex-end' }}>
-      <div onClick={event => event.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', margin: '0 auto', background: '#FFFDF8', borderRadius: '24px 24px 0 0', padding: '20px 18px max(28px, env(safe-area-inset-bottom))' }}>
+      <div onClick={event => event.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', margin: '0 auto', background: 'var(--vault-surface)', color: 'var(--vault-text)', borderRadius: '24px 24px 0 0', padding: '20px 18px max(28px, env(safe-area-inset-bottom))' }}>
         {children}
       </div>
     </div>
@@ -868,7 +869,7 @@ function Title({ text, close }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
       <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, letterSpacing: '.04em' }}>{text}</h3>
-      <button type="button" onClick={close} aria-label="关闭" style={{ border: 0, background: 'transparent', fontSize: 22, color: '#2E1F12', cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
+      <button type="button" onClick={close} aria-label="关闭" style={{ border: 0, background: 'transparent', fontSize: 22, color: 'var(--vault-text)', cursor: 'pointer', fontFamily: 'inherit' }}>×</button>
     </div>
   );
 }
@@ -876,7 +877,7 @@ function Title({ text, close }) {
 function Field({ label, children }) {
   return (
     <label style={{ display: 'block', marginTop: 14 }}>
-      <span style={{ display: 'block', fontSize: 12, color: '#9A7A50', marginBottom: 6 }}>{label}</span>
+      <span style={{ display: 'block', fontSize: 12, color: 'var(--vault-muted)', marginBottom: 6 }}>{label}</span>
       {children}
     </label>
   );
@@ -884,7 +885,7 @@ function Field({ label, children }) {
 
 function Mini({ label, value, plus = false }) {
   return (
-    <div style={{ background: 'rgba(255,255,255,.58)', borderRadius: 13, padding: 11 }}>
+    <div style={{ background: 'var(--vault-mini)', borderRadius: 13, padding: 11 }}>
       <small style={{ fontSize: 10.5 }}>{label}</small>
       <div style={{ marginTop: 2 }}><b style={{ fontSize: 13 }}>{plus ? '+' : '-'}¥ {money(value)}</b></div>
     </div>
@@ -892,5 +893,5 @@ function Mini({ label, value, plus = false }) {
 }
 
 function EmptyState({ text }) {
-  return <div style={{ ...CARD, padding: 18, textAlign: 'center', color: '#9A7A50', fontSize: 11.5 }}>{text}</div>;
+  return <div style={{ ...CARD, padding: 18, textAlign: 'center', color: 'var(--vault-muted)', fontSize: 11.5 }}>{text}</div>;
 }
