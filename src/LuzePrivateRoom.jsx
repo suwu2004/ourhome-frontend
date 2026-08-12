@@ -326,7 +326,7 @@ export default function LuzePrivateRoom({ onClose }) {
         {settings && tab === 'note' && (
           <div className="luze-learning-whisper">
             <span>{settings.enabled ? '最近会自己出去逛逛' : '最近没有开自主学习'}</span>
-            <small>每天的搜索一半跟着 OurHome 和最近聊天里的线索走，一半留给自己的随机好奇；认真消化时用 {settings.synthesis_model || '当前 Chat 模型'}。</small>
+            <small>每天的搜索一半跟着 OurHome 和最近聊天里的线索走，一半留给自己的随机好奇；认真消化、写成笔记时跟随当前 Chat 模型。</small>
           </div>
         )}
         {loading && entries.length === 0 && <div className="luze-empty">正在把桌上的纸翻出来…</div>}

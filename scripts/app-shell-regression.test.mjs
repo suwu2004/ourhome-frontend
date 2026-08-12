@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery, localFirstSettings, localFirstStore, homeRoomGrid, homeHubSource, homeCatFrame] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery, localFirstSettings, localFirstStore, homeRoomGrid, homeHubSource, homeCatFrame, lettersRoomSource, luzeAutonomySource, luzeRoomSource] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -32,6 +32,9 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../src/HomeRoomGrid.css', import.meta.url), 'utf8'),
   readFile(new URL('../src/HomeHub.jsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/HomeCatFrame.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/LettersRoom.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/LuzeAutonomySettingsPanel.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/LuzePrivateRoom.jsx', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -203,6 +206,14 @@ test('home desktop polish adds depth without changing touch interactions', () =>
   assert.match(styles, /\.home-room-app:hover > span/);
   assert.match(styles, /\.home-dock > button:hover/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test('personal prose surfaces disclose that they follow the current Chat model', () => {
+  assert.match(appSource, /selectedModel=\{selectedModel\}/);
+  assert.match(lettersRoomSource, /跟随 Chat 模型/);
+  assert.match(luzeAutonomySource, /固定跟随当前 Chat 模型/);
+  assert.match(luzeRoomSource, /写成笔记时跟随当前 Chat 模型/);
+  assert.doesNotMatch(luzeRoomSource, /settings\.synthesis_model/);
 });
 
 test('vault fallback never presents demo money as real data', () => {

@@ -152,7 +152,7 @@ export default function LuzeAutonomySettingsPanel() {
                   <section style={{ marginTop: 12, padding: 13, borderRadius: 16, border: `1px dashed ${C.border}`, background: C.honeyLight }}>
                     <div style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>怎么用脑子</div>
                     <div style={{ marginTop: 5, color: C.muted, fontSize: 9.5, lineHeight: 1.7 }}>
-                      敲门、选题和搜索杂活走最便宜模型；真正消化资料、写学习笔记时继续用聪明模型。{settings.synthesis_model ? ` 当前指定：${settings.synthesis_model}` : ' 现在跟随当前 Chat 模型。'}
+                      敲门、选题和搜索杂活走省钱模型；真正消化资料、写学习笔记时固定跟随当前 Chat 模型，切换 Chat 模型后下一篇笔记会自动同步。
                     </div>
                     <div style={{ marginTop: 8, color: C.mutedLight, fontSize: 8.5 }}>上次自主学习：{clock(settings.last_run_at)}</div>
                   </section>

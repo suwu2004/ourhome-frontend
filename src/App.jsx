@@ -2331,6 +2331,7 @@ export default function App({ initialView = 'chat', onHome }) {
         setNewLetterText={setNewLetterText}
         submitNewLetter={submitNewLetter}
         savingLetter={savingLetter}
+        selectedModel={selectedModel}
       />
 
       <CalendarRoom
