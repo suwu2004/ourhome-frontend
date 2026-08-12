@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery, localFirstSettings, localFirstStore, homeRoomGrid, homeHubSource, homeCatFrame, lettersRoomSource, luzeAutonomySource, luzeRoomSource, mainSource, darkSurfaces, vaultStyles, toolBearDock] = await Promise.all([
+const [manifestText, install, native, styles, finalHeaders, config, androidManifest, themeContext, root, vault, offline, installSettings, gradle, appUpdate, updaterPlugin, mainActivity, androidWorkflow, nativeNotifications, notificationsPlugin, reminderReceiver, appSource, settingsSource, chatRoomSource, failoverRecovery, localFirstSettings, localFirstStore, homeRoomGrid, homeHubSource, homeCatFrame, lettersRoomSource, luzeAutonomySource, luzeRoomSource, mainSource, darkSurfaces, vaultStyles, toolBearDock, readingRoomSource] = await Promise.all([
   readFile(new URL('../public/manifest.json', import.meta.url), 'utf8'),
   readFile(new URL('../src/appInstall.js', import.meta.url), 'utf8'),
   readFile(new URL('../src/nativeApp.js', import.meta.url), 'utf8'),
@@ -39,6 +39,7 @@ const [manifestText, install, native, styles, finalHeaders, config, androidManif
   readFile(new URL('../src/DarkModeSurfaces.css', import.meta.url), 'utf8'),
   readFile(new URL('../src/VaultPage.css', import.meta.url), 'utf8'),
   readFile(new URL('../src/ToolBearGameDock.jsx', import.meta.url), 'utf8'),
+  readFile(new URL('../src/ReadingRoom.jsx', import.meta.url), 'utf8'),
 ]);
 
 test('manifest is installable on vivo phones and Huawei tablets', () => {
@@ -230,6 +231,15 @@ test('night mode owns every large legacy light surface', () => {
   assert.match(vaultStyles, /data-theme="dark"[^}]*vault-room/);
   assert.match(vault, /className="ourhome-shell vault-room"/);
   assert.doesNotMatch(toolBearDock, /background: '#fffaf1'/);
+});
+
+test('reading room accepts modern document and ebook formats with a local size guard', () => {
+  assert.match(readingRoomSource, /\.txt,\.md,\.docx,\.pdf,\.epub/);
+  assert.match(readingRoomSource, /application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document/);
+  assert.match(readingRoomSource, /application\/pdf/);
+  assert.match(readingRoomSource, /application\/epub\+zip/);
+  assert.match(readingRoomSource, /MAX_READING_FILE_BYTES = 24 \* 1024 \* 1024/);
+  assert.match(readingRoomSource, /支持 TXT · MD · DOCX · PDF · EPUB/);
 });
 
 test('vault fallback never presents demo money as real data', () => {

@@ -5,6 +5,10 @@ import './ReadingRoom.css';
 import './ReadingRoomPolish.css';
 import './ReadingAnnotations.css';
 
+const READING_FILE_ACCEPT = '.txt,.md,.docx,.pdf,.epub,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,application/epub+zip';
+const READING_FILE_EXTENSIONS = new Set(['txt', 'md', 'docx', 'pdf', 'epub']);
+const MAX_READING_FILE_BYTES = 24 * 1024 * 1024;
+
 function formatCount(value) {
   const number = Number(value) || 0;
   if (number >= 10000) return `${(number / 10000).toFixed(number >= 100000 ? 0 : 1)} 万字`;
@@ -219,6 +223,15 @@ export function ReadingRoom({ onClose }) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file || uploading) return;
+    const extension = String(file.name || '').split('.').pop()?.toLowerCase();
+    if (!READING_FILE_EXTENSIONS.has(extension)) {
+      setBookError('支持 TXT、MD、DOCX、PDF 和 EPUB 文件。');
+      return;
+    }
+    if (file.size > MAX_READING_FILE_BYTES) {
+      setBookError('这本书超过 24MB，先压缩或拆成几本再上传。');
+      return;
+    }
     setUploading(true);
     setBookError('');
     try {
@@ -553,10 +566,10 @@ export function ReadingRoom({ onClose }) {
       <header className="reading-shelf-header">
         <button type="button" onClick={onClose} aria-label="回到主页">←</button>
         <div><span>OUR LITTLE LIBRARY</span><h1>共读小屋</h1></div>
-        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} aria-label="导入文本">＋</button>
+        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} aria-label="导入书籍">＋</button>
       </header>
 
-      <input ref={fileInputRef} hidden type="file" accept=".txt,.md,text/plain,text/markdown" onChange={importBook} />
+      <input ref={fileInputRef} hidden type="file" accept={READING_FILE_ACCEPT} onChange={importBook} />
 
       <section className="reading-shelf-body">
         <div className="reading-shelf-intro">
@@ -570,13 +583,14 @@ export function ReadingRoom({ onClose }) {
           ) : (
             <p className="reading-shelf-thought">书架还空着，点右上角的＋，把第一本想一起读的书放进来。</p>
           )}
+          <p className="reading-import-hint">支持 TXT · MD · DOCX · PDF · EPUB，单本不超过 24MB</p>
         </div>
 
         {bookError && <div className="reading-error">{bookError}</div>}
         {booksState === 'loading' && <p className="reading-status">正在整理书架…</p>}
         {booksState === 'ready' && books.length === 0 && (
           <button className="reading-empty" type="button" onClick={() => fileInputRef.current?.click()}>
-            <i>📖</i><strong>第一层书架还空着</strong><span>把《期待回信.txt》放进来试试看</span>
+            <i>📖</i><strong>第一层书架还空着</strong><span>把第一本想共读的书放进来试试看</span>
           </button>
         )}
 
