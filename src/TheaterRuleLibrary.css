@@ -212,6 +212,32 @@
   line-height: 1.35;
 }
 
+.theater-rule-card-scope {
+  margin-top: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.theater-rule-card-scope > span {
+  color: #9b8061;
+  font-size: 9px;
+}
+
+.theater-rule-card-scope select {
+  min-height: 29px;
+  padding: 4px 25px 4px 9px;
+  border: 1px solid rgba(171, 123, 61, .2);
+  border-radius: 999px;
+  outline: none;
+  background: rgba(255, 250, 239, .9);
+  color: #95641f;
+  font-family: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
 .theater-rule-card > p {
   max-height: 104px;
   margin: 11px 0;
@@ -374,7 +400,8 @@
 }
 
 .theater-rule-editor input:focus,
-.theater-rule-editor textarea:focus {
+.theater-rule-editor textarea:focus,
+.theater-rule-card-scope select:focus {
   border-color: rgba(182, 117, 29, .55);
   box-shadow: 0 0 0 3px rgba(235, 191, 105, .15);
 }
@@ -393,6 +420,57 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.theater-rule-scope-picker {
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.theater-rule-scope-picker legend {
+  margin: 0 0 7px 2px;
+  color: #80674c;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.theater-rule-scope-picker > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.theater-rule-scope-picker label {
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(171, 123, 61, .18);
+  border-radius: 11px;
+  background: rgba(255, 250, 239, .78);
+  color: #8d7355;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.theater-rule-scope-picker label.is-selected {
+  border-color: rgba(182, 117, 29, .45);
+  background: rgba(247, 222, 158, .55);
+  color: #925d16;
+  box-shadow: 0 0 0 2px rgba(235, 191, 105, .1);
+}
+
+.theater-rule-scope-picker input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theater-rule-scope-picker p {
+  margin: 7px 2px 0;
+  color: #a0876b;
+  font-size: 9px;
+  line-height: 1.55;
 }
 
 .theater-rule-editor-actions {
