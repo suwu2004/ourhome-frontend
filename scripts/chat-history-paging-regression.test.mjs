@@ -26,6 +26,7 @@ test('session preview cache stays bounded after deep history browsing', () => {
 test('Chat exposes a guarded refresh action for the current conversation', () => {
   assert.match(roomSource, /aria-label="刷新当前对话"/);
   assert.match(roomSource, /await refreshMessages\(\)/);
-  assert.match(roomSource, /if \(!sessionId \|\| chatRefreshing \|\| thinking \|\| !refreshMessages\) return/);
+  assert.match(roomSource, /chatRefreshBlocked = chatRefreshing \|\| thinking \|\| regenerating \|\| messageActionLoading \|\| imageUploading/);
+  assert.match(roomSource, /if \(!sessionId \|\| chatRefreshBlocked \|\| !refreshMessages\) return/);
   assert.match(appSource, /refreshMessages=\{\(\) => loadMessagesFor\(sessionId\)\}/);
 });

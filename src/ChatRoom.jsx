@@ -86,6 +86,7 @@ export function ChatRoom(props) {
   const waitingForFreshMessagesRef = useRef(false);
   const showingCachedConversation = cachedSessionId === sessionId && cachedConversation !== null;
   const renderedMessages = showingCachedConversation ? cachedConversation : msgs;
+  const chatRefreshBlocked = chatRefreshing || thinking || regenerating || messageActionLoading || imageUploading;
   const visibleMessages = renderedMessages.slice(0, showingCachedConversation ? renderedMessages.length : Math.max(0, visible));
   const modelOptions = [...new Set([
     chatModel,
@@ -179,7 +180,7 @@ export function ChatRoom(props) {
   };
 
   const refreshCurrentChat = async () => {
-    if (!sessionId || chatRefreshing || thinking || !refreshMessages) return;
+    if (!sessionId || chatRefreshBlocked || !refreshMessages) return;
     setChatRefreshing(true);
     setMessageActionError('');
     try {
@@ -210,10 +211,10 @@ export function ChatRoom(props) {
               <button
                 type="button"
                 onClick={refreshCurrentChat}
-                disabled={!sessionId || thinking || chatRefreshing}
+                disabled={!sessionId || chatRefreshBlocked}
                 aria-label="刷新当前对话"
                 title="刷新当前对话"
-                style={{ fontSize: 19, lineHeight: 1, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, padding: 0, cursor: !sessionId || thinking || chatRefreshing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: chatRefreshing ? .55 : 1, fontFamily: 'Arial, sans-serif' }}
+                style={{ fontSize: 19, lineHeight: 1, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, padding: 0, cursor: !sessionId || chatRefreshBlocked ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: chatRefreshBlocked ? .55 : 1, fontFamily: 'Arial, sans-serif' }}
               >{chatRefreshing ? '…' : '↻'}</button>
               <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
             </div>
