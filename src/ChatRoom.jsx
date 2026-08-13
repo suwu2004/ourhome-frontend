@@ -73,10 +73,11 @@ export function ChatRoom(props) {
     setTokenUsageOpen, chatUsage, sessionId, pendingFile, imageUploading,
     setPendingFile, chatImageInputRef, pickFile, chatInputRef, input, setInput,
     send, selectedModel, chooseModel, availableModels, loadActiveModels,
-    modelsLoading, modelsError,
+    modelsLoading, modelsError, refreshMessages,
   } = props;
 
   const [chatModel, setChatModel] = useState(selectedModel || '');
+  const [chatRefreshing, setChatRefreshing] = useState(false);
   const [cachedConversation, setCachedConversation] = useState(null);
   const [cachedSessionId, setCachedSessionId] = useState(null);
   const draftSessionRef = useRef(null);
@@ -177,6 +178,19 @@ export function ChatRoom(props) {
     return send(model);
   };
 
+  const refreshCurrentChat = async () => {
+    if (!sessionId || chatRefreshing || thinking || !refreshMessages) return;
+    setChatRefreshing(true);
+    setMessageActionError('');
+    try {
+      await refreshMessages();
+    } catch (error) {
+      setMessageActionError(error?.message || '当前对话没有刷新成功');
+    } finally {
+      setChatRefreshing(false);
+    }
+  };
+
   return (
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: (stage === "home" && view === "chat") ? 1 : 0, pointerEvents: (stage === "home" && view === "chat") ? "auto" : "none", transition: "opacity .4s ease" }}>
         <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, flexShrink: 0 }}>
@@ -193,6 +207,14 @@ export function ChatRoom(props) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                onClick={refreshCurrentChat}
+                disabled={!sessionId || thinking || chatRefreshing}
+                aria-label="刷新当前对话"
+                title="刷新当前对话"
+                style={{ fontSize: 19, lineHeight: 1, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, padding: 0, cursor: !sessionId || thinking || chatRefreshing ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: chatRefreshing ? .55 : 1, fontFamily: 'Arial, sans-serif' }}
+              >{chatRefreshing ? '…' : '↻'}</button>
               <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
             </div>
           </div>
