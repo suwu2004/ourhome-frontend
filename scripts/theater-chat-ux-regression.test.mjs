@@ -19,3 +19,13 @@ test('theater model selector lives with the composer like main Chat', () => {
   assert.ok(modelIndex > composerIndex);
   assert.ok(settingsIndex > 0 && settingsIndex < composerIndex);
 });
+
+test('jump-to-latest sits in its own row above the composer', () => {
+  const latestIndex = source.indexOf('aria-label="跳到小剧场最新消息"');
+  const rowIndex = source.indexOf('className="theater-latest-row"');
+  const composerIndex = source.indexOf('aria-label="发送小剧场消息"');
+  assert.ok(rowIndex > 0 && latestIndex > rowIndex);
+  assert.ok(latestIndex < composerIndex);
+  const latestButton = source.slice(latestIndex, composerIndex);
+  assert.doesNotMatch(latestButton, /position:\s*'absolute'/);
+});
