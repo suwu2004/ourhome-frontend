@@ -30,3 +30,9 @@ test('Chat exposes a guarded refresh action for the current conversation', () =>
   assert.match(roomSource, /if \(!sessionId \|\| chatRefreshBlocked \|\| !refreshMessages\) return/);
   assert.match(appSource, /refreshMessages=\{\(\) => loadMessagesFor\(sessionId\)\}/);
 });
+
+test('Chat keeps refresh at the far right of search', () => {
+  const searchIndex = roomSource.indexOf('aria-label="搜索聊天记录"');
+  const refreshIndex = roomSource.indexOf('aria-label="刷新当前对话"');
+  assert.ok(searchIndex > 0 && refreshIndex > searchIndex);
+});
