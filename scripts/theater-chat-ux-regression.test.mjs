@@ -29,3 +29,10 @@ test('jump-to-latest sits in its own row above the composer', () => {
   const latestButton = source.slice(latestIndex, composerIndex);
   assert.doesNotMatch(latestButton, /position:\s*'absolute'/);
 });
+
+test('theater preserves old-story reading position and only offers latest when needed', () => {
+  assert.match(source, /onScroll=\{handleChatScroll\}/);
+  assert.match(source, /messages\.length > 3 && !nearLatest/);
+  assert.match(source, /if \(bookPane !== 'chat' \|\| !nearLatestRef\.current\) return/);
+  assert.match(source, /scrollHeight - node\.scrollTop - node\.clientHeight < 72/);
+});
