@@ -181,8 +181,10 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const [uploadingChatBg, setUploadingChatBg] = useState(false);
   const [mode, setMode] = useState('interactive');
   const [model, setModel] = useState(selectedModel || '');
+  const [nearLatest, setNearLatest] = useState(true);
   const chatEndRef = useRef(null);
   const chatScrollerRef = useRef(null);
+  const nearLatestRef = useRef(true);
   const worldFileInputRef = useRef(null);
   const globalRulesFileInputRef = useRef(null);
   const chatBgInputRef = useRef(null);
@@ -214,21 +216,39 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       title: selectedBook.title || '未命名小剧本',
       settings: normalizeDraftSettings(selectedBook.settings || {}),
     });
-    setTimeout(() => scrollToLatest('auto'), 80);
   }, [selectedBook?.id]);
 
   useEffect(() => {
     if (bookPane !== 'chat') return;
-    setTimeout(() => scrollToLatest(selectedBook?.messages?.length ? 'smooth' : 'auto'), 80);
-  }, [bookPane, selectedBook?.id, selectedBook?.messages?.length, chatting]);
+    nearLatestRef.current = true;
+    setNearLatest(true);
+    const timer = setTimeout(() => scrollToLatest('auto'), 80);
+    return () => clearTimeout(timer);
+  }, [bookPane, selectedBook?.id]);
+
+  useEffect(() => {
+    if (bookPane !== 'chat' || !nearLatestRef.current) return;
+    const timer = setTimeout(() => scrollToLatest('smooth'), 80);
+    return () => clearTimeout(timer);
+  }, [bookPane, selectedBook?.messages?.length, chatting]);
 
   const scrollToLatest = (behavior = 'smooth') => {
+    nearLatestRef.current = true;
+    setNearLatest(true);
     const node = chatScrollerRef.current;
     if (node) {
       node.scrollTo({ top: node.scrollHeight, behavior });
       return;
     }
     chatEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+  };
+
+  const handleChatScroll = event => {
+    const node = event.currentTarget;
+    const nextNearLatest = node.scrollHeight - node.scrollTop - node.clientHeight < 72;
+    if (nextNearLatest === nearLatestRef.current) return;
+    nearLatestRef.current = nextNearLatest;
+    setNearLatest(nextNearLatest);
   };
 
   const loadBooks = async () => {
@@ -482,6 +502,8 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       setError('先在小剧场里说一句。');
       return;
     }
+    nearLatestRef.current = true;
+    setNearLatest(true);
     setChatting(true);
     setError('');
     setChatInput('');
@@ -815,7 +837,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
         </div>
 
         <div style={{ flex: 1, minHeight: 0, maxWidth: 760, width: '100%', margin: '0 auto', border: `1px solid ${C.border}`, borderRadius: 18, ...theaterChatBackgroundStyle(), padding: 12, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-          <div ref={chatScrollerRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px 12px' }}>
+          <div ref={chatScrollerRef} onScroll={handleChatScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px 12px' }}>
             {messages.length === 0 && (
               <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.8, padding: '30px 10px', textAlign: 'center' }}>
                 这本书还没有开演。你可以直接说：从哪里开始、你扮演谁、想让剧情怎么动。
@@ -842,7 +864,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             {chatting && <div style={{ color: C.muted, fontSize: 12, padding: '4px 2px' }}>小剧场正在接戏…</div>}
             <div ref={chatEndRef} />
           </div>
-          {messages.length > 3 && (
+          {messages.length > 3 && !nearLatest && (
             <div className="theater-latest-row" style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', padding: '4px 2px 6px' }}>
               <button type="button" onClick={() => scrollToLatest('smooth')} aria-label="跳到小剧场最新消息" style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, boxShadow: '0 4px 12px rgba(46,31,18,.14)', padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>↓ 最新</button>
             </div>
