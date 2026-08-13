@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
-import { applyDocumentTheme, DARK_THEME, getSavedDarkMode, LIGHT_THEME } from './theme.js';
+import { applyDocumentTheme, DARK_THEME, getSavedDarkMode, hasSavedDarkMode, LIGHT_THEME } from './theme.js';
 
 const ThemeContext = createContext(null);
 const BACKGROUND_SETTING_KEYS = [
@@ -14,6 +14,10 @@ const ASSET_REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const ASSET_RECOVERY_COOLDOWN_MS = 60 * 1000;
 
 export function ThemeProvider({ children }) {
+  // Theme is a device preference. Remember whether this device already owns a
+  // choice before the initial paint persists one; only a truly new device may
+  // accept the cloud value as its first seed.
+  const hasLocalDarkModePreferenceRef = useRef(hasSavedDarkMode());
   const [darkMode, setDarkModeState] = useState(() => {
     const saved = getSavedDarkMode();
     applyDocumentTheme(saved);
@@ -26,6 +30,7 @@ export function ThemeProvider({ children }) {
 
   const setDarkMode = useCallback((next, { persist = true } = {}) => {
     const value = Boolean(next);
+    hasLocalDarkModePreferenceRef.current = true;
     setDarkModeState(value);
     setSettings(current => current && current.dark_mode !== value
       ? { ...current, dark_mode: value }
@@ -55,12 +60,26 @@ export function ThemeProvider({ children }) {
           headers: refreshAssets ? { 'X-OurHome-Refresh-Assets': '1' } : undefined,
         });
         if (!response.ok) return null;
-        const nextSettings = await response.json();
+        const cloudSettings = await response.json();
         lastRefreshAtRef.current = Date.now();
-        setSettings(nextSettings);
-        if (typeof nextSettings?.dark_mode === 'boolean') {
-          setDarkMode(nextSettings.dark_mode, { persist: false });
+        let nextSettings = cloudSettings;
+        if (typeof cloudSettings?.dark_mode === 'boolean') {
+          if (hasLocalDarkModePreferenceRef.current) {
+            // A stale/offline /settings snapshot must never undo a switch that
+            // already succeeded on this device.
+            const localDarkMode = getSavedDarkMode();
+            nextSettings = { ...cloudSettings, dark_mode: localDarkMode };
+            setDarkModeState(localDarkMode);
+            applyDocumentTheme(localDarkMode);
+          } else {
+            // Preserve the old cross-device convenience once: a fresh install
+            // may inherit the cloud preference, then becomes device-owned.
+            hasLocalDarkModePreferenceRef.current = true;
+            setDarkModeState(cloudSettings.dark_mode);
+            applyDocumentTheme(cloudSettings.dark_mode);
+          }
         }
+        setSettings(nextSettings);
         return nextSettings;
       } catch (error) {
         console.error(error);
@@ -75,7 +94,7 @@ export function ThemeProvider({ children }) {
     } finally {
       if (refreshPromiseRef.current === entry) refreshPromiseRef.current = null;
     }
-  }, [setDarkMode]);
+  }, []);
 
   useEffect(() => {
     refreshTheme();
