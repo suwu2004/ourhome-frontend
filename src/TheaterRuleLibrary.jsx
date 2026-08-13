@@ -8,8 +8,28 @@ const emptyDraft = {
   title: '',
   content: '',
   enabled: true,
+  apply_scope: 'theater',
   source_name: null,
 };
+
+const scopeOptions = [
+  { value: 'theater', label: '仅小剧场' },
+  { value: 'chat', label: '仅 Chat' },
+  { value: 'both', label: '两边都用' },
+];
+
+function normalizeScope(value) {
+  return scopeOptions.some(option => option.value === value) ? value : 'theater';
+}
+
+function scopeLabel(value) {
+  return scopeOptions.find(option => option.value === normalizeScope(value))?.label || '仅小剧场';
+}
+
+function scopeIncludes(value, target) {
+  const scope = normalizeScope(value);
+  return scope === 'both' || scope === target;
+}
 
 function filenameTitle(name) {
   return String(name || '')
@@ -24,7 +44,7 @@ async function readJson(response) {
   return response.json().catch(() => ({}));
 }
 
-function RuleCard({ rule, index, count, busy, onEdit, onToggle, onDelete, onMove }) {
+function RuleCard({ rule, index, count, busy, onEdit, onToggle, onScope, onDelete, onMove }) {
   return (
     <article className={`theater-rule-card ${rule.enabled ? 'is-enabled' : 'is-disabled'}`}>
       <header>
@@ -43,6 +63,17 @@ function RuleCard({ rule, index, count, busy, onEdit, onToggle, onDelete, onMove
           <b>{rule.enabled ? '启用' : '停用'}</b>
         </button>
       </header>
+      <div className="theater-rule-card-scope">
+        <span>生效范围</span>
+        <select
+          value={normalizeScope(rule.apply_scope)}
+          onChange={event => onScope(rule, event.target.value)}
+          disabled={busy}
+          aria-label={`${rule.title || '未命名规则'}的生效范围`}
+        >
+          {scopeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </div>
       <p>{rule.content}</p>
       <footer>
         <div className="theater-rule-order" aria-label="调整规则顺序">
@@ -72,6 +103,14 @@ export default function TheaterRuleLibrary() {
   const enabledCount = useMemo(() => rules.filter(rule => rule.enabled).length, [rules]);
   const enabledChars = useMemo(
     () => rules.filter(rule => rule.enabled).reduce((sum, rule) => sum + String(rule.content || '').length, 0),
+    [rules],
+  );
+  const theaterCount = useMemo(
+    () => rules.filter(rule => rule.enabled && scopeIncludes(rule.apply_scope, 'theater')).length,
+    [rules],
+  );
+  const chatCount = useMemo(
+    () => rules.filter(rule => rule.enabled && scopeIncludes(rule.apply_scope, 'chat')).length,
     [rules],
   );
 
@@ -149,6 +188,7 @@ export default function TheaterRuleLibrary() {
       title: rule.title || '',
       content: rule.content || '',
       enabled: rule.enabled !== false,
+      apply_scope: normalizeScope(rule.apply_scope),
       source_name: rule.source_name || null,
     });
     requestAnimationFrame(() => document.querySelector('.theater-rule-editor')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
@@ -176,6 +216,7 @@ export default function TheaterRuleLibrary() {
           title,
           content,
           enabled: draft.enabled,
+          apply_scope: normalizeScope(draft.apply_scope),
           source_name: draft.source_name,
         }),
       });
@@ -213,6 +254,7 @@ export default function TheaterRuleLibrary() {
           title: filenameTitle(file.name),
           content,
           enabled: true,
+          apply_scope: 'theater',
           source_name: file.name,
         }),
       });
@@ -243,6 +285,26 @@ export default function TheaterRuleLibrary() {
       if (draft.id === data.id) setDraft(current => ({ ...current, enabled: data.enabled }));
     } catch (err) {
       setError(err.message || '规则状态没有保存成功');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeRuleScope = async (rule, applyScope) => {
+    setBusy(true);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/theater/rules/${rule.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apply_scope: normalizeScope(applyScope) }),
+      });
+      const data = await readJson(response);
+      if (!response.ok) throw new Error(data.error || '规则范围没有保存成功');
+      setRules(items => items.map(item => (item.id === data.id ? data : item)));
+      if (draft.id === data.id) setDraft(current => ({ ...current, apply_scope: normalizeScope(data.apply_scope) }));
+    } catch (err) {
+      setError(err.message || '规则范围没有保存成功');
     } finally {
       setBusy(false);
     }
@@ -312,7 +374,7 @@ export default function TheaterRuleLibrary() {
               <div>
                 <span>THEATER RULE LIBRARY</span>
                 <h2>小剧场通用规则库</h2>
-                <p>每条规则单独保存。启用的规则会按顺序一起进入所有小世界。</p>
+                <p>每条规则可以单独选择只进小剧场、只进 Chat，或者两边共同使用。</p>
               </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="关闭规则库">×</button>
             </header>
@@ -320,6 +382,8 @@ export default function TheaterRuleLibrary() {
             <div className="theater-rule-summary">
               <span><b>{rules.length}</b> 条规则</span>
               <span><b>{enabledCount}</b> 条启用</span>
+              <span><b>{theaterCount}</b> 条用于小剧场</span>
+              <span><b>{chatCount}</b> 条用于 Chat</span>
               <span><b>{enabledChars}</b> 字生效中</span>
               <button type="button" onClick={loadRules} disabled={loading || busy}>{loading ? '整理中' : '刷新'}</button>
             </div>
@@ -339,6 +403,7 @@ export default function TheaterRuleLibrary() {
                     busy={busy}
                     onEdit={editRule}
                     onToggle={toggleRule}
+                    onScope={changeRuleScope}
                     onDelete={deleteRule}
                     onMove={moveRule}
                   />
@@ -375,6 +440,25 @@ export default function TheaterRuleLibrary() {
                   />
                 </label>
 
+                <fieldset className="theater-rule-scope-picker">
+                  <legend>生效范围</legend>
+                  <div>
+                    {scopeOptions.map(option => (
+                      <label key={option.value} className={normalizeScope(draft.apply_scope) === option.value ? 'is-selected' : ''}>
+                        <input
+                          type="radio"
+                          name="theater-rule-scope"
+                          value={option.value}
+                          checked={normalizeScope(draft.apply_scope) === option.value}
+                          onChange={() => setDraft(current => ({ ...current, apply_scope: option.value }))}
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                  <p>{scopeLabel(draft.apply_scope)}，只会进入对应房间的提示词，剧场记忆始终不会进入 Chat。</p>
+                </fieldset>
+
                 <div className="theater-rule-editor-meta">
                   <label>
                     <input
@@ -402,7 +486,7 @@ export default function TheaterRuleLibrary() {
                     {busy ? '保存中' : draft.id ? '保存修改' : '加入规则库'}
                   </button>
                 </div>
-                <p className="theater-rule-editor-note">上传第二份、第三份文件都会新增卡片，不再替换前一份。停用只是不让它进入提示词，内容仍会保留。</p>
+                <p className="theater-rule-editor-note">新上传的规则默认仅用于小剧场。停用只会让它暂时退出提示词，内容和生效范围仍会保留。</p>
               </aside>
             </div>
           </section>

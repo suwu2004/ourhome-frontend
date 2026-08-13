@@ -95,7 +95,10 @@
 :root[data-theme="dark"] .theater-rule-summary { border-color: var(--night-border); }
 :root[data-theme="dark"] .theater-rule-library-head p,
 :root[data-theme="dark"] .theater-rule-card > p,
+:root[data-theme="dark"] .theater-rule-card-scope > span,
 :root[data-theme="dark"] .theater-rule-editor > label > span,
+:root[data-theme="dark"] .theater-rule-scope-picker legend,
+:root[data-theme="dark"] .theater-rule-scope-picker p,
 :root[data-theme="dark"] .theater-rule-editor-note { color: var(--night-muted); }
 
 :root[data-theme="dark"] .theater-rule-library-head > button,
@@ -106,11 +109,19 @@
 :root[data-theme="dark"] .theater-rule-editor,
 :root[data-theme="dark"] .theater-rule-editor input,
 :root[data-theme="dark"] .theater-rule-editor textarea,
+:root[data-theme="dark"] .theater-rule-card-scope select,
+:root[data-theme="dark"] .theater-rule-scope-picker label,
 :root[data-theme="dark"] .theater-rule-editor-actions button.is-quiet,
 :root[data-theme="dark"] .theater-rule-empty {
   border-color: var(--night-border);
   background: var(--night-surface-raised);
   color: var(--night-text);
+}
+
+:root[data-theme="dark"] .theater-rule-scope-picker label.is-selected {
+  border-color: #8f6c33;
+  background: #49391f;
+  color: var(--night-honey);
 }
 
 /* Reading companion sidebar and saved-note cards. */
