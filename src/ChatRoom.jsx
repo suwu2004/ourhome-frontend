@@ -208,6 +208,7 @@ export function ChatRoom(props) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
+              <button aria-label="搜索聊天记录" title="搜索聊天记录" onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
               <button
                 type="button"
                 onClick={refreshCurrentChat}
@@ -216,7 +217,6 @@ export function ChatRoom(props) {
                 title="刷新当前对话"
                 style={{ fontSize: 19, lineHeight: 1, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, padding: 0, cursor: !sessionId || chatRefreshBlocked ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: chatRefreshBlocked ? .55 : 1, fontFamily: 'Arial, sans-serif' }}
               >{chatRefreshing ? '…' : '↻'}</button>
-              <button onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
             </div>
           </div>
           <Stars theme={C} />
