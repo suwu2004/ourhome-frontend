@@ -2292,6 +2292,7 @@ export default function App({ initialView = 'chat', onHome }) {
         loadActiveModels={loadActiveModels}
         modelsLoading={modelsLoading}
         modelsError={modelsError}
+        refreshMessages={() => loadMessagesFor(sessionId)}
       />
 
       <LettersRoom
