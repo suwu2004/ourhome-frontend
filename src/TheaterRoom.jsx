@@ -843,7 +843,9 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             <div ref={chatEndRef} />
           </div>
           {messages.length > 3 && (
-            <button type="button" onClick={() => scrollToLatest('smooth')} style={{ position: 'absolute', right: 18, bottom: 70, border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, boxShadow: '0 6px 18px rgba(46,31,18,.18)', padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>↓ 最新</button>
+            <div className="theater-latest-row" style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', padding: '4px 2px 6px' }}>
+              <button type="button" onClick={() => scrollToLatest('smooth')} aria-label="跳到小剧场最新消息" style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, boxShadow: '0 4px 12px rgba(46,31,18,.14)', padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>↓ 最新</button>
+            </div>
           )}
           {error && <div style={{ color: C.blushDeep, fontSize: 12, marginBottom: 8 }}>{error}</div>}
           <div style={{ flexShrink: 0 }}>
