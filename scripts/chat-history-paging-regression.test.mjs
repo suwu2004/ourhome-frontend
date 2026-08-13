@@ -22,3 +22,10 @@ test('session preview cache stays bounded after deep history browsing', () => {
   assert.match(roomSource, /MAX_CACHED_MESSAGES_PER_SESSION = 320/);
   assert.match(roomSource, /stableMessages\.slice\(-MAX_CACHED_MESSAGES_PER_SESSION\)/);
 });
+
+test('Chat exposes a guarded refresh action for the current conversation', () => {
+  assert.match(roomSource, /aria-label="刷新当前对话"/);
+  assert.match(roomSource, /await refreshMessages\(\)/);
+  assert.match(roomSource, /if \(!sessionId \|\| chatRefreshing \|\| thinking \|\| !refreshMessages\) return/);
+  assert.match(appSource, /refreshMessages=\{\(\) => loadMessagesFor\(sessionId\)\}/);
+});
