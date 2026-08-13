@@ -16,10 +16,24 @@ export const DARK_THEME = {
 
 export const DARK_MODE_STORAGE_KEY = 'ourhome_dark_mode';
 
+export function hasSavedDarkMode() {
+  try {
+    const saved = localStorage.getItem(DARK_MODE_STORAGE_KEY);
+    return saved === 'true' || saved === 'false';
+  } catch {
+    return false;
+  }
+}
+
 export function getSavedDarkMode() {
-  const saved = localStorage.getItem(DARK_MODE_STORAGE_KEY);
-  if (saved === 'true') return true;
-  if (saved === 'false') return false;
+  try {
+    const saved = localStorage.getItem(DARK_MODE_STORAGE_KEY);
+    if (saved === 'true') return true;
+    if (saved === 'false') return false;
+  } catch {
+    // A private/restricted webview can deny storage access. The painted document
+    // remains a safe fallback and theme switching still works for this session.
+  }
   return document.documentElement.dataset.theme === 'dark';
 }
 
@@ -27,6 +41,10 @@ export function applyDocumentTheme(darkMode) {
   const isDark = Boolean(darkMode);
   document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
   document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
-  localStorage.setItem(DARK_MODE_STORAGE_KEY, String(isDark));
+  try {
+    localStorage.setItem(DARK_MODE_STORAGE_KEY, String(isDark));
+  } catch {
+    // Keep the visible theme responsive even when persistent storage is denied.
+  }
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#17111F' : '#E9A641');
 }
