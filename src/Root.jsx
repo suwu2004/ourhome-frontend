@@ -31,7 +31,6 @@ const ApiUsageLogPanel = lazy(() => import('./ApiUsageLogPanel.jsx'));
 const LuzeAutonomySettingsPanel = lazy(() => import('./LuzeAutonomySettingsPanel.jsx'));
 const LuzePrivateRoom = lazy(() => import('./LuzePrivateRoom.jsx'));
 const VaultPage = lazy(() => import('./VaultPage.jsx'));
-const TheaterRuleLibrary = lazy(() => import('./TheaterRuleLibrary.jsx'));
 
 const roomKeys = new Set(['chat', 'theater', 'music', 'reading', 'letters', 'memories', 'calendar', 'vault', 'photos', 'settings', 'toybox', 'luze-room']);
 const persistentAppRoomKeys = new Set(['chat', 'theater', 'music', 'letters', 'memories', 'calendar', 'photos', 'settings']);
@@ -199,7 +198,6 @@ export default function Root() {
           <RoomBoundary room={activePersistentRoom} onHome={goHome}>
             <Suspense fallback={<div className="room-loading-shell" role="status">正在打开房间…</div>}>
               <App initialView={activePersistentRoom} onHome={goHome} />
-              {activePersistentRoom === 'theater' && <TheaterRuleLibrary />}
               {activePersistentRoom === 'settings' && (
                 <>
                   <ApiUsageLogPanel />

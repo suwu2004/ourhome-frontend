@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { apiFetch, BACKEND } from './api.js';
 import './TheaterRuleLibrary.css';
 
@@ -89,8 +88,7 @@ function RuleCard({ rule, index, count, busy, onEdit, onToggle, onScope, onDelet
   );
 }
 
-export default function TheaterRuleLibrary({ placement = 'theater' }) {
-  const [toolbarTarget, setToolbarTarget] = useState(null);
+export default function TheaterRuleLibrary() {
   const [open, setOpen] = useState(false);
   const [rules, setRules] = useState([]);
   const [draft, setDraft] = useState(emptyDraft);
@@ -98,7 +96,6 @@ export default function TheaterRuleLibrary({ placement = 'theater' }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
-  const hiddenButtonsRef = useRef([]);
 
   const enabledCount = useMemo(() => rules.filter(rule => rule.enabled).length, [rules]);
   const enabledChars = useMemo(
@@ -132,45 +129,6 @@ export default function TheaterRuleLibrary({ placement = 'theater' }) {
   useEffect(() => {
     loadRules();
   }, [loadRules]);
-
-  useEffect(() => {
-    if (placement !== 'theater') return undefined;
-    const locateToolbar = () => {
-      const buttons = [...document.querySelectorAll('button')];
-      const importButton = buttons.find(button => button.textContent?.trim() === '导入世界');
-      const duplicateButtons = buttons.filter(button => {
-        const text = button.textContent?.replace(/\s+/g, ' ').trim();
-        return text === '通用规则' || text === '＋ 新书' || text === '+ 新书' || text === '+新书';
-      });
-
-      duplicateButtons.forEach(button => {
-        if (button.dataset.theaterRuleLibraryHidden === 'true') return;
-        button.dataset.theaterRuleLibraryHidden = 'true';
-        button.dataset.theaterRuleLibraryDisplay = button.style.display || '';
-        button.style.setProperty('display', 'none', 'important');
-        hiddenButtonsRef.current.push(button);
-      });
-
-      if (importButton?.parentElement && toolbarTarget !== importButton.parentElement) {
-        setToolbarTarget(importButton.parentElement);
-      }
-    };
-
-    locateToolbar();
-    const observer = new MutationObserver(locateToolbar);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => {
-      observer.disconnect();
-      hiddenButtonsRef.current.forEach(button => {
-        if (!button?.isConnected) return;
-        const previous = button.dataset.theaterRuleLibraryDisplay || '';
-        button.style.display = previous;
-        delete button.dataset.theaterRuleLibraryHidden;
-        delete button.dataset.theaterRuleLibraryDisplay;
-      });
-      hiddenButtonsRef.current = [];
-    };
-  }, [placement, toolbarTarget]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -353,31 +311,17 @@ export default function TheaterRuleLibrary({ placement = 'theater' }) {
     }
   };
 
-  const trigger = placement === 'memory'
-    ? (
+  return (
+    <>
       <button className="theater-rule-library-trigger is-memory" type="button" onClick={() => setOpen(true)}>
         <span><strong>规则库</strong><small>表达、行为、禁区与叙事规范</small></span>
         <b>{enabledCount}</b>
       </button>
-    )
-    : toolbarTarget
-    ? createPortal(
-      <button className="theater-rule-library-trigger" type="button" onClick={() => setOpen(true)}>
-        <span>规则库</span>
-        <b>{enabledCount}</b>
-      </button>,
-      toolbarTarget,
-    )
-    : null;
-
-  return (
-    <>
-      {trigger}
       {open && (
         <div className="theater-rule-layer" role="presentation" onMouseDown={event => {
           if (event.target === event.currentTarget) setOpen(false);
         }}>
-          <section className="theater-rule-library" role="dialog" aria-modal="true" aria-label="小剧场通用规则库">
+          <section className="theater-rule-library" role="dialog" aria-modal="true" aria-label="规则库">
             <header className="theater-rule-library-head">
               <div>
                 <span>OURHOME RULE LIBRARY</span>
