@@ -89,7 +89,7 @@ function RuleCard({ rule, index, count, busy, onEdit, onToggle, onScope, onDelet
   );
 }
 
-export default function TheaterRuleLibrary() {
+export default function TheaterRuleLibrary({ placement = 'theater' }) {
   const [toolbarTarget, setToolbarTarget] = useState(null);
   const [open, setOpen] = useState(false);
   const [rules, setRules] = useState([]);
@@ -134,6 +134,7 @@ export default function TheaterRuleLibrary() {
   }, [loadRules]);
 
   useEffect(() => {
+    if (placement !== 'theater') return undefined;
     const locateToolbar = () => {
       const buttons = [...document.querySelectorAll('button')];
       const importButton = buttons.find(button => button.textContent?.trim() === '导入世界');
@@ -169,7 +170,7 @@ export default function TheaterRuleLibrary() {
       });
       hiddenButtonsRef.current = [];
     };
-  }, [toolbarTarget]);
+  }, [placement, toolbarTarget]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -352,7 +353,14 @@ export default function TheaterRuleLibrary() {
     }
   };
 
-  const trigger = toolbarTarget
+  const trigger = placement === 'memory'
+    ? (
+      <button className="theater-rule-library-trigger is-memory" type="button" onClick={() => setOpen(true)}>
+        <span><strong>规则库</strong><small>表达、行为、禁区与叙事规范</small></span>
+        <b>{enabledCount}</b>
+      </button>
+    )
+    : toolbarTarget
     ? createPortal(
       <button className="theater-rule-library-trigger" type="button" onClick={() => setOpen(true)}>
         <span>规则库</span>
@@ -372,9 +380,9 @@ export default function TheaterRuleLibrary() {
           <section className="theater-rule-library" role="dialog" aria-modal="true" aria-label="小剧场通用规则库">
             <header className="theater-rule-library-head">
               <div>
-                <span>THEATER RULE LIBRARY</span>
-                <h2>小剧场通用规则库</h2>
-                <p>每条规则可以单独选择只进小剧场、只进 Chat，或者两边共同使用。</p>
+                <span>OURHOME RULE LIBRARY</span>
+                <h2>规则库</h2>
+                <p>规则管表达与行为，每条都能单独选择只进小剧场、只进 Chat，或者两边共同使用。</p>
               </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="关闭规则库">×</button>
             </header>
