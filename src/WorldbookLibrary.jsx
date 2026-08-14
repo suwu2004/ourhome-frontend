@@ -83,6 +83,8 @@ export default function WorldbookLibrary() {
   const [open, setOpen] = useState(false);
   const [books, setBooks] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [bookDraft, setBookDraft] = useState({ ...emptyBook });
   const [entryDraft, setEntryDraft] = useState({ ...emptyEntry });
   const [loading, setLoading] = useState(false);
@@ -97,33 +99,95 @@ export default function WorldbookLibrary() {
   const [importEnabled, setImportEnabled] = useState(false);
   const fileInputRef = useRef(null);
   const closeButtonRef = useRef(null);
+  const detailRequestRef = useRef(0);
 
-  const selectedBook = useMemo(
+  const selectedSummary = useMemo(
     () => books.find(book => String(book.id) === String(selectedId)) || null,
     [books, selectedId],
   );
+  const selectedBook = useMemo(() => {
+    if (selectedDetail && String(selectedDetail.id) === String(selectedId)) return selectedDetail;
+    return selectedSummary;
+  }, [selectedDetail, selectedId, selectedSummary]);
   const enabledCount = useMemo(() => books.filter(book => book.enabled).length, [books]);
+
+  const loadBookDetail = useCallback(async (bookId, fallbackBook = null) => {
+    if (!bookId) {
+      detailRequestRef.current += 1;
+      setSelectedDetail(null);
+      setDetailLoading(false);
+      return null;
+    }
+
+    const requestId = ++detailRequestRef.current;
+    if (Array.isArray(fallbackBook?.entries)) {
+      setSelectedDetail(fallbackBook);
+      setBookDraft(bookToDraft(fallbackBook));
+      setEntryDraft({ ...emptyEntry });
+      setDetailLoading(false);
+      return fallbackBook;
+    }
+
+    setDetailLoading(true);
+    try {
+      let detail = null;
+      const response = await apiFetch(`${BACKEND}/lorebooks/${bookId}`);
+      const data = await readJson(response);
+      if (response.ok) {
+        detail = data;
+      } else if (response.status === 404) {
+        // Rolling deploy compatibility: older backends return full books from the shelf endpoint.
+        const legacyResponse = await apiFetch(`${BACKEND}/lorebooks`);
+        const legacyData = await readJson(legacyResponse);
+        if (!legacyResponse.ok) throw new Error(legacyData.error || '世界书正文没有打开');
+        detail = (Array.isArray(legacyData) ? legacyData : []).find(book => String(book.id) === String(bookId)) || null;
+      } else {
+        throw new Error(data.error || '世界书正文没有打开');
+      }
+      if (!detail) throw new Error('找不到这本世界书');
+      if (requestId !== detailRequestRef.current) return null;
+      setSelectedDetail(detail);
+      setBookDraft(bookToDraft(detail));
+      setEntryDraft({ ...emptyEntry });
+      return detail;
+    } catch (err) {
+      if (requestId === detailRequestRef.current) setError(err.message || '世界书正文没有打开');
+      return null;
+    } finally {
+      if (requestId === detailRequestRef.current) setDetailLoading(false);
+    }
+  }, []);
 
   const loadBooks = useCallback(async (preferredId = null) => {
     setLoading(true);
     setError('');
     try {
-      const response = await apiFetch(`${BACKEND}/lorebooks`);
+      const response = await apiFetch(`${BACKEND}/lorebooks?summary=1`);
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || '世界书库没有打开');
       const nextBooks = Array.isArray(data) ? data : [];
       setBooks(nextBooks);
       setLoaded(true);
       const nextId = preferredId || selectedId || nextBooks[0]?.id || null;
+      const nextBook = nextBooks.find(book => String(book.id) === String(nextId)) || null;
       setSelectedId(nextId);
-      setBookDraft(bookToDraft(nextBooks.find(book => String(book.id) === String(nextId))));
-      setEntryDraft({ ...emptyEntry });
+      if (!nextId) {
+        detailRequestRef.current += 1;
+        setSelectedDetail(null);
+        setBookDraft({ ...emptyBook });
+        setEntryDraft({ ...emptyEntry });
+        setDetailLoading(false);
+      } else {
+        setBookDraft(bookToDraft(nextBook));
+        setEntryDraft({ ...emptyEntry });
+        await loadBookDetail(nextId, nextBook);
+      }
     } catch (err) {
       setError(err.message || '世界书库没有打开');
     } finally {
       setLoading(false);
     }
-  }, [selectedId]);
+  }, [loadBookDetail, selectedId]);
 
   useEffect(() => {
     if (!open) return;
@@ -135,6 +199,7 @@ export default function WorldbookLibrary() {
 
   const chooseBook = book => {
     setSelectedId(book.id);
+    setSelectedDetail(Array.isArray(book.entries) ? book : null);
     setBookDraft(bookToDraft(book));
     setEntryDraft({ ...emptyEntry });
     setError('');
@@ -142,10 +207,14 @@ export default function WorldbookLibrary() {
     setAddMenuOpen(false);
     setUploadOpen(false);
     setMobilePane('detail');
+    loadBookDetail(book.id, book);
   };
 
   const startNewBook = () => {
+    detailRequestRef.current += 1;
     setSelectedId(null);
+    setSelectedDetail(null);
+    setDetailLoading(false);
     setBookDraft({ ...emptyBook });
     setEntryDraft({ ...emptyEntry });
     setError('');
@@ -214,7 +283,9 @@ export default function WorldbookLibrary() {
       const response = await apiFetch(`${BACKEND}/lorebooks/${book.id}`, { method: 'DELETE' });
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || '世界书没有删除成功');
+      detailRequestRef.current += 1;
       setSelectedId(null);
+      setSelectedDetail(null);
       setBookDraft({ ...emptyBook });
       await loadBooks();
       setMobilePane('library');
@@ -444,7 +515,7 @@ export default function WorldbookLibrary() {
                     <section className="worldbook-book-editor">
                       <div className="worldbook-section-title">
                         <div><span>{bookDraft.id ? 'WORLD BOOK' : 'NEW WORLD BOOK'}</span><h3>{bookDraft.id ? bookDraft.name || '未命名世界书' : '新建世界书'}</h3></div>
-                        {bookDraft.id && <button className="is-danger" type="button" disabled={busy} onClick={() => deleteBook(selectedBook)}>删除</button>}
+                        {bookDraft.id && selectedBook && <button className="is-danger" type="button" disabled={busy} onClick={() => deleteBook(selectedBook)}>删除</button>}
                       </div>
 
                       <label><span>名称</span><input value={bookDraft.name} maxLength={120} onChange={event => setBookDraft(value => ({ ...value, name: event.target.value }))} placeholder="例如：一颗透明的心" /></label>
@@ -454,8 +525,8 @@ export default function WorldbookLibrary() {
                         <label className="worldbook-switch-row"><span>启用</span><input type="checkbox" checked={bookDraft.enabled} onChange={event => setBookDraft(value => ({ ...value, enabled: event.target.checked }))} /></label>
                       </div>
                       <div className="worldbook-book-actions">
-                        <button className="is-primary" type="button" disabled={busy} onClick={saveBook}>{busy ? '保存中…' : '保存世界书'}</button>
-                        {selectedBook && <button type="button" disabled={busy} onClick={() => toggleBook(selectedBook)}>{selectedBook.enabled ? '停用' : '启用'}</button>}
+                        <button className="is-primary" type="button" disabled={busy || detailLoading} onClick={saveBook}>{busy ? '保存中…' : '保存世界书'}</button>
+                        {selectedBook && <button type="button" disabled={busy || detailLoading} onClick={() => toggleBook(selectedBook)}>{selectedBook.enabled ? '停用' : '启用'}</button>}
                       </div>
                     </section>
 
@@ -463,42 +534,46 @@ export default function WorldbookLibrary() {
                       <section className="worldbook-entries">
                         <div className="worldbook-section-title">
                           <div><span>CONTENT</span><h3>正文</h3></div>
-                          <button type="button" onClick={() => setEntryDraft({ ...emptyEntry })}>＋ 添加</button>
+                          <button type="button" disabled={detailLoading} onClick={() => setEntryDraft({ ...emptyEntry })}>＋ 添加</button>
                         </div>
 
-                        <div className="worldbook-entry-cards">
-                          {(selectedBook.entries || []).map(entry => (
-                            <article key={entry.id} className={entry.enabled === false ? 'is-disabled' : ''}>
-                              <header><div><strong>{entry.name || '完整设定'}</strong><small>{entry.constant ? '常驻' : `${(entry.keys || []).slice(0, 3).join(' · ') || '关键词触发'}`}</small></div><input type="checkbox" checked={entry.enabled !== false} aria-label="启用这段内容" onChange={() => patchEntry(entry, { enabled: entry.enabled === false })} /></header>
-                              <p>{entry.content}</p>
-                              <footer><button type="button" onClick={() => setEntryDraft(entryToDraft(entry))}>修改</button><button className="is-danger" type="button" onClick={() => deleteEntry(entry)}>删除</button></footer>
-                            </article>
-                          ))}
-                          {(selectedBook.entries || []).length === 0 && <div className="worldbook-empty">还没有正文，下面添加一段即可。</div>}
-                        </div>
+                        {detailLoading ? <div className="worldbook-empty">正在打开正文…</div> : (
+                          <>
+                            <div className="worldbook-entry-cards">
+                              {(selectedBook.entries || []).map(entry => (
+                                <article key={entry.id} className={entry.enabled === false ? 'is-disabled' : ''}>
+                                  <header><div><strong>{entry.name || '完整设定'}</strong><small>{entry.constant ? '常驻' : `${(entry.keys || []).slice(0, 3).join(' · ') || '关键词触发'}`}</small></div><input type="checkbox" checked={entry.enabled !== false} aria-label="启用这段内容" onChange={() => patchEntry(entry, { enabled: entry.enabled === false })} /></header>
+                                  <p>{entry.content}</p>
+                                  <footer><button type="button" onClick={() => setEntryDraft(entryToDraft(entry))}>修改</button><button className="is-danger" type="button" onClick={() => deleteEntry(entry)}>删除</button></footer>
+                                </article>
+                              ))}
+                              {(selectedBook.entries || []).length === 0 && <div className="worldbook-empty">还没有正文，下面添加一段即可。</div>}
+                            </div>
 
-                        <div className="worldbook-entry-editor">
-                          <label><span>这一段的名称</span><input value={entryDraft.name} onChange={event => setEntryDraft(value => ({ ...value, name: event.target.value }))} placeholder="完整设定" /></label>
-                          <label><span>正文</span><textarea value={entryDraft.content} onChange={event => setEntryDraft(value => ({ ...value, content: event.target.value }))} placeholder="把世界书正文放在这里" /></label>
+                            <div className="worldbook-entry-editor">
+                              <label><span>这一段的名称</span><input value={entryDraft.name} onChange={event => setEntryDraft(value => ({ ...value, name: event.target.value }))} placeholder="完整设定" /></label>
+                              <label><span>正文</span><textarea value={entryDraft.content} onChange={event => setEntryDraft(value => ({ ...value, content: event.target.value }))} placeholder="把世界书正文放在这里" /></label>
 
-                          <details className="worldbook-advanced">
-                            <summary>触发方式（可选）</summary>
-                            <div className="worldbook-advanced-body">
-                              <label className="worldbook-switch-row"><span>常驻内容</span><input type="checkbox" checked={entryDraft.constant} onChange={event => setEntryDraft(value => ({ ...value, constant: event.target.checked }))} /></label>
-                              {!entryDraft.constant && <label><span>触发词</span><input value={entryDraft.keys_text} onChange={event => setEntryDraft(value => ({ ...value, keys_text: event.target.value }))} placeholder="过去线，回到过去" /></label>}
-                              {!entryDraft.constant && <label><span>辅助触发词</span><input value={entryDraft.secondary_text} onChange={event => setEntryDraft(value => ({ ...value, secondary_text: event.target.value }))} placeholder="可留空" /></label>}
-                              <div className="worldbook-advanced-checks">
-                                <label><input type="checkbox" checked={entryDraft.selective} onChange={event => setEntryDraft(value => ({ ...value, selective: event.target.checked }))} />需要主词 + 辅助词</label>
-                                <label><input type="checkbox" checked={entryDraft.use_regex} onChange={event => setEntryDraft(value => ({ ...value, use_regex: event.target.checked }))} />正则触发</label>
+                              <details className="worldbook-advanced">
+                                <summary>触发方式（可选）</summary>
+                                <div className="worldbook-advanced-body">
+                                  <label className="worldbook-switch-row"><span>常驻内容</span><input type="checkbox" checked={entryDraft.constant} onChange={event => setEntryDraft(value => ({ ...value, constant: event.target.checked }))} /></label>
+                                  {!entryDraft.constant && <label><span>触发词</span><input value={entryDraft.keys_text} onChange={event => setEntryDraft(value => ({ ...value, keys_text: event.target.value }))} placeholder="过去线，回到过去" /></label>}
+                                  {!entryDraft.constant && <label><span>辅助触发词</span><input value={entryDraft.secondary_text} onChange={event => setEntryDraft(value => ({ ...value, secondary_text: event.target.value }))} placeholder="可留空" /></label>}
+                                  <div className="worldbook-advanced-checks">
+                                    <label><input type="checkbox" checked={entryDraft.selective} onChange={event => setEntryDraft(value => ({ ...value, selective: event.target.checked }))} />需要主词 + 辅助词</label>
+                                    <label><input type="checkbox" checked={entryDraft.use_regex} onChange={event => setEntryDraft(value => ({ ...value, use_regex: event.target.checked }))} />正则触发</label>
+                                  </div>
+                                </div>
+                              </details>
+
+                              <div className="worldbook-entry-options">
+                                {entryDraft.id && <button type="button" onClick={() => setEntryDraft({ ...emptyEntry })}>取消修改</button>}
+                                <button type="button" disabled={busy} onClick={saveEntry}>{entryDraft.id ? '保存修改' : '加入正文'}</button>
                               </div>
                             </div>
-                          </details>
-
-                          <div className="worldbook-entry-options">
-                            {entryDraft.id && <button type="button" onClick={() => setEntryDraft({ ...emptyEntry })}>取消修改</button>}
-                            <button type="button" disabled={busy} onClick={saveEntry}>{entryDraft.id ? '保存修改' : '加入正文'}</button>
-                          </div>
-                        </div>
+                          </>
+                        )}
                       </section>
                     )}
                   </>

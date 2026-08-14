@@ -46,6 +46,14 @@ test('worldbook shelf keeps creation, upload, activation and location simple', (
   assert.doesNotMatch(worldbooks, /导出备份/);
 });
 
+test('worldbook shelf loads lightweight summaries before one selected book body', () => {
+  assert.match(worldbooks, /lorebooks\?summary=1/);
+  assert.match(worldbooks, /apiFetch\(`\$\{BACKEND\}\/lorebooks\/\$\{bookId\}`\)/);
+  assert.match(worldbooks, /detailLoading/);
+  assert.match(worldbooks, /正在打开正文…/);
+  assert.match(worldbooks, /Rolling deploy compatibility/);
+});
+
 test('theater no longer duplicates the shared rule-library controls', () => {
   assert.doesNotMatch(root, /TheaterRuleLibrary/);
   assert.doesNotMatch(theater, /globalRulesOpen|loadGlobalRules|小剧场通用规则/);
