@@ -36,3 +36,12 @@ test('theater preserves old-story reading position and only offers latest when n
   assert.match(source, /if \(bookPane !== 'chat' \|\| !nearLatestRef\.current\) return/);
   assert.match(source, /scrollHeight - node\.scrollTop - node\.clientHeight < 72/);
 });
+
+test('theater chat locks rapid duplicate submits and reuses the request id on retry', () => {
+  assert.match(source, /if \(chatSendLockRef\.current\) return/);
+  assert.match(source, /chatSendLockRef\.current = true/);
+  assert.match(source, /chatSendLockRef\.current = false/);
+  assert.match(source, /chatRetryRef\.current\?\.fingerprint === fingerprint/);
+  assert.match(source, /'X-OurHome-Request-Id': requestId/);
+  assert.match(source, /chatRetryRef\.current = null/);
+});
