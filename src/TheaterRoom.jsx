@@ -43,6 +43,21 @@ const chatBackgroundOptions = [
   ['custom', '自定义'],
 ];
 
+function createTheaterRequestId() {
+  const randomId = globalThis.crypto?.randomUUID?.()
+    || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `theater-${randomId}`;
+}
+
+function theaterSendFingerprint({ bookId, text, mode, model }) {
+  return JSON.stringify([
+    String(bookId || ''),
+    String(text || ''),
+    String(mode || ''),
+    String(model || ''),
+  ]);
+}
+
 function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -185,6 +200,8 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const chatEndRef = useRef(null);
   const chatScrollerRef = useRef(null);
   const nearLatestRef = useRef(true);
+  const chatSendLockRef = useRef(false);
+  const chatRetryRef = useRef(null);
   const worldFileInputRef = useRef(null);
   const globalRulesFileInputRef = useRef(null);
   const chatBgInputRef = useRef(null);
@@ -498,10 +515,22 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const sendChat = async (overrideText = null) => {
     const text = (overrideText ?? chatInput).trim();
     if (!selectedBook) return;
+    if (chatSendLockRef.current) return;
     if (!text) {
       setError('先在小剧场里说一句。');
       return;
     }
+    const fingerprint = theaterSendFingerprint({
+      bookId: selectedBook.id,
+      text,
+      mode,
+      model,
+    });
+    const requestId = chatRetryRef.current?.fingerprint === fingerprint
+      ? chatRetryRef.current.requestId
+      : createTheaterRequestId();
+    chatSendLockRef.current = true;
+    chatRetryRef.current = { fingerprint, requestId };
     nearLatestRef.current = true;
     setNearLatest(true);
     setChatting(true);
@@ -510,7 +539,10 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     try {
       const response = await apiFetch(`${BACKEND}/theater/books/${selectedBook.id}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-OurHome-Request-Id': requestId,
+        },
         body: JSON.stringify({
           message: text,
           play_mode: mode,
@@ -519,6 +551,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '小剧场这次没有接上');
+      chatRetryRef.current = null;
       setBooks(items => items.map(book => {
         if (String(book.id) !== String(selectedBook.id)) return book;
         return {
@@ -536,6 +569,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       setError(err.message);
       setChatInput(text);
     } finally {
+      chatSendLockRef.current = false;
       setChatting(false);
     }
   };
