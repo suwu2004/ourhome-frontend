@@ -138,7 +138,7 @@ export default function WorldbookLibrary() {
     setBookDraft(bookToDraft(book));
     setEntryDraft(emptyEntry);
     setError('');
-    setMobilePane('book');
+    setMobilePane('detail');
   };
 
   const startNewBook = () => {
@@ -146,7 +146,7 @@ export default function WorldbookLibrary() {
     setBookDraft(emptyBook);
     setEntryDraft(emptyEntry);
     setError('');
-    setMobilePane('book');
+    setMobilePane('detail');
   };
 
   const saveBook = async () => {
@@ -348,7 +348,7 @@ export default function WorldbookLibrary() {
               <div>
                 <span>OURHOME LOREBOOKS</span>
                 <h2>世界书库</h2>
-                <p>命中触发词才唤醒相关设定，常驻条目一直生效；扫描深度和预算会控制每轮带入多少内容。</p>
+                <p>书架里每一本都是一个设定文件夹；进入一本书后，设置和内容都放在同一页。</p>
               </div>
               <button ref={closeButtonRef} type="button" onClick={closeLibrary} aria-label="关闭世界书库">×</button>
             </header>
@@ -363,8 +363,7 @@ export default function WorldbookLibrary() {
 
             <nav className="worldbook-mobile-tabs" aria-label="世界书库页面">
               <button type="button" className={mobilePane === 'library' ? 'is-active' : ''} onClick={() => setMobilePane('library')}>书架 <b>{books.length}</b></button>
-              <button type="button" className={mobilePane === 'book' ? 'is-active' : ''} onClick={() => setMobilePane('book')}>书本设置</button>
-              <button type="button" className={mobilePane === 'entries' ? 'is-active' : ''} onClick={() => setMobilePane('entries')} disabled={!selectedBook}>知识条目 <b>{selectedBook?.entries?.length || 0}</b></button>
+              <button type="button" className={mobilePane === 'detail' ? 'is-active' : ''} onClick={() => setMobilePane('detail')}>{bookDraft.id ? '当前世界书' : '新建世界书'} <b>{selectedBook?.entries?.length || 0}</b></button>
             </nav>
 
             <div className="worldbook-body">
@@ -402,7 +401,7 @@ export default function WorldbookLibrary() {
               </aside>
 
               <main className="worldbook-editor">
-                <section className={`worldbook-book-editor ${mobilePane !== 'book' ? 'is-mobile-hidden' : ''}`}>
+                <section className={`worldbook-book-editor ${mobilePane !== 'detail' ? 'is-mobile-hidden' : ''}`}>
                   <div className="worldbook-section-title">
                     <div><span>{bookDraft.id ? 'BOOK SETTINGS' : 'NEW LOREBOOK'}</span><h3>{bookDraft.id ? '世界书设置' : '新建世界书'}</h3></div>
                     {selectedBook && <div><button type="button" onClick={() => toggleBook(selectedBook)} disabled={busy}>{selectedBook.enabled ? '停用' : '启用'}</button><button className="is-danger" type="button" onClick={() => deleteBook(selectedBook)} disabled={busy}>删除</button></div>}
@@ -416,28 +415,29 @@ export default function WorldbookLibrary() {
                     <label><span>单轮预算</span><input type="number" min="128" max="12000" step="128" value={bookDraft.token_budget} onChange={event => setBookDraft(current => ({ ...current, token_budget: event.target.value }))} /></label>
                   </div>
                   <div className="worldbook-book-actions">
-                    <label><input type="checkbox" checked={bookDraft.recursive_scanning} onChange={event => setBookDraft(current => ({ ...current, recursive_scanning: event.target.checked }))} />允许两轮递归唤醒</label>
-                    <div>{selectedBook && <button type="button" onClick={() => exportBook(selectedBook)} disabled={busy}>导出 V3</button>}<button className="is-primary" type="button" onClick={saveBook} disabled={busy}>{busy ? '保存中' : bookDraft.id ? '保存设置' : '创建世界书'}</button></div>
+                    <label title="一条设定被唤醒后，可以用它的内容继续寻找关联设定，最多继续两轮。"><input type="checkbox" checked={bookDraft.recursive_scanning} onChange={event => setBookDraft(current => ({ ...current, recursive_scanning: event.target.checked }))} />允许关联设定继续唤醒</label>
+                    <div>{selectedBook && <button type="button" title="导出兼容 Lorebook V3 的 JSON 文件，用来备份或迁移。" onClick={() => exportBook(selectedBook)} disabled={busy}>导出备份</button>}<button className="is-primary" type="button" onClick={saveBook} disabled={busy}>{busy ? '保存中' : bookDraft.id ? '保存设置' : '创建世界书'}</button></div>
                   </div>
+                  <small className="worldbook-book-help">关联唤醒最多继续两轮；导出的 JSON 是兼容 Lorebook V3 的备份文件。</small>
                 </section>
 
                 {selectedBook && (
-                  <section className={`worldbook-entries ${mobilePane !== 'entries' ? 'is-mobile-hidden' : ''}`}>
-                    <div className="worldbook-section-title"><div><span>ACTIVE ENTRIES</span><h3>知识条目</h3></div><button type="button" onClick={() => { setEntryDraft(emptyEntry); setMobilePane('entries'); }}>＋ 新条目</button></div>
+                  <section className={`worldbook-entries ${mobilePane !== 'detail' ? 'is-mobile-hidden' : ''}`}>
+                    <div className="worldbook-section-title"><div><span>BOOK CONTENT</span><h3>设定内容</h3></div><button type="button" onClick={() => { setEntryDraft(emptyEntry); setMobilePane('detail'); }}>＋ 添加设定</button></div>
                     <div className="worldbook-entry-cards">
-                      {(selectedBook.entries || []).length === 0 && <div className="worldbook-empty">这本书还没有条目。常驻内容不用触发词，普通内容会按关键词唤醒。</div>}
+                      {(selectedBook.entries || []).length === 0 && <div className="worldbook-empty">这本书还没有设定。常驻内容一直生效，普通内容会在聊到关键词时自动出现。</div>}
                       {(selectedBook.entries || []).map(entry => (
                         <article key={entry.id} className={entry.enabled ? '' : 'is-disabled'}>
                           <header><div><strong>{entry.name || '未命名条目'}</strong><small>{entry.constant ? '常驻' : (entry.keys || []).join('、') || '无触发词'} · 优先级 {entry.priority || 0}</small></div><button type="button" onClick={() => patchEntry(entry, { enabled: !entry.enabled })}>{entry.enabled ? '启用' : '停用'}</button></header>
                           <p>{entry.content}</p>
-                          <footer><button type="button" onClick={() => { setEntryDraft(entryToDraft(entry)); setMobilePane('entries'); }}>编辑</button><button className="is-danger" type="button" onClick={() => deleteEntry(entry)}>删除</button></footer>
+                          <footer><button type="button" onClick={() => { setEntryDraft(entryToDraft(entry)); setMobilePane('detail'); }}>编辑</button><button className="is-danger" type="button" onClick={() => deleteEntry(entry)}>删除</button></footer>
                         </article>
                       ))}
                     </div>
 
                     <div className="worldbook-entry-editor">
-                      <div className="worldbook-section-title"><div><span>{entryDraft.id ? 'EDIT ENTRY' : 'NEW ENTRY'}</span><h3>{entryDraft.id ? '修改条目' : '添加条目'}</h3></div>{entryDraft.id && <button type="button" onClick={() => setEntryDraft(emptyEntry)}>取消编辑</button>}</div>
-                      <label><span>条目名称</span><input value={entryDraft.name} maxLength={120} onChange={event => setEntryDraft(current => ({ ...current, name: event.target.value }))} /></label>
+                      <div className="worldbook-section-title"><div><span>{entryDraft.id ? 'EDIT ENTRY' : 'NEW ENTRY'}</span><h3>{entryDraft.id ? '修改设定' : '添加设定'}</h3></div>{entryDraft.id && <button type="button" onClick={() => setEntryDraft(emptyEntry)}>取消编辑</button>}</div>
+                      <label><span>设定名称</span><input value={entryDraft.name} maxLength={120} onChange={event => setEntryDraft(current => ({ ...current, name: event.target.value }))} /></label>
                       <label><span>正文</span><textarea rows={7} maxLength={40000} value={entryDraft.content} onChange={event => setEntryDraft(current => ({ ...current, content: event.target.value }))} placeholder="模型真正会读到的设定内容" /></label>
                       <div className="worldbook-grid-fields">
                         <label><span>主要触发词</span><input value={entryDraft.keys_text} onChange={event => setEntryDraft(current => ({ ...current, keys_text: event.target.value }))} placeholder="用逗号分隔" /></label>
@@ -449,7 +449,7 @@ export default function WorldbookLibrary() {
                         <label><input type="checkbox" checked={entryDraft.constant} onChange={event => setEntryDraft(current => ({ ...current, constant: event.target.checked }))} />常驻</label>
                         <label><input type="checkbox" checked={entryDraft.selective} onChange={event => setEntryDraft(current => ({ ...current, selective: event.target.checked }))} />主要词与次要词共同命中</label>
                         <label><input type="checkbox" checked={entryDraft.use_regex} onChange={event => setEntryDraft(current => ({ ...current, use_regex: event.target.checked }))} />安全正则</label>
-                        <button type="button" onClick={saveEntry} disabled={busy}>{busy ? '保存中' : entryDraft.id ? '保存条目' : '加入世界书'}</button>
+                        <button type="button" onClick={saveEntry} disabled={busy}>{busy ? '保存中' : entryDraft.id ? '保存设定' : '保存到这本书'}</button>
                       </div>
                     </div>
                   </section>

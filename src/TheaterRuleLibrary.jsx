@@ -354,8 +354,7 @@ export default function TheaterRuleLibrary() {
 
             <nav className="theater-rule-mobile-tabs" aria-label="规则库页面">
               <button type="button" className={mobilePane === 'list' ? 'is-active' : ''} onClick={() => setMobilePane('list')}>规则列表 <b>{rules.length}</b></button>
-              <button type="button" className={mobilePane === 'editor' ? 'is-active' : ''} onClick={() => setMobilePane('editor')}>{draft.id ? '编辑规则' : '添加规则'}</button>
-              <button type="button" onClick={startNewRule} aria-label="新建规则">＋</button>
+              <button type="button" className={`is-add ${mobilePane === 'editor' ? 'is-active' : ''}`} onClick={startNewRule} aria-label="新建规则">＋</button>
             </nav>
 
             <div className="theater-rule-library-body">

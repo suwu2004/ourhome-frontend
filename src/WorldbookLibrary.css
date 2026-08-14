@@ -50,6 +50,7 @@
 .worldbook-book-actions, .worldbook-entry-options { margin-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #8c7359; font-size: 9px; }
 .worldbook-book-actions label, .worldbook-entry-options label { display: flex; align-items: center; gap: 5px; }
 .worldbook-book-actions button.is-primary, .worldbook-entry-options > button { border: 0; background: linear-gradient(145deg, #c6924b, #8c5926); color: #fff; }
+.worldbook-book-help { display: block; margin-top: 7px; color: #a0886f; font-size: 8.5px; line-height: 1.55; }
 .worldbook-entry-cards { margin-top: 11px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .worldbook-entry-cards article { min-width: 0; padding: 11px; border: 1px solid rgba(145, 96, 43, .15); border-radius: 14px; background: linear-gradient(145deg, rgba(255,255,255,.75), rgba(248,236,216,.62)); }
 .worldbook-entry-cards article.is-disabled { opacity: .58; filter: grayscale(.15); }
@@ -73,7 +74,7 @@
   .worldbook-list { overflow: visible; }
   .worldbook-entry-cards { grid-template-columns: 1fr; }
   .worldbook-new, .worldbook-import > button { min-height: 42px; }
-  .worldbook-mobile-tabs { padding: 8px 10px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; border-bottom: 1px solid rgba(145, 96, 43, .12); background: rgba(255, 252, 246, .74); }
+  .worldbook-mobile-tabs { padding: 8px 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; border-bottom: 1px solid rgba(145, 96, 43, .12); background: rgba(255, 252, 246, .74); }
   .worldbook-mobile-tabs button { min-width: 0; min-height: 38px; padding: 0 5px; border: 1px solid rgba(145, 96, 43, .15); border-radius: 12px; background: rgba(255,255,255,.56); color: #8a6d4f; font: inherit; font-size: 9.5px; }
   .worldbook-mobile-tabs button.is-active { border-color: rgba(151, 94, 31, .38); background: rgba(241, 216, 174, .56); color: #8b5b25; font-weight: 700; }
   .worldbook-mobile-tabs b { font-size: 8.5px; }

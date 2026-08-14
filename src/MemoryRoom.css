@@ -8,35 +8,6 @@
   gap: 10px;
 }
 
-.memory-knowledge-intro {
-  margin-bottom: 11px;
-  padding: 9px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid;
-  border-radius: 14px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.memory-knowledge-intro::-webkit-scrollbar {
-  display: none;
-}
-
-.memory-knowledge-intro span {
-  flex: 0 0 auto;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .52);
-  font-size: 9.5px;
-  line-height: 1.35;
-}
-
-.memory-knowledge-intro b {
-  font-size: 10px;
-}
-
 .memory-knowledge-grid .knowledge-library-trigger__icon {
   width: 42px;
   height: 42px;
@@ -170,11 +141,6 @@
   .memory-knowledge-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 9px;
-  }
-
-  .memory-knowledge-intro {
-    margin-inline: -1px;
-    padding: 7px;
   }
 
   .memory-knowledge-grid .knowledge-library-trigger {
