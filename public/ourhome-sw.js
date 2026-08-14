@@ -31,13 +31,28 @@ function base64UrlToUint8Array(value) {
   return Uint8Array.from([...raw].map(char => char.charCodeAt(0)));
 }
 
+async function requestClientPushRepair() {
+  try {
+    const clientsArr = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    clientsArr.forEach(client => client.postMessage({ type: 'ourhome-push-repair-needed' }));
+  } catch {
+    // If no page is open, the next normal app launch performs the authenticated repair.
+  }
+}
+
 async function syncPushSubscription() {
   if (!self.registration?.pushManager) return null;
   try {
     const keyResponse = await fetch('/api/push/public-key', { cache: 'no-store' });
-    if (!keyResponse.ok) return null;
+    if (!keyResponse.ok) {
+      await requestClientPushRepair();
+      return null;
+    }
     const { publicKey } = await keyResponse.json();
-    if (!publicKey) return null;
+    if (!publicKey) {
+      await requestClientPushRepair();
+      return null;
+    }
 
     let subscription = await self.registration.pushManager.getSubscription();
     if (!subscription) {
@@ -47,14 +62,19 @@ async function syncPushSubscription() {
       });
     }
     const json = subscription.toJSON();
-    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return subscription;
-    await fetch('/api/push/subscribe', {
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+      await requestClientPushRepair();
+      return subscription;
+    }
+    const response = await fetch('/api/push/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
-    }).catch(() => {});
+    }).catch(() => null);
+    if (!response?.ok) await requestClientPushRepair();
     return subscription;
   } catch {
+    await requestClientPushRepair();
     return null;
   }
 }
