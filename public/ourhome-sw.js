@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'ourhome-shell-';
-const CACHE_NAME = `${CACHE_PREFIX}v2`;
+const CACHE_NAME = `${CACHE_PREFIX}v3`;
 const CORE_SHELL = [
   '/',
   '/manifest.json',
@@ -22,6 +22,41 @@ function staticAssetPath(pathname) {
     || pathname === '/icon-192.png'
     || pathname === '/icon-512.png'
     || pathname === '/apple-touch-icon.png';
+}
+
+function base64UrlToUint8Array(value) {
+  const padding = '='.repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(char => char.charCodeAt(0)));
+}
+
+async function syncPushSubscription() {
+  if (!self.registration?.pushManager) return null;
+  try {
+    const keyResponse = await fetch('/api/push/public-key', { cache: 'no-store' });
+    if (!keyResponse.ok) return null;
+    const { publicKey } = await keyResponse.json();
+    if (!publicKey) return null;
+
+    let subscription = await self.registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await self.registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlToUint8Array(publicKey),
+      });
+    }
+    const json = subscription.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return subscription;
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys }),
+    }).catch(() => {});
+    return subscription;
+  } catch {
+    return null;
+  }
 }
 
 async function cacheBuiltAssets(cache) {
@@ -95,21 +130,58 @@ self.addEventListener('activate', event => {
       .map(name => caches.delete(name)));
     await pruneOldBuiltAssets(await caches.open(CACHE_NAME));
     await self.clients.claim();
+    await syncPushSubscription();
   })());
+});
+
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil(syncPushSubscription());
+});
+
+self.addEventListener('push', event => {
+  let data = { title: '陆泽', body: '想你了。', data: {} };
+  try {
+    if (event.data) data = event.data.json();
+  } catch {
+    // Keep a visible fallback when an upstream payload is malformed.
+  }
+  event.waitUntil(self.registration.showNotification(data.title || '陆泽', {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: data.data?.type === 'chat_message' ? 'ourhome-chat-message' : 'ourhome-notification',
+    renotify: true,
+    data: data.data || {},
+  }));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const data = event.notification.data || {};
+  const params = new URLSearchParams();
+  if (data.session_id) params.set('notification_session', data.session_id);
+  if (data.message_id) params.set('notification_message', data.message_id);
+  const targetUrl = params.toString() ? `/?${params.toString()}#chat` : '/#chat';
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientsArr => {
+    const existing = clientsArr.find(client => 'focus' in client);
+    if (existing) {
+      existing.postMessage({ type: 'ourhome-notification-click', ...data });
+      return existing.focus();
+    }
+    return self.clients.openWindow ? self.clients.openWindow(targetUrl) : undefined;
+  }));
 });
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'REPAIR_PUSH') event.waitUntil(syncPushSubscription());
 });
 
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
-
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-
-  // Never cache API responses, auth state, chat data or private cloud reads.
   if (url.pathname === '/api' || url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate') {
@@ -129,7 +201,6 @@ self.addEventListener('fetch', event => {
   }
 
   if (!staticAssetPath(url.pathname)) return;
-
   event.respondWith((async () => {
     const cached = await caches.match(request);
     if (cached) return cached;
