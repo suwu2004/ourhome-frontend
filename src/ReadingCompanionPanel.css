@@ -1,7 +1,7 @@
 .reading-companion-fab {
   position: fixed;
   right: max(18px, env(safe-area-inset-right));
-  bottom: max(116px, calc(env(safe-area-inset-bottom) + 104px));
+  bottom: max(22px, calc(env(safe-area-inset-bottom) + 16px));
   z-index: 1450;
   display: inline-flex;
   align-items: center;
@@ -16,6 +16,10 @@
   cursor: pointer;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+}
+
+.reading-room--reader ~ .reading-companion-fab {
+  bottom: max(116px, calc(env(safe-area-inset-bottom) + 104px));
 }
 
 .reading-companion-fab > span {
@@ -231,9 +235,12 @@
 @media (max-width: 640px) {
   .reading-companion-fab {
     right: max(14px, env(safe-area-inset-right));
-    bottom: max(122px, calc(env(safe-area-inset-bottom) + 112px));
     min-height: 42px;
     padding-right: 11px;
+  }
+
+  .reading-room--reader ~ .reading-companion-fab {
+    bottom: max(122px, calc(env(safe-area-inset-bottom) + 112px));
   }
 
   .reading-companion-fab strong { font-size: 11px; }
