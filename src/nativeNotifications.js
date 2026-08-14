@@ -1,90 +1,105 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
-const OurHomeNotifications = registerPlugin('OurHomeNotifications');
+const NativeNotifications = registerPlugin('OurHomeNotifications');
 
-function isAndroidNative() {
-  return typeof window !== 'undefined'
-    && Capacitor.isNativePlatform()
-    && Capacitor.getPlatform() === 'android';
+export function isNativeAndroidApp() {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 }
 
-async function callPlugin(method, fallback = null) {
-  if (!isAndroidNative()) return fallback;
-  try {
-    return await OurHomeNotifications[method]();
-  } catch (error) {
-    console.warn(`[native-notifications] ${method} failed:`, error?.message || error);
-    return fallback;
-  }
-}
-
-export { isAndroidNative };
-
-export async function getNativeNotificationPermissionStatus() {
-  return callPlugin('getPermissionStatus', { status: 'unsupported' });
+export async function getNativeNotificationPermission() {
+  if (!isNativeAndroidApp()) return 'unsupported';
+  const result = await NativeNotifications.getPermissionStatus();
+  return result?.status || 'default';
 }
 
 export async function requestNativeNotificationPermission() {
-  return callPlugin('requestPermission', { status: 'unsupported' });
+  if (!isNativeAndroidApp()) return 'unsupported';
+  const result = await NativeNotifications.requestPermission();
+  return result?.status || 'default';
 }
 
 export async function openNativeNotificationSettings() {
-  return callPlugin('openNotificationSettings', { opened: false });
+  if (!isNativeAndroidApp()) return;
+  await NativeNotifications.openSettings();
+}
+
+function normalizeRemoteStatus(result) {
+  return {
+    configured: Boolean(result?.configured),
+    enabled: Boolean(result?.enabled),
+    token: String(result?.token || ''),
+    reason: String(result?.reason || ''),
+  };
 }
 
 export async function getNativeRemotePushStatus() {
-  const status = await callPlugin('getRemotePushStatus', { configured: false, enabled: false, token: '' });
-  if (!isAndroidNative() || !status?.configured || (status.enabled && status.token)) return status;
+  if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
+  let status = normalizeRemoteStatus(await NativeNotifications.getRemotePushStatus());
+  if (!status.configured || (status.enabled && status.token)) return status;
 
-  // Android can keep notification permission while losing its FCM token after an
-  // app update, reinstall/restore, Play Services refresh or an earlier transient
-  // registration failure. Repair that state silently when permission is already
-  // granted; never trigger a permission prompt from a background status check.
-  const permission = await getNativeNotificationPermissionStatus();
-  if (permission?.status !== 'granted') return status;
-  const repaired = await callPlugin('registerRemotePush', null);
-  return repaired || status;
+  // Notification permission can remain granted while the FCM token disappears
+  // after an app update/restore, Play Services refresh, or a transient token
+  // registration failure. Repair that state silently; never open a permission
+  // prompt from this background status check.
+  const permission = await getNativeNotificationPermission();
+  if (permission !== 'granted') return status;
+  try {
+    status = normalizeRemoteStatus(await NativeNotifications.registerRemotePush());
+  } catch (error) {
+    console.warn('[native-notifications] FCM token repair failed:', error?.message || error);
+  }
+  return status;
 }
 
 export async function registerNativeRemotePush() {
-  return callPlugin('registerRemotePush', { configured: false, enabled: false, token: '' });
+  if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
+  return normalizeRemoteStatus(await NativeNotifications.registerRemotePush());
 }
 
 export async function unregisterNativeRemotePush() {
-  return callPlugin('unregisterRemotePush', { configured: false, enabled: false, token: '' });
+  if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
+  return normalizeRemoteStatus(await NativeNotifications.unregisterRemotePush());
 }
 
-export async function consumeNativeNotificationRoute() {
-  return callPlugin('consumeNotificationRoute', { route: '', session_id: '', message_id: '' });
+export async function consumeNativeRemotePushRoute() {
+  if (!isNativeAndroidApp()) return null;
+  const payload = await NativeNotifications.consumeRemotePushRoute();
+  return payload && payload.route ? payload : null;
 }
 
-export function addNativeNotificationListener(eventName, listener) {
-  if (!isAndroidNative()) return Promise.resolve({ remove: async () => {} });
-  return OurHomeNotifications.addListener(eventName, listener);
+export async function listenNativeRemotePushActions(handler) {
+  if (!isNativeAndroidApp() || typeof handler !== 'function') return () => {};
+  const handle = await NativeNotifications.addListener('remotePushAction', handler);
+  return () => handle?.remove?.();
 }
 
-export async function scheduleNativeReminder({ id, title, body, at, route = 'home' }) {
-  if (!isAndroidNative()) return { scheduled: false, unsupported: true };
-  try {
-    return await OurHomeNotifications.scheduleReminder({
-      id: String(id || ''),
-      title: String(title || 'OurHome'),
-      body: String(body || ''),
-      at: new Date(at).getTime(),
-      route: String(route || 'home'),
-    });
-  } catch (error) {
-    console.warn('[native-notifications] scheduleReminder failed:', error?.message || error);
-    return { scheduled: false, error: error?.message || String(error) };
-  }
+export async function listenNativeRemotePushTokens(handler) {
+  if (!isNativeAndroidApp() || typeof handler !== 'function') return () => {};
+  const handle = await NativeNotifications.addListener('remotePushTokenChanged', handler);
+  return () => handle?.remove?.();
 }
 
-export async function cancelNativeReminder(id) {
-  if (!isAndroidNative()) return { cancelled: false, unsupported: true };
-  try {
-    return await OurHomeNotifications.cancelReminder({ id: String(id || '') });
-  } catch (error) {
-    console.warn('[native-notifications] cancelReminder failed:', error?.message || error);
-    return { cancelled: false, error: error?.message || String(error) };
-  }
+function normalizeReminder(event) {
+  const at = Date.parse(event?.remind_at || event?.remindAt || '');
+  if (!event?.id || !Number.isFinite(at)) return null;
+  return {
+    id: String(event.id),
+    title: String(event.title || 'OurHome 提醒'),
+    body: String(event.author ? `${event.author}留下的日程提醒` : '别忘了我们约好的事呀。'),
+    at,
+  };
+}
+
+export async function syncNativeScheduleReminders(events) {
+  if (!isNativeAndroidApp()) return;
+  const reminders = (Array.isArray(events) ? events : [])
+    .map(normalizeReminder)
+    .filter(Boolean)
+    .filter(reminder => reminder.at > Date.now());
+  await NativeNotifications.syncReminders({ reminders });
+}
+
+export async function cancelNativeScheduleReminder(id) {
+  if (!isNativeAndroidApp() || id == null) return;
+  await NativeNotifications.cancelReminder({ id: String(id) });
 }
