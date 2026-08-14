@@ -1,5 +1,5 @@
 @media (max-width: 640px) {
-  .reading-companion-fab {
+  .reading-room--reader ~ .reading-companion-fab {
     bottom: max(122px, calc(env(safe-area-inset-bottom) + 112px));
   }
 }
