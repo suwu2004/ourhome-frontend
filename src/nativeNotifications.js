@@ -34,7 +34,21 @@ function normalizeRemoteStatus(result) {
 
 export async function getNativeRemotePushStatus() {
   if (!isNativeAndroidApp()) return normalizeRemoteStatus(null);
-  return normalizeRemoteStatus(await NativeNotifications.getRemotePushStatus());
+  let status = normalizeRemoteStatus(await NativeNotifications.getRemotePushStatus());
+  if (!status.configured || (status.enabled && status.token)) return status;
+
+  // Notification permission can remain granted while the FCM token disappears
+  // after an app update/restore, Play Services refresh, or a transient token
+  // registration failure. Repair that state silently; never open a permission
+  // prompt from this background status check.
+  const permission = await getNativeNotificationPermission();
+  if (permission !== 'granted') return status;
+  try {
+    status = normalizeRemoteStatus(await NativeNotifications.registerRemotePush());
+  } catch (error) {
+    console.warn('[native-notifications] FCM token repair failed:', error?.message || error);
+  }
+  return status;
 }
 
 export async function registerNativeRemotePush() {

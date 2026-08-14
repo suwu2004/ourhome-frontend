@@ -8,7 +8,7 @@ const [worker, registration, main] = await Promise.all([
   readFile(new URL('../src/main.jsx', import.meta.url), 'utf8'),
 ]);
 
-test('offline shell registers only a static service worker', () => {
+test('offline shell registers one unified static service worker', () => {
   assert.match(registration, /serviceWorker\.register\('\/ourhome-sw\.js'/);
   assert.match(main, /registerOfflineShell\(\)/);
 });
@@ -27,10 +27,17 @@ test('offline shell caches navigation and built static assets only', () => {
 });
 
 test('offline updates prune obsolete bundles and wait for the user before activation', () => {
-  assert.match(worker, /CACHE_NAME = `\$\{CACHE_PREFIX\}v2`/);
+  assert.match(worker, /CACHE_NAME = `\$\{CACHE_PREFIX\}v3`/);
   assert.match(worker, /pruneOldBuiltAssets/);
   assert.match(worker, /SKIP_WAITING/);
   assert.doesNotMatch(worker, /await self\.skipWaiting\(\)/);
   assert.match(registration, /ourhome-update-ready/);
   assert.match(main, /OfflineUpdateNotice/);
+});
+
+test('the same offline worker also owns proactive Web Push delivery', () => {
+  assert.match(worker, /addEventListener\('push'/);
+  assert.match(worker, /showNotification/);
+  assert.match(worker, /pushsubscriptionchange/);
+  assert.match(worker, /\/api\/push\/subscribe/);
 });

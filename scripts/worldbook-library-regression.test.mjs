@@ -28,17 +28,22 @@ test('active memory stays separate while the three automatic layers share one ov
   assert.doesNotMatch(memory, /title="记忆分层"/);
 });
 
-test('worldbook UI exposes activation, budgets, bindings, import, and a plain-language backup', () => {
-  assert.match(worldbooks, /scan_depth/);
-  assert.match(worldbooks, /token_budget/);
-  assert.match(worldbooks, /recursive_scanning/);
-  assert.match(worldbooks, /target_book_id/);
-  assert.match(worldbooks, /lorebooks\/import/);
-  assert.match(worldbooks, /导出备份/);
-  assert.match(worldbooks, /兼容 Lorebook V3 的 JSON/);
-  assert.match(worldbooks, /允许关联设定继续唤醒/);
-  assert.match(worldbooks, /主要触发词/);
-  assert.match(worldbooks, /主要词与次要词共同命中/);
+test('worldbook shelf keeps creation, upload, activation and location simple', () => {
+  assert.match(worldbooks, /手动创建/);
+  assert.match(worldbooks, /上传文件/);
+  assert.match(worldbooks, /type="file" hidden multiple/);
+  assert.match(worldbooks, /lorebooks\/import-collection/);
+  assert.match(worldbooks, /JSON \/ DOCX \/ TXT \/ MD，可多选/);
+  assert.match(worldbooks, /已启用 · \$\{scopeLabel\(book\)\}/);
+  assert.match(worldbooks, /未启用/);
+  assert.match(worldbooks, />名称</);
+  assert.match(worldbooks, />使用位置</);
+  assert.match(worldbooks, />启用</);
+  assert.match(worldbooks, /触发方式（可选）/);
+  assert.doesNotMatch(worldbooks, />扫描深度</);
+  assert.doesNotMatch(worldbooks, />单轮预算</);
+  assert.doesNotMatch(worldbooks, /允许关联设定继续唤醒/);
+  assert.doesNotMatch(worldbooks, /导出备份/);
 });
 
 test('theater no longer duplicates the shared rule-library controls', () => {
@@ -54,7 +59,7 @@ test('memory, rules, and worldbooks keep a one-hand mobile layout', () => {
   assert.match(worldbookCss, /@media \(max-width: 760px\)[\s\S]*\.worldbook-layer \{ align-items: flex-end/);
   assert.match(worldbooks, /worldbook-mobile-tabs/);
   assert.match(worldbookCss, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(worldbooks, /当前世界书/);
+  assert.match(worldbooks, />详情<\/button>/);
   assert.doesNotMatch(worldbooks, /书本设置|知识条目/);
   assert.match(rules, /theater-rule-mobile-tabs/);
   assert.doesNotMatch(rules, />添加规则<\/button>/);

@@ -6,6 +6,9 @@ const nativeBridge = readFileSync(new URL('../src/nativeNotifications.js', impor
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const rootSource = readFileSync(new URL('../src/Root.jsx', import.meta.url), 'utf8');
 const settingsSource = readFileSync(new URL('../src/SettingsRoom.jsx', import.meta.url), 'utf8');
+const offlineShellSource = readFileSync(new URL('../src/offlineShell.js', import.meta.url), 'utf8');
+const offlineWorkerSource = readFileSync(new URL('../public/ourhome-sw.js', import.meta.url), 'utf8');
+const legacyPushWorkerSource = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
 const pluginSource = readFileSync(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeNotificationsPlugin.java', import.meta.url), 'utf8');
 const serviceSource = readFileSync(new URL('../android/app/src/main/java/com/ourhome/app/OurHomeFirebaseMessagingService.java', import.meta.url), 'utf8');
 const activitySource = readFileSync(new URL('../android/app/src/main/java/com/ourhome/app/MainActivity.java', import.meta.url), 'utf8');
@@ -45,6 +48,25 @@ test('notification settings register the private FCM token with OurHome backend 
   assert.match(appSource, /nativeRemotePushStatus\.configured && nativeRemotePushStatus\.enabled/);
   assert.match(settingsSource, /native-fcm/);
   assert.match(settingsSource, /FCM 远程主动通知已经接通/);
+});
+
+test('granted Android notification permission repairs a missing FCM token silently', () => {
+  assert.match(nativeBridge, /permission !== 'granted'/);
+  assert.match(nativeBridge, /NativeNotifications\.registerRemotePush\(\)/);
+  assert.match(nativeBridge, /FCM token repair failed/);
+  assert.match(nativeBridge, /listenNativeRemotePushActions/);
+  assert.match(nativeBridge, /listenNativeRemotePushTokens/);
+});
+
+test('web offline shell and push notifications use one compatible service worker', () => {
+  assert.match(offlineShellSource, /register\('\/ourhome-sw\.js'/);
+  assert.match(offlineWorkerSource, /addEventListener\('push'/);
+  assert.match(offlineWorkerSource, /showNotification/);
+  assert.match(offlineWorkerSource, /notificationclick/);
+  assert.match(offlineWorkerSource, /pushsubscriptionchange/);
+  assert.match(offlineWorkerSource, /\/api\/push\/subscribe/);
+  assert.match(legacyPushWorkerSource, /importScripts\('\/ourhome-sw\.js'\)/);
+  assert.doesNotMatch(legacyPushWorkerSource, /addEventListener\('push'/);
 });
 
 test('Android build is FCM-capable but stays build-safe without Firebase secrets', () => {
