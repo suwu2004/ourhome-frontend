@@ -11,6 +11,7 @@ import { ThemeProvider } from './ThemeContext.jsx'
 import { installMessageModelLabels } from './messageModelLabels.js'
 import CloudSyncBadge from './CloudSyncBadge.jsx'
 import { registerOfflineShell } from './offlineShell.js'
+import { initializeWebPushRepair } from './webPushRepair.js'
 import OfflineUpdateNotice from './OfflineUpdateNotice.jsx'
 import { initializeInstallExperience } from './appInstall.js'
 import { initializeNativeApp } from './nativeApp.js'
@@ -19,6 +20,7 @@ import { requestPersistentLocalStorage } from './localFirstStore.js'
 applyAppFont(getSavedFont(), { persist: false })
 installMessageModelLabels()
 registerOfflineShell()
+initializeWebPushRepair()
 initializeInstallExperience()
 initializeNativeApp().catch(error => console.warn('[native-app] initialization failed:', error))
 requestPersistentLocalStorage().catch(() => {})
