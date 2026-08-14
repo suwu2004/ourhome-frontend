@@ -22,7 +22,6 @@ export default function ReadingBookmarkOverlay() {
   const [state, setState] = useState('idle');
   const [error, setError] = useState('');
   const [bookmarks, setBookmarks] = useState([]);
-  const [deletingId, setDeletingId] = useState('');
 
   useEffect(() => {
     const syncTarget = () => {
@@ -69,21 +68,6 @@ export default function ReadingBookmarkOverlay() {
 
   const groupedCount = useMemo(() => new Set(bookmarks.map(item => item.book_id)).size, [bookmarks]);
 
-  const deleteBookmark = async bookmark => {
-    if (deletingId) return;
-    if (!window.confirm('把这条波浪线书签擦掉吗？')) return;
-    setDeletingId(bookmark.id);
-    setError('');
-    try {
-      await requestJson(`/reading/annotations/${bookmark.id}`, { method: 'DELETE' }, '书签没有删除成功');
-      setBookmarks(current => current.filter(item => item.id !== bookmark.id));
-    } catch (cause) {
-      setError(cause.message || '书签没有删除成功');
-    } finally {
-      setDeletingId('');
-    }
-  };
-
   if (!portalTarget) return null;
 
   return createPortal(
@@ -110,7 +94,7 @@ export default function ReadingBookmarkOverlay() {
                   <header><strong>《{bookmark.book_title}》</strong><span>{bookmark.chapter_title}</span></header>
                   <blockquote>“{bookmark.quote}”</blockquote>
                   {bookmark.luze_reply && <div className="reading-bookmark-luze"><i>泽</i><p>{bookmark.luze_reply}</p></div>}
-                  <footer><time>{shortDate(bookmark.updated_at || bookmark.created_at)}</time><button type="button" onClick={() => deleteBookmark(bookmark)} disabled={Boolean(deletingId)}>{deletingId === bookmark.id ? '擦掉中…' : '移除'}</button></footer>
+                  <footer><time>{shortDate(bookmark.updated_at || bookmark.created_at)}</time><span>波浪线书签</span></footer>
                 </article>
               ))}
             </div>
