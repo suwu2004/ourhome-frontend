@@ -174,11 +174,6 @@ export function MemoryRoom({
         </SettingsGroup>
 
         <SettingsGroup theme={C} title="规则与世界" subtitle="写法归规则，背景进世界书" resetKey={resetKey} mountOnOpen>
-          <div className="memory-knowledge-intro" style={{ background: C.honeyLight, borderColor: C.honeyMid, color: C.honeyDeep }}>
-            <span><b>规则</b> 管表达与行动</span>
-            <span><b>世界书</b> 管人物与背景</span>
-            <span><b>记忆</b> 管真实经历</span>
-          </div>
           <div className="memory-knowledge-grid">
             {visible && (
               <Suspense fallback={<div style={{ gridColumn: '1 / -1', padding: '16px 0', textAlign: 'center', color: C.muted, fontSize: 11 }}>正在整理规则与世界书…</div>}>

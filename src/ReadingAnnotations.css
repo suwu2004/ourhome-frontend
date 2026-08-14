@@ -9,6 +9,118 @@
   -webkit-touch-callout: default;
 }
 
+.reading-paragraph-block {
+  position: relative;
+  margin-bottom: 1.28em;
+}
+
+.reading-paragraph-block > p[data-paragraph-index] {
+  margin-bottom: 0;
+}
+
+.reading-paragraph-notes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-top: 5px;
+}
+
+.reading-paragraph-note-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 27px;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--reading-accent) 22%, var(--reading-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--reading-paper) 86%, var(--reading-accent-soft));
+  color: var(--reading-accent);
+  font: inherit;
+  font-size: 11px;
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--reading-accent) 10%, transparent);
+}
+
+.reading-paragraph-note-toggle b {
+  font-size: 9px;
+}
+
+.reading-paragraph-thread {
+  width: min(94%, 520px);
+  margin-top: 7px;
+  display: grid;
+  gap: 9px;
+}
+
+.reading-paragraph-thread article {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--reading-border) 82%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--reading-paper) 92%, transparent);
+}
+
+.reading-paragraph-thread blockquote {
+  margin: 0 0 8px;
+  color: var(--reading-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.reading-paragraph-bubble {
+  width: fit-content;
+  max-width: 88%;
+  padding: 8px 10px;
+  border-radius: 13px;
+}
+
+.reading-paragraph-bubble + .reading-paragraph-bubble {
+  margin-top: 7px;
+}
+
+.reading-paragraph-bubble small {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 8px;
+  opacity: .68;
+}
+
+.reading-paragraph-bubble p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.reading-paragraph-bubble.is-tantan {
+  margin-right: auto;
+  border-bottom-left-radius: 4px;
+  background: #f7e7e3;
+  color: #6f4f4b;
+}
+
+.reading-paragraph-bubble.is-luze {
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+  background: #eaf2fb;
+  color: #465f7d;
+}
+
+.reading-paragraph-waiting {
+  margin: 7px 2px 0 auto;
+  color: var(--reading-muted);
+  font-size: 9px;
+}
+
+.reading-paragraph-edit {
+  display: block;
+  margin: 8px 0 0 auto;
+  padding: 4px 7px;
+  border: 0;
+  background: transparent;
+  color: var(--reading-accent);
+  font: inherit;
+  font-size: 9px;
+}
+
 .reading-highlight {
   position: relative;
   margin: 0 -1px;

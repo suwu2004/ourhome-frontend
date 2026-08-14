@@ -16,7 +16,7 @@ test('memory room is the shared entry for persona, memory, rules, and lorebooks'
   assert.match(memory, /陆泽的大脑/);
   assert.match(memory, /<TheaterRuleLibrary \/>/);
   assert.match(memory, /<WorldbookLibrary \/>/);
-  assert.match(memory, /<b>规则<\/b> 管表达与行动/);
+  assert.doesNotMatch(memory, /管表达与行动|管人物与背景|管真实经历/);
   assert.match(memory, /mountOnOpen/);
 });
 
@@ -28,13 +28,15 @@ test('active memory stays separate while the three automatic layers share one ov
   assert.doesNotMatch(memory, /title="记忆分层"/);
 });
 
-test('worldbook UI exposes activation, budgets, bindings, import, and v3 export', () => {
+test('worldbook UI exposes activation, budgets, bindings, import, and a plain-language backup', () => {
   assert.match(worldbooks, /scan_depth/);
   assert.match(worldbooks, /token_budget/);
   assert.match(worldbooks, /recursive_scanning/);
   assert.match(worldbooks, /target_book_id/);
   assert.match(worldbooks, /lorebooks\/import/);
-  assert.match(worldbooks, /导出 V3/);
+  assert.match(worldbooks, /导出备份/);
+  assert.match(worldbooks, /兼容 Lorebook V3 的 JSON/);
+  assert.match(worldbooks, /允许关联设定继续唤醒/);
   assert.match(worldbooks, /主要触发词/);
   assert.match(worldbooks, /主要词与次要词共同命中/);
 });
@@ -51,7 +53,11 @@ test('memory, rules, and worldbooks keep a one-hand mobile layout', () => {
   assert.match(memoryCss, /\.memory-layer-tabs \{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(worldbookCss, /@media \(max-width: 760px\)[\s\S]*\.worldbook-layer \{ align-items: flex-end/);
   assert.match(worldbooks, /worldbook-mobile-tabs/);
+  assert.match(worldbookCss, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(worldbooks, /当前世界书/);
+  assert.doesNotMatch(worldbooks, /书本设置|知识条目/);
   assert.match(rules, /theater-rule-mobile-tabs/);
+  assert.doesNotMatch(rules, />添加规则<\/button>/);
   assert.match(worldbookCss, /worldbook-sidebar\.is-mobile-hidden/);
   assert.match(ruleCss, /theater-rule-list\.is-mobile-hidden/);
   assert.match(mobilePolish, /theater-rule-library-trigger:not\(\.is-memory\)/);

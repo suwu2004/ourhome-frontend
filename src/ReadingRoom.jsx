@@ -91,6 +91,32 @@ function renderAnnotatedParagraph(paragraph, paragraphIndex, annotations, onOpen
   return nodes;
 }
 
+function ParagraphAnnotationThread({ paragraphIndex, annotations, open, onToggle, onEdit }) {
+  const rows = annotations.filter(item => Number(item.paragraph_index) === paragraphIndex);
+  if (!rows.length) return null;
+  return (
+    <div className={`reading-paragraph-notes ${open ? 'is-open' : ''}`}>
+      <button type="button" className="reading-paragraph-note-toggle" onClick={onToggle} aria-expanded={open} aria-label={`查看这段的 ${rows.length} 条批注`}>
+        <span aria-hidden="true">💬</span><b>{rows.length}</b>
+      </button>
+      {open && (
+        <div className="reading-paragraph-thread">
+          {rows.map(annotation => (
+            <article key={annotation.id}>
+              <blockquote>“{annotation.quote}”</blockquote>
+              <div className="reading-paragraph-bubble is-tantan"><small>檀檀</small><p>{annotation.note || '只轻轻划了这一句。'}</p></div>
+              {annotation.luze_reply
+                ? <div className="reading-paragraph-bubble is-luze"><small>陆泽</small><p>{annotation.luze_reply}</p></div>
+                : <div className="reading-paragraph-waiting">陆泽还没在这句旁边写字。</div>}
+              <button type="button" className="reading-paragraph-edit" onClick={() => onEdit(annotation)}>编辑这条批注</button>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ReadingRoom({ onClose }) {
   const { darkMode, theme: C } = useTheme();
   const [books, setBooks] = useState([]);
@@ -108,6 +134,7 @@ export function ReadingRoom({ onClose }) {
   const [activeAnnotation, setActiveAnnotation] = useState(null);
   const [activeAnnotationNote, setActiveAnnotationNote] = useState('');
   const [annotationBusy, setAnnotationBusy] = useState(false);
+  const [openParagraphIndex, setOpenParagraphIndex] = useState(null);
   const fileInputRef = useRef(null);
   const readerRef = useRef(null);
   const saveTimerRef = useRef(null);
@@ -170,6 +197,7 @@ export function ReadingRoom({ onClose }) {
     setBookError('');
     setSelectionDraft(null);
     setActiveAnnotation(null);
+    setOpenParagraphIndex(null);
     try {
       const response = await apiFetch(`${BACKEND}/reading/books/${bookId}`);
       const data = await response.json();
@@ -215,6 +243,7 @@ export function ReadingRoom({ onClose }) {
     setTocOpen(false);
     setSelectionDraft(null);
     setActiveAnnotation(null);
+    setOpenParagraphIndex(null);
     readerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     saveProgress(activeBook, safeIndex);
   }, [activeBook, saveProgress]);
@@ -291,7 +320,7 @@ export function ReadingRoom({ onClose }) {
     else setAnnotations([]);
   }, [activeBook?.id, currentChapter?.id, loadAnnotations]);
 
-  const captureSelection = useCallback(() => {
+  const captureSelection = useCallback((delay = 60) => {
     if (selectionTimerRef.current) window.clearTimeout(selectionTimerRef.current);
     selectionTimerRef.current = window.setTimeout(() => {
       const selected = selectionInsideParagraph(window.getSelection(), readerRef.current);
@@ -304,8 +333,20 @@ export function ReadingRoom({ onClose }) {
       setSelectionNote('');
       setActiveAnnotation(null);
       window.getSelection()?.removeAllRanges();
-    }, 40);
+    }, delay);
   }, []);
+
+  useEffect(() => {
+    if (!activeBook?.id || !currentChapter?.id) return undefined;
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) return;
+      const paragraph = paragraphElementFromNode(selection.anchorNode);
+      if (paragraph && readerRef.current?.contains(paragraph)) captureSelection(260);
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [activeBook?.id, captureSelection, currentChapter?.id]);
 
   const saveNewAnnotation = async () => {
     if (!activeBook?.id || !currentChapter?.id || !selectionDraft || annotationBusy) return;
@@ -320,12 +361,13 @@ export function ReadingRoom({ onClose }) {
           chapter_id: currentChapter.id,
           chapter_index: activeChapterIndex,
           note: selectionNote,
-          color: 'honey',
+          color: 'blush',
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || '这条划线没有保存成功');
       setAnnotations(current => [...current, data].sort((a, b) => Number(a.paragraph_index) - Number(b.paragraph_index) || Number(a.start_offset) - Number(b.start_offset)));
+      setOpenParagraphIndex(Number(data.paragraph_index));
       setSelectionDraft(null);
       setSelectionNote('');
     } catch (error) {
@@ -476,11 +518,18 @@ export function ReadingRoom({ onClose }) {
               <div className="reading-chapter-mark">{String(activeChapterIndex + 1).padStart(2, '0')} / {String(activeBook.chapters.length).padStart(2, '0')}</div>
               <h1>{currentChapter.title}</h1>
               <div className="reading-ornament">✦　♡　✦</div>
-              <div className="reading-prose" onMouseUp={captureSelection} onTouchEnd={captureSelection}>
+              <div className="reading-prose" onMouseUp={() => captureSelection(40)} onTouchEnd={() => captureSelection(280)}>
                 {paragraphs.map((paragraph, index) => (
-                  <p key={`${activeChapterIndex}-${index}`} data-paragraph-index={index}>
-                    {renderAnnotatedParagraph(paragraph, index, annotations, openAnnotation)}
-                  </p>
+                  <div className="reading-paragraph-block" key={`${activeChapterIndex}-${index}`}>
+                    <p data-paragraph-index={index}>{renderAnnotatedParagraph(paragraph, index, annotations, openAnnotation)}</p>
+                    <ParagraphAnnotationThread
+                      paragraphIndex={index}
+                      annotations={annotations}
+                      open={openParagraphIndex === index}
+                      onToggle={() => setOpenParagraphIndex(current => current === index ? null : index)}
+                      onEdit={openAnnotation}
+                    />
+                  </div>
                 ))}
               </div>
               <div className="reading-selection-hint">
