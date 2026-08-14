@@ -173,9 +173,11 @@ export function MemoryRoom({
           </div>
         </SettingsGroup>
 
-        <SettingsGroup theme={C} title="规则与世界" subtitle="和记忆放在同一个入口，各自独立生效" resetKey={resetKey}>
-          <div style={{ padding: '10px 11px', marginBottom: 10, borderRadius: 13, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, color: C.honeyDeep, fontSize: 10.5, lineHeight: 1.6 }}>
-            规则约束陆泽怎样表达与行动，世界书提供人物、地点和背景知识，记忆记录真实发生过的事。三类内容分开保存，调用时再按房间和当前话题组合。
+        <SettingsGroup theme={C} title="规则与世界" subtitle="写法归规则，背景进世界书" resetKey={resetKey} mountOnOpen>
+          <div className="memory-knowledge-intro" style={{ background: C.honeyLight, borderColor: C.honeyMid, color: C.honeyDeep }}>
+            <span><b>规则</b> 管表达与行动</span>
+            <span><b>世界书</b> 管人物与背景</span>
+            <span><b>记忆</b> 管真实经历</span>
           </div>
           <div className="memory-knowledge-grid">
             {visible && (

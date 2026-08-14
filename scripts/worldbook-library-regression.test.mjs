@@ -10,12 +10,14 @@ const worldbooks = fs.readFileSync(new URL('../src/WorldbookLibrary.jsx', import
 const worldbookCss = fs.readFileSync(new URL('../src/WorldbookLibrary.css', import.meta.url), 'utf8');
 const rules = fs.readFileSync(new URL('../src/TheaterRuleLibrary.jsx', import.meta.url), 'utf8');
 const ruleCss = fs.readFileSync(new URL('../src/TheaterRuleLibrary.css', import.meta.url), 'utf8');
+const mobilePolish = fs.readFileSync(new URL('../src/MobileUiPolish.css', import.meta.url), 'utf8');
 
 test('memory room is the shared entry for persona, memory, rules, and lorebooks', () => {
   assert.match(memory, /陆泽的大脑/);
   assert.match(memory, /<TheaterRuleLibrary \/>/);
   assert.match(memory, /<WorldbookLibrary \/>/);
-  assert.match(memory, /规则约束陆泽怎样表达与行动/);
+  assert.match(memory, /<b>规则<\/b> 管表达与行动/);
+  assert.match(memory, /mountOnOpen/);
 });
 
 test('active memory stays separate while the three automatic layers share one overview card', () => {
@@ -48,5 +50,10 @@ test('memory, rules, and worldbooks keep a one-hand mobile layout', () => {
   assert.match(memoryCss, /@media \(max-width: 560px\)[\s\S]*\.memory-knowledge-grid \{\s*grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(memoryCss, /\.memory-layer-tabs \{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(worldbookCss, /@media \(max-width: 760px\)[\s\S]*\.worldbook-layer \{ align-items: flex-end/);
+  assert.match(worldbooks, /worldbook-mobile-tabs/);
+  assert.match(rules, /theater-rule-mobile-tabs/);
+  assert.match(worldbookCss, /worldbook-sidebar\.is-mobile-hidden/);
+  assert.match(ruleCss, /theater-rule-list\.is-mobile-hidden/);
+  assert.match(mobilePolish, /theater-rule-library-trigger:not\(\.is-memory\)/);
   assert.match(ruleCss, /@media \(max-width: 460px\)[\s\S]*\.theater-rule-editor-actions \{\s*grid-template-columns: 1fr/);
 });

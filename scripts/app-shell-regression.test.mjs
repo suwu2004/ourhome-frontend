@@ -213,9 +213,9 @@ test('home desktop polish adds depth without changing touch interactions', () =>
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
 });
 
-test('personal prose surfaces disclose that they follow the current Chat model', () => {
-  assert.match(appSource, /selectedModel=\{selectedModel\}/);
-  assert.match(lettersRoomSource, /跟随 Chat 模型/);
+test('personal prose surfaces follow the current Chat model without crowding the diary header', () => {
+  assert.match(appSource, /model: selectedModel/);
+  assert.doesNotMatch(lettersRoomSource, /跟随 Chat 模型/);
   assert.match(luzeAutonomySource, /固定跟随当前 Chat 模型/);
   assert.match(luzeRoomSource, /写成笔记时跟随当前 Chat 模型/);
   assert.doesNotMatch(luzeRoomSource, /settings\.synthesis_model/);

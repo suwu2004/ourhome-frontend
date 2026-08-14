@@ -162,7 +162,7 @@
   }
 
   /* Theater: Import World and Rule Library share one right-aligned column. */
-  div:has(> .theater-rule-library-trigger) {
+  div:has(> .theater-rule-library-trigger:not(.is-memory)) {
     display: grid !important;
     grid-template-columns: 116px !important;
     grid-auto-rows: 44px;
@@ -173,7 +173,7 @@
     flex: 0 0 116px !important;
   }
 
-  div:has(> .theater-rule-library-trigger) > button {
+  div:has(> .theater-rule-library-trigger:not(.is-memory)) > button {
     width: 116px !important;
     min-width: 116px !important;
     min-height: 44px !important;
@@ -185,7 +185,7 @@
     text-align: center !important;
   }
 
-  div:has(> .theater-rule-library-trigger) > .theater-rule-library-trigger {
+  div:has(> .theater-rule-library-trigger:not(.is-memory)) > .theater-rule-library-trigger {
     gap: 7px !important;
   }
 }
@@ -205,12 +205,12 @@
     padding: 12px 10px 10px !important;
   }
 
-  div:has(> .theater-rule-library-trigger) {
+  div:has(> .theater-rule-library-trigger:not(.is-memory)) {
     grid-template-columns: 108px !important;
     flex-basis: 108px !important;
   }
 
-  div:has(> .theater-rule-library-trigger) > button {
+  div:has(> .theater-rule-library-trigger:not(.is-memory)) > button {
     width: 108px !important;
     min-width: 108px !important;
   }

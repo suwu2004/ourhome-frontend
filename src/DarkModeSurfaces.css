@@ -85,6 +85,27 @@
   color: var(--night-honey);
 }
 
+:root[data-theme="dark"] .worldbook-library-trigger {
+  border-color: var(--night-border) !important;
+  background: #342b23;
+  color: var(--night-honey);
+}
+
+:root[data-theme="dark"] .memory-knowledge-grid .knowledge-library-trigger__icon,
+:root[data-theme="dark"] .memory-knowledge-grid .knowledge-library-trigger__meta {
+  border-color: var(--night-border);
+  background: var(--night-surface-raised);
+  color: var(--night-honey);
+}
+
+:root[data-theme="dark"] .memory-knowledge-grid .knowledge-library-trigger__copy strong {
+  color: var(--night-text);
+}
+
+:root[data-theme="dark"] .memory-knowledge-grid .knowledge-library-trigger__copy small {
+  color: var(--night-muted);
+}
+
 :root[data-theme="dark"] .theater-rule-library {
   border-color: var(--night-border);
   background: radial-gradient(circle at 92% 4%, rgba(185, 128, 45, .15), transparent 25%), linear-gradient(155deg, #2d2219, #241b14 70%, #1c1713);
@@ -122,6 +143,41 @@
   border-color: #8f6c33;
   background: #49391f;
   color: var(--night-honey);
+}
+
+:root[data-theme="dark"] .worldbook-library {
+  border-color: var(--night-border);
+  background: radial-gradient(circle at 93% 3%, rgba(178, 127, 68, .13), transparent 23%), linear-gradient(150deg, #2d241d, #211a15);
+  color: var(--night-text);
+}
+
+:root[data-theme="dark"] .worldbook-head,
+:root[data-theme="dark"] .worldbook-summary,
+:root[data-theme="dark"] .worldbook-mobile-tabs {
+  border-color: var(--night-border);
+}
+
+:root[data-theme="dark"] .worldbook-head p,
+:root[data-theme="dark"] .worldbook-list small,
+:root[data-theme="dark"] .worldbook-entry-cards p,
+:root[data-theme="dark"] .worldbook-book-actions,
+:root[data-theme="dark"] .worldbook-entry-options {
+  color: var(--night-muted);
+}
+
+:root[data-theme="dark"] .worldbook-head > button,
+:root[data-theme="dark"] .worldbook-import,
+:root[data-theme="dark"] .worldbook-list > button,
+:root[data-theme="dark"] .worldbook-book-editor,
+:root[data-theme="dark"] .worldbook-entries,
+:root[data-theme="dark"] .worldbook-entry-cards article,
+:root[data-theme="dark"] .worldbook-library input,
+:root[data-theme="dark"] .worldbook-library textarea,
+:root[data-theme="dark"] .worldbook-library select,
+:root[data-theme="dark"] .worldbook-library button:not(.worldbook-new):not(.is-primary) {
+  border-color: var(--night-border);
+  background: var(--night-surface-raised);
+  color: var(--night-text);
 }
 
 /* Reading companion sidebar and saved-note cards. */
