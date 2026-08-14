@@ -30,7 +30,7 @@ test('reading companion is chat-only and names the current book', () => {
   assert.match(companion, /postJson\('\/chat'/);
   assert.match(companion, /《\{displayTitle\}》/);
   assert.doesNotMatch(companion, /边读边聊|reading-companion-tabs|tab === 'annotations'|tab === 'bookmarks'/);
-  assert.match(companionCss, /bottom: max\(116px/);
+  assert.match(companionCss, /reading-room--reader ~ \.reading-companion-fab[\s\S]*bottom: max\(116px/);
   assert.match(companionCss, /height: min\(72dvh, 680px\)/);
 });
 
@@ -47,7 +47,7 @@ test('shelf star opens cross-book bookmark cards', () => {
   assert.match(bookmarks, /book_title: book\.title/);
   assert.match(bookmarks, /chapter_title:/);
   assert.match(bookmarks, /reading-bookmark-card/);
-  assert.match(bookmarks, /method: 'DELETE'/);
+  assert.match(bookmarks, /波浪线书签/);
 });
 
 test('reading back buttons use the shared transparent navigation style', () => {
