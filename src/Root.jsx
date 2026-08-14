@@ -23,6 +23,7 @@ import {
 const App = lazy(() => import('./App.jsx'));
 const ReadingRoom = lazy(() => import('./ReadingRoom.jsx'));
 const ReadingCompanionPanel = lazy(() => import('./ReadingCompanionPanel.jsx'));
+const ReadingBookmarkOverlay = lazy(() => import('./ReadingBookmarkOverlay.jsx'));
 const ReadingShelfLiveNote = lazy(() => import('./ReadingShelfLiveNote.jsx'));
 const ToyBoxSharedRoom = lazy(() => import('./ToyBoxSharedRoom.jsx'));
 const ToyBoxGomokuIntegrationV2 = lazy(() => import('./ToyBoxGomokuIntegrationV2.jsx'));
@@ -160,6 +161,7 @@ export default function Root() {
         <ReadingRoom onClose={goHome} />
         <ReadingShelfLiveNote />
         <ReadingCompanionPanel />
+        <ReadingBookmarkOverlay />
       </>,
     );
   } else if (room === 'home') {
