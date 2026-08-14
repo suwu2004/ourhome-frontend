@@ -25,6 +25,33 @@
   font-weight: 700;
 }
 
+.theater-rule-library-trigger.is-memory {
+  width: 100%;
+  min-height: 58px;
+  justify-content: space-between;
+  padding: 10px 13px;
+  border-radius: 15px;
+  text-align: left;
+}
+
+.theater-rule-library-trigger.is-memory > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.theater-rule-library-trigger.is-memory strong {
+  color: #7e531d;
+  font-size: 12px;
+}
+
+.theater-rule-library-trigger.is-memory small {
+  color: #a1815d;
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
 .theater-rule-layer {
   position: fixed;
   z-index: 1200;

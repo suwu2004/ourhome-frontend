@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { SettingsGroup } from './SettingsGroup.jsx';
 import { apiFetch, BACKEND } from './api.js';
+
+const TheaterRuleLibrary = lazy(() => import('./TheaterRuleLibrary.jsx'));
+const WorldbookLibrary = lazy(() => import('./WorldbookLibrary.jsx'));
 
 const MEMORY_LAYER_TABS = [
   { key: 'core', label: '核心记忆', description: '稳定身份、偏好、边界和重要约定' },
@@ -136,7 +139,7 @@ export function MemoryRoom({
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
       <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
         <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
-        <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 记忆</span>
+        <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 陆泽的大脑</span>
       </header>
       <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
         <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性" resetKey={resetKey}>
@@ -166,6 +169,20 @@ export function MemoryRoom({
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存人设"}</span>
+          </div>
+        </SettingsGroup>
+
+        <SettingsGroup theme={C} title="规则与世界" subtitle="和记忆放在同一个入口，各自独立生效" resetKey={resetKey}>
+          <div style={{ padding: '10px 11px', marginBottom: 10, borderRadius: 13, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, color: C.honeyDeep, fontSize: 10.5, lineHeight: 1.6 }}>
+            规则约束陆泽怎样表达与行动，世界书提供人物、地点和背景知识，记忆记录真实发生过的事。三类内容分开保存，调用时再按房间和当前话题组合。
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+            {visible && (
+              <Suspense fallback={<div style={{ gridColumn: '1 / -1', padding: '16px 0', textAlign: 'center', color: C.muted, fontSize: 11 }}>正在整理规则与世界书…</div>}>
+                <TheaterRuleLibrary placement="memory" />
+                <WorldbookLibrary />
+              </Suspense>
+            )}
           </div>
         </SettingsGroup>
 
