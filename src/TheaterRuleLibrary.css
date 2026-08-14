@@ -563,6 +563,7 @@
 
   .theater-rule-library {
     width: 100%;
+    height: min(92dvh, 820px);
     max-height: 92dvh;
     border-radius: 25px 25px 0 0;
   }
@@ -594,6 +595,68 @@
   .theater-rule-error {
     margin-right: 16px;
     margin-left: 16px;
+  }
+}
+
+@media (max-width: 460px) {
+  .theater-rule-layer {
+    padding: 4px 4px 0;
+  }
+
+  .theater-rule-library {
+    height: 95dvh;
+    max-height: 95dvh;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .theater-rule-library-head {
+    padding: 14px 13px 11px;
+    gap: 10px;
+  }
+
+  .theater-rule-library-head > button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .theater-rule-summary {
+    padding-inline: 13px;
+  }
+
+  .theater-rule-library-body {
+    padding-inline: 9px;
+  }
+
+  .theater-rule-card,
+  .theater-rule-editor {
+    padding: 12px;
+  }
+
+  .theater-rule-card > header,
+  .theater-rule-card > footer {
+    flex-wrap: wrap;
+  }
+
+  .theater-rule-card > footer button {
+    min-height: 34px;
+  }
+
+  .theater-rule-editor input,
+  .theater-rule-editor textarea,
+  .theater-rule-card-scope select {
+    font-size: 16px;
+  }
+
+  .theater-rule-scope-picker label {
+    min-height: 42px;
+  }
+
+  .theater-rule-editor-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .theater-rule-editor-actions button {
+    min-height: 44px;
   }
 }
 

@@ -1,0 +1,127 @@
+.memory-room-scroll {
+  box-sizing: border-box;
+}
+
+.memory-knowledge-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.memory-active-form {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.memory-active-form input {
+  min-width: 0;
+}
+
+.memory-active-form button {
+  min-height: 38px;
+  flex: 0 0 auto;
+}
+
+.memory-active-note {
+  margin: 8px 2px 0;
+  color: inherit;
+  font-size: 10px;
+  line-height: 1.55;
+  opacity: .62;
+}
+
+.memory-layer-intro {
+  margin-bottom: 11px;
+  padding: 10px 11px;
+  border: 1px solid;
+  border-radius: 13px;
+  font-size: 10.5px;
+  line-height: 1.65;
+}
+
+.memory-layer-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.memory-layer-tab {
+  min-width: 0;
+  min-height: 52px;
+  touch-action: manipulation;
+}
+
+.memory-selected-layer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 12px 0 4px;
+  padding: 0 2px 10px;
+  border-bottom: 1px solid;
+}
+
+.memory-selected-layer strong {
+  font-size: 13px;
+}
+
+.memory-selected-layer span {
+  min-width: 0;
+  font-size: 9.5px;
+  text-align: right;
+}
+
+@media (max-width: 560px) {
+  .memory-room-scroll {
+    padding: 12px 10px max(20px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .memory-knowledge-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .memory-active-form input {
+    min-height: 42px;
+    font-size: 16px !important;
+  }
+
+  .memory-active-form button {
+    min-width: 68px;
+    min-height: 42px;
+  }
+
+  .memory-layer-tabs {
+    gap: 5px;
+  }
+
+  .memory-layer-tab {
+    min-height: 54px;
+    padding: 8px 3px !important;
+  }
+
+  .memory-selected-layer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .memory-selected-layer span {
+    line-height: 1.5;
+    text-align: left;
+  }
+}
+
+@media (max-width: 360px) {
+  .memory-layer-tabs {
+    gap: 3px;
+  }
+
+  .memory-layer-tab {
+    border-radius: 10px !important;
+  }
+
+  .memory-layer-tab span:first-child {
+    font-size: 10.5px !important;
+  }
+}

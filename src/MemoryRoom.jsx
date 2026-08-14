@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { SettingsGroup } from './SettingsGroup.jsx';
 import { apiFetch, BACKEND } from './api.js';
+import './MemoryRoom.css';
 
 const TheaterRuleLibrary = lazy(() => import('./TheaterRuleLibrary.jsx'));
 const WorldbookLibrary = lazy(() => import('./WorldbookLibrary.jsx'));
@@ -41,23 +42,23 @@ function LayerTab({ tab, active, count, onClick, theme }) {
   return (
     <button
       type="button"
+      className="memory-layer-tab"
+      role="tab"
       onClick={onClick}
-      aria-pressed={active}
+      aria-selected={active}
       style={{
-        flex: 1,
-        minWidth: 0,
-        padding: '9px 7px',
+        padding: '9px 8px',
         border: `1px solid ${active ? theme.honey : theme.border}`,
         borderRadius: 12,
         background: active ? theme.honeyLight : theme.white,
         color: active ? theme.honeyDeep : theme.muted,
         cursor: 'pointer',
         fontFamily: 'inherit',
-        textAlign: 'left',
+        textAlign: 'center',
       }}
     >
-      <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700 }}>{tab.label} · {count}</span>
-      <span style={{ display: 'block', marginTop: 3, fontSize: 8.8, lineHeight: 1.35, color: active ? theme.honeyDeep : theme.mutedLight }}>{tab.description}</span>
+      <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700 }}>{tab.label}</span>
+      <span style={{ display: 'block', marginTop: 3, fontSize: 9.5, lineHeight: 1.2, color: active ? theme.honeyDeep : theme.mutedLight }}>{count} 条</span>
     </button>
   );
 }
@@ -141,7 +142,7 @@ export function MemoryRoom({
         <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
         <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 陆泽的大脑</span>
       </header>
-      <div className="ourhome-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+      <div className="ourhome-scroll memory-room-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
         <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性" resetKey={resetKey}>
           <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -176,21 +177,29 @@ export function MemoryRoom({
           <div style={{ padding: '10px 11px', marginBottom: 10, borderRadius: 13, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, color: C.honeyDeep, fontSize: 10.5, lineHeight: 1.6 }}>
             规则约束陆泽怎样表达与行动，世界书提供人物、地点和背景知识，记忆记录真实发生过的事。三类内容分开保存，调用时再按房间和当前话题组合。
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+          <div className="memory-knowledge-grid">
             {visible && (
               <Suspense fallback={<div style={{ gridColumn: '1 / -1', padding: '16px 0', textAlign: 'center', color: C.muted, fontSize: 11 }}>正在整理规则与世界书…</div>}>
-                <TheaterRuleLibrary placement="memory" />
+                <TheaterRuleLibrary />
                 <WorldbookLibrary />
               </Suspense>
             )}
           </div>
         </SettingsGroup>
 
-        <SettingsGroup theme={C} title="记忆分层" subtitle="重要的会沉淀，临时的会自然退场" resetKey={resetKey}>
-          <div style={{ padding: '10px 11px', marginBottom: 11, borderRadius: 13, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, color: C.honeyDeep, fontSize: 10.5, lineHeight: 1.6 }}>
-            新内容先进入阶段或临时记忆；稳定身份、反复确认的偏好、边界和重要约定会逐渐提炼为核心记忆。过期与重复内容只归档，不会悄悄删除。
+        <SettingsGroup theme={C} title="主动记忆" subtitle="你亲手交给陆泽记住的内容" resetKey={resetKey}>
+          <div className="memory-active-form">
+            <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
+            <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
           </div>
-          <div style={{ display: 'flex', gap: 7 }}>
+          <p className="memory-active-note">这类内容会先进入阶段记忆，后续再根据重要程度沉淀；原文始终可以在这里查看和修改。</p>
+        </SettingsGroup>
+
+        <SettingsGroup theme={C} title="记忆总览" subtitle="核心、阶段和临时记忆放在同一个框里" resetKey={resetKey}>
+          <div className="memory-layer-intro" style={{ background: C.honeyLight, borderColor: C.honeyMid, color: C.honeyDeep }}>
+            记忆会在三个层级间自然流动，稳定身份和重要约定沉淀为核心，真实经历与项目进展留在阶段，近期没聊完的事情暂存在临时层。归档只退出当前上下文，不会悄悄删除原内容。
+          </div>
+          <div className="memory-layer-tabs" role="tablist" aria-label="记忆层级">
             {MEMORY_LAYER_TABS.map(tab => (
               <LayerTab
                 key={tab.key}
@@ -202,16 +211,10 @@ export function MemoryRoom({
               />
             ))}
           </div>
-        </SettingsGroup>
-
-        <SettingsGroup theme={C} title="主动记住" subtitle="手动写下的内容先作为阶段记忆保存" resetKey={resetKey}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
-            <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
+          <div className="memory-selected-layer" style={{ borderColor: C.borderLight }}>
+            <strong style={{ color: C.text }}>{selectedTab.label}</strong>
+            <span style={{ color: C.muted }}>{selectedTab.description}</span>
           </div>
-        </SettingsGroup>
-
-        <SettingsGroup theme={C} title={selectedTab.label} subtitle={selectedTab.description} resetKey={resetKey}>
           {memoryLayer === 'temporary' ? (
             <>
               {workingLoading && <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: '20px 0' }}>整理近期话题中…</div>}
