@@ -1,0 +1,344 @@
+.reading-shelf-intro {
+  position: relative;
+}
+
+.reading-bookmark-star {
+  position: absolute;
+  top: 54px;
+  right: 20px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid color-mix(in srgb, var(--reading-accent) 24%, var(--reading-border));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--reading-paper) 84%, transparent);
+  color: var(--reading-accent);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--reading-accent) 12%, transparent);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.reading-bookmark-star span {
+  transform: translateY(-1px);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.reading-bookmark-star:active {
+  transform: scale(.96);
+}
+
+.reading-bookmark-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(45, 34, 27, .22);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.reading-bookmark-panel {
+  width: min(720px, 100%);
+  max-height: min(80dvh, 760px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(126, 96, 69, .16);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 91% 8%, rgba(244, 225, 189, .42), transparent 24%),
+    radial-gradient(circle at 8% 94%, rgba(239, 208, 200, .28), transparent 26%),
+    #fffaf1;
+  box-shadow: 0 28px 88px rgba(54, 38, 27, .24);
+  color: #4d3e33;
+}
+
+.reading-bookmark-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(126, 96, 69, .11);
+}
+
+.reading-bookmark-panel > header span {
+  color: #a27a43;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .22em;
+}
+
+.reading-bookmark-panel > header h2 {
+  margin: 3px 0 0;
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 23px;
+  font-weight: 600;
+}
+
+.reading-bookmark-panel > header p {
+  margin: 3px 0 0;
+  color: #9a8775;
+  font-size: 10px;
+}
+
+.reading-bookmark-panel > header > button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(126,96,69,.14);
+  border-radius: 50%;
+  background: rgba(255,255,255,.66);
+  color: #766558;
+  font-size: 23px;
+  line-height: 1;
+}
+
+.reading-bookmark-list {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 12px;
+  padding: 15px 16px max(18px, env(safe-area-inset-bottom));
+}
+
+.reading-bookmark-card {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(139, 106, 76, .13);
+  border-radius: 18px;
+  background: rgba(255,255,255,.68);
+  box-shadow: 0 9px 26px rgba(85, 61, 43, .06);
+}
+
+.reading-bookmark-card > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 9px;
+}
+
+.reading-bookmark-card > header strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #5d4938;
+  font-family: serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reading-bookmark-card > header span {
+  flex: 0 0 auto;
+  max-width: 46%;
+  overflow: hidden;
+  color: #a08b78;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reading-bookmark-card blockquote {
+  margin: 12px 0 10px;
+  padding: 0 0 0 11px;
+  border-left: 2px solid rgba(188, 144, 86, .35);
+  color: #58493d;
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.reading-bookmark-luze {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.reading-bookmark-luze i {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #7890ad;
+  color: #fff;
+  font-size: 9px;
+  font-style: normal;
+}
+
+.reading-bookmark-luze p {
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 12px 12px 12px 4px;
+  background: #eaf2fb;
+  color: #526a87;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.reading-bookmark-card > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.reading-bookmark-card > footer time {
+  color: #aa9786;
+  font-size: 9px;
+}
+
+.reading-bookmark-card > footer button {
+  border: 0;
+  background: transparent;
+  color: #a0645c;
+  font-size: 10px;
+}
+
+.reading-bookmark-card > footer button:disabled { opacity: .5; }
+
+.reading-bookmark-empty {
+  padding: 54px 24px;
+  color: #9a8877;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.reading-bookmark-error {
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(164,81,72,.14);
+  border-radius: 12px;
+  background: rgba(251,233,229,.72);
+  color: #9a554d;
+  font-size: 11px;
+}
+
+/* 选中文字现在只承担“书签”职责：原有高亮存储继续复用，视觉改成波浪线。 */
+.reading-highlight,
+.reading-highlight--blush,
+.reading-highlight--mint {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-thickness: 1.25px;
+  text-decoration-color: color-mix(in srgb, var(--reading-accent) 72%, var(--reading-blush));
+  text-underline-offset: .24em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  cursor: default !important;
+  pointer-events: none;
+}
+
+.reading-highlight.has-note::after { display: none !important; }
+
+.reading-selection-hint {
+  font-size: 0 !important;
+}
+
+.reading-selection-hint::after {
+  content: "选中喜欢的一句，保存后会变成波浪线书签。";
+  font-size: 10px;
+}
+
+/* 把原来的批注编辑抽屉收成轻量书签确认，不再展示批注输入。 */
+.reading-annotation-sheet > header span {
+  font-size: 0 !important;
+}
+
+.reading-annotation-sheet > header span::after {
+  content: "BOOKMARK";
+  font-size: 9px;
+  letter-spacing: .24em;
+}
+
+.reading-annotation-sheet label,
+.reading-luze-reply,
+.reading-annotation-actions--three {
+  display: none !important;
+}
+
+.reading-annotation-actions:not(.reading-annotation-actions--three) button:last-child {
+  font-size: 0;
+}
+
+.reading-annotation-actions:not(.reading-annotation-actions--three) button:last-child::after {
+  content: "加入书签";
+  font-size: 12px;
+}
+
+/* 正文旁只保留陆泽真的写过内容的小气泡，旧批注数据继续兼容。 */
+.reading-paragraph-notes {
+  display: none !important;
+}
+
+.reading-paragraph-block:has(.reading-highlight.has-luze-reply) .reading-paragraph-notes {
+  display: flex !important;
+}
+
+.reading-paragraph-note-toggle b { display: none !important; }
+.reading-paragraph-thread blockquote,
+.reading-paragraph-bubble.is-tantan,
+.reading-paragraph-waiting,
+.reading-paragraph-edit {
+  display: none !important;
+}
+
+.reading-paragraph-thread article:not(:has(.reading-paragraph-bubble.is-luze)) {
+  display: none !important;
+}
+
+.reading-paragraph-thread article {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.reading-paragraph-bubble.is-luze {
+  max-width: min(88%, 440px);
+  padding: 8px 10px;
+  box-shadow: 0 6px 18px rgba(75, 101, 132, .08);
+}
+
+@media (max-width: 640px) {
+  .reading-bookmark-star {
+    top: 53px;
+    right: 17px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .reading-bookmark-layer {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .reading-bookmark-panel {
+    width: 100%;
+    max-height: 82dvh;
+    border-radius: 25px 25px 0 0;
+  }
+
+  .reading-bookmark-list {
+    grid-template-columns: 1fr;
+    padding-left: 13px;
+    padding-right: 13px;
+  }
+}
