@@ -42,6 +42,7 @@ test('local-first cache covers household data and excludes volatile or mutating 
   assert.equal(localFirstReadPath('/api/messages/search?q=海棠'), '/messages/search?q=%E6%B5%B7%E6%A3%A0');
   assert.equal(localFirstReadPath('/api/vault'), '/vault');
   assert.equal(localFirstReadPath('/api/reading/books'), '/reading/books');
+  assert.equal(localFirstReadPath('/api/lorebooks'), '/lorebooks');
   assert.equal(localFirstReadPath('/api/weather?city=武汉'), '');
   assert.equal(localFirstReadPath('/api/backup'), '');
   assert.equal(localFirstReadPath('/api/letters', { method: 'POST' }), '');
@@ -57,6 +58,12 @@ test('local-first outbox accepts only bounded, safe household mutations', () => 
   const duplicate = localFirstMutation('/api/home-memos', safeOptions, 'request-two', 402);
   assert.equal(first?.replayable, true);
   assert.equal(first?.id, duplicate?.id, 'the same logical write must deduplicate across retries');
+
+  assert.ok(localFirstMutation('/api/lorebooks/book-1', {
+    ...safeOptions,
+    method: 'PATCH',
+    body: JSON.stringify({ name: '陆宅设定' }),
+  }, 'lorebook', 402));
 
   assert.equal(localFirstMutation('/api/chat', safeOptions, 'chat', 402), null);
   assert.equal(localFirstMutation('/api/upload', safeOptions, 'upload', 402), null);

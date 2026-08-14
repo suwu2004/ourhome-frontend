@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
+import { useDialogLayer } from './useDialogLayer.js';
 import './WorldbookLibrary.css';
 
 const scopeOptions = [
@@ -84,9 +85,12 @@ export default function WorldbookLibrary() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [mobilePane, setMobilePane] = useState('library');
   const [importScope, setImportScope] = useState('theater');
   const [importTarget, setImportTarget] = useState('');
   const fileInputRef = useRef(null);
+  const closeButtonRef = useRef(null);
 
   const selectedBook = useMemo(
     () => books.find(book => String(book.id) === String(selectedId)) || null,
@@ -108,6 +112,7 @@ export default function WorldbookLibrary() {
       if (!loreResponse.ok) throw new Error(loreData.error || '世界书库没有打开');
       const nextBooks = Array.isArray(loreData) ? loreData : [];
       setBooks(nextBooks);
+      setLoaded(true);
       if (theaterResponse.ok) setTheaterBooks(Array.isArray(theaterData) ? theaterData : []);
       const nextId = preferredId || selectedId || nextBooks[0]?.id || null;
       setSelectedId(nextId);
@@ -125,20 +130,15 @@ export default function WorldbookLibrary() {
     loadBooks();
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKeyDown = event => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+  const closeLibrary = useCallback(() => setOpen(false), []);
+  useDialogLayer(open, closeLibrary, closeButtonRef);
 
   const chooseBook = book => {
     setSelectedId(book.id);
     setBookDraft(bookToDraft(book));
     setEntryDraft(emptyEntry);
     setError('');
+    setMobilePane('book');
   };
 
   const startNewBook = () => {
@@ -146,6 +146,7 @@ export default function WorldbookLibrary() {
     setBookDraft(emptyBook);
     setEntryDraft(emptyEntry);
     setError('');
+    setMobilePane('book');
   };
 
   const saveBook = async () => {
@@ -331,14 +332,16 @@ export default function WorldbookLibrary() {
 
   return (
     <>
-      <button className="worldbook-library-trigger" type="button" onClick={() => setOpen(true)}>
-        <span><strong>世界书</strong><small>人物、地点、背景与关键词唤醒知识</small></span>
-        <b>{enabledCount || books.length}</b>
+      <button className="worldbook-library-trigger knowledge-library-trigger knowledge-library-trigger--world" type="button" onClick={() => setOpen(true)}>
+        <span className="knowledge-library-trigger__icon" aria-hidden="true">界</span>
+        <span className="knowledge-library-trigger__copy"><strong>世界书</strong><small>人物、地点、背景与关键词唤醒知识</small></span>
+        <span className="knowledge-library-trigger__meta">{loaded ? `${enabledCount} 本启用` : '打开书架'}</span>
+        <span className="knowledge-library-trigger__arrow" aria-hidden="true">›</span>
       </button>
 
       {open && (
         <div className="worldbook-layer" role="presentation" onMouseDown={event => {
-          if (event.target === event.currentTarget) setOpen(false);
+          if (event.target === event.currentTarget) closeLibrary();
         }}>
           <section className="worldbook-library" role="dialog" aria-modal="true" aria-label="世界书库">
             <header className="worldbook-head">
@@ -347,7 +350,7 @@ export default function WorldbookLibrary() {
                 <h2>世界书库</h2>
                 <p>命中触发词才唤醒相关设定，常驻条目一直生效；扫描深度和预算会控制每轮带入多少内容。</p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="关闭世界书库">×</button>
+              <button ref={closeButtonRef} type="button" onClick={closeLibrary} aria-label="关闭世界书库">×</button>
             </header>
 
             <div className="worldbook-summary">
@@ -358,8 +361,14 @@ export default function WorldbookLibrary() {
             </div>
             {error && <div className="worldbook-error">{error}</div>}
 
+            <nav className="worldbook-mobile-tabs" aria-label="世界书库页面">
+              <button type="button" className={mobilePane === 'library' ? 'is-active' : ''} onClick={() => setMobilePane('library')}>书架 <b>{books.length}</b></button>
+              <button type="button" className={mobilePane === 'book' ? 'is-active' : ''} onClick={() => setMobilePane('book')}>书本设置</button>
+              <button type="button" className={mobilePane === 'entries' ? 'is-active' : ''} onClick={() => setMobilePane('entries')} disabled={!selectedBook}>知识条目 <b>{selectedBook?.entries?.length || 0}</b></button>
+            </nav>
+
             <div className="worldbook-body">
-              <aside className="worldbook-sidebar">
+              <aside className={`worldbook-sidebar ${mobilePane !== 'library' ? 'is-mobile-hidden' : ''}`}>
                 <button className="worldbook-new" type="button" onClick={startNewBook}>＋ 新建世界书</button>
                 <div className="worldbook-import">
                   <strong>导入兼容世界书</strong>
@@ -393,7 +402,7 @@ export default function WorldbookLibrary() {
               </aside>
 
               <main className="worldbook-editor">
-                <section className="worldbook-book-editor">
+                <section className={`worldbook-book-editor ${mobilePane !== 'book' ? 'is-mobile-hidden' : ''}`}>
                   <div className="worldbook-section-title">
                     <div><span>{bookDraft.id ? 'BOOK SETTINGS' : 'NEW LOREBOOK'}</span><h3>{bookDraft.id ? '世界书设置' : '新建世界书'}</h3></div>
                     {selectedBook && <div><button type="button" onClick={() => toggleBook(selectedBook)} disabled={busy}>{selectedBook.enabled ? '停用' : '启用'}</button><button className="is-danger" type="button" onClick={() => deleteBook(selectedBook)} disabled={busy}>删除</button></div>}
@@ -413,15 +422,15 @@ export default function WorldbookLibrary() {
                 </section>
 
                 {selectedBook && (
-                  <section className="worldbook-entries">
-                    <div className="worldbook-section-title"><div><span>ACTIVE ENTRIES</span><h3>知识条目</h3></div><button type="button" onClick={() => setEntryDraft(emptyEntry)}>＋ 新条目</button></div>
+                  <section className={`worldbook-entries ${mobilePane !== 'entries' ? 'is-mobile-hidden' : ''}`}>
+                    <div className="worldbook-section-title"><div><span>ACTIVE ENTRIES</span><h3>知识条目</h3></div><button type="button" onClick={() => { setEntryDraft(emptyEntry); setMobilePane('entries'); }}>＋ 新条目</button></div>
                     <div className="worldbook-entry-cards">
                       {(selectedBook.entries || []).length === 0 && <div className="worldbook-empty">这本书还没有条目。常驻内容不用触发词，普通内容会按关键词唤醒。</div>}
                       {(selectedBook.entries || []).map(entry => (
                         <article key={entry.id} className={entry.enabled ? '' : 'is-disabled'}>
                           <header><div><strong>{entry.name || '未命名条目'}</strong><small>{entry.constant ? '常驻' : (entry.keys || []).join('、') || '无触发词'} · 优先级 {entry.priority || 0}</small></div><button type="button" onClick={() => patchEntry(entry, { enabled: !entry.enabled })}>{entry.enabled ? '启用' : '停用'}</button></header>
                           <p>{entry.content}</p>
-                          <footer><button type="button" onClick={() => setEntryDraft(entryToDraft(entry))}>编辑</button><button className="is-danger" type="button" onClick={() => deleteEntry(entry)}>删除</button></footer>
+                          <footer><button type="button" onClick={() => { setEntryDraft(entryToDraft(entry)); setMobilePane('entries'); }}>编辑</button><button className="is-danger" type="button" onClick={() => deleteEntry(entry)}>删除</button></footer>
                         </article>
                       ))}
                     </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
+import { useDialogLayer } from './useDialogLayer.js';
 import './TheaterRuleLibrary.css';
 
 const emptyDraft = {
@@ -95,7 +96,10 @@ export default function TheaterRuleLibrary() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [mobilePane, setMobilePane] = useState('list');
   const fileInputRef = useRef(null);
+  const closeButtonRef = useRef(null);
 
   const enabledCount = useMemo(() => rules.filter(rule => rule.enabled).length, [rules]);
   const enabledChars = useMemo(
@@ -119,6 +123,7 @@ export default function TheaterRuleLibrary() {
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || '通用规则库没有打开');
       setRules(Array.isArray(data) ? data : []);
+      setLoaded(true);
     } catch (err) {
       setError(err.message || '通用规则库没有打开');
     } finally {
@@ -127,19 +132,19 @@ export default function TheaterRuleLibrary() {
   }, []);
 
   useEffect(() => {
-    loadRules();
-  }, [loadRules]);
+    if (open) loadRules();
+  }, [loadRules, open]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKeyDown = event => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+  const closeLibrary = useCallback(() => setOpen(false), []);
+  useDialogLayer(open, closeLibrary, closeButtonRef);
 
   const resetDraft = () => setDraft(emptyDraft);
+
+  const startNewRule = () => {
+    resetDraft();
+    setMobilePane('editor');
+    setError('');
+  };
 
   const editRule = rule => {
     setDraft({
@@ -150,6 +155,7 @@ export default function TheaterRuleLibrary() {
       apply_scope: normalizeScope(rule.apply_scope),
       source_name: rule.source_name || null,
     });
+    setMobilePane('editor');
     requestAnimationFrame(() => document.querySelector('.theater-rule-editor')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
   };
 
@@ -183,6 +189,7 @@ export default function TheaterRuleLibrary() {
       if (!response.ok) throw new Error(data.error || '这条规则没有保存成功');
       await loadRules();
       resetDraft();
+      setMobilePane('list');
     } catch (err) {
       setError(err.message || '这条规则没有保存成功');
     } finally {
@@ -221,6 +228,7 @@ export default function TheaterRuleLibrary() {
       if (!createResponse.ok) throw new Error(created.error || '这份规则没有加入规则库');
       await loadRules();
       setDraft(emptyDraft);
+      setMobilePane('list');
     } catch (err) {
       setError(err.message || '规则文件没有导入成功');
     } finally {
@@ -313,13 +321,15 @@ export default function TheaterRuleLibrary() {
 
   return (
     <>
-      <button className="theater-rule-library-trigger is-memory" type="button" onClick={() => setOpen(true)}>
-        <span><strong>规则库</strong><small>表达、行为、禁区与叙事规范</small></span>
-        <b>{enabledCount}</b>
+      <button className="theater-rule-library-trigger is-memory knowledge-library-trigger knowledge-library-trigger--rules" type="button" onClick={() => setOpen(true)}>
+        <span className="knowledge-library-trigger__icon" aria-hidden="true">规</span>
+        <span className="knowledge-library-trigger__copy"><strong>规则库</strong><small>表达、行为、禁区与叙事规范</small></span>
+        <span className="knowledge-library-trigger__meta">{loaded ? `${enabledCount} 条启用` : '打开管理'}</span>
+        <span className="knowledge-library-trigger__arrow" aria-hidden="true">›</span>
       </button>
       {open && (
         <div className="theater-rule-layer" role="presentation" onMouseDown={event => {
-          if (event.target === event.currentTarget) setOpen(false);
+          if (event.target === event.currentTarget) closeLibrary();
         }}>
           <section className="theater-rule-library" role="dialog" aria-modal="true" aria-label="规则库">
             <header className="theater-rule-library-head">
@@ -328,7 +338,7 @@ export default function TheaterRuleLibrary() {
                 <h2>规则库</h2>
                 <p>规则管表达与行为，每条都能单独选择只进小剧场、只进 Chat，或者两边共同使用。</p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="关闭规则库">×</button>
+              <button ref={closeButtonRef} type="button" onClick={closeLibrary} aria-label="关闭规则库">×</button>
             </header>
 
             <div className="theater-rule-summary">
@@ -342,8 +352,14 @@ export default function TheaterRuleLibrary() {
 
             {error && <div className="theater-rule-error">{error}</div>}
 
+            <nav className="theater-rule-mobile-tabs" aria-label="规则库页面">
+              <button type="button" className={mobilePane === 'list' ? 'is-active' : ''} onClick={() => setMobilePane('list')}>规则列表 <b>{rules.length}</b></button>
+              <button type="button" className={mobilePane === 'editor' ? 'is-active' : ''} onClick={() => setMobilePane('editor')}>{draft.id ? '编辑规则' : '添加规则'}</button>
+              <button type="button" onClick={startNewRule} aria-label="新建规则">＋</button>
+            </nav>
+
             <div className="theater-rule-library-body">
-              <div className="theater-rule-list">
+              <div className={`theater-rule-list ${mobilePane !== 'list' ? 'is-mobile-hidden' : ''}`}>
                 {loading && rules.length === 0 && <div className="theater-rule-empty">正在把规则卡片拿出来…</div>}
                 {!loading && rules.length === 0 && <div className="theater-rule-empty">规则库还是空的。右边可以新建，也可以直接上传 Word。</div>}
                 {rules.map((rule, index) => (
@@ -362,13 +378,13 @@ export default function TheaterRuleLibrary() {
                 ))}
               </div>
 
-              <aside className="theater-rule-editor">
+              <aside className={`theater-rule-editor ${mobilePane !== 'editor' ? 'is-mobile-hidden' : ''}`}>
                 <div className="theater-rule-editor-title">
                   <div>
                     <span>{draft.id ? 'EDIT RULE' : 'NEW RULE'}</span>
                     <h3>{draft.id ? '修改这条规则' : '添加一条规则'}</h3>
                   </div>
-                  {draft.id && <button type="button" onClick={resetDraft} disabled={busy}>取消编辑</button>}
+                  {draft.id && <button type="button" onClick={() => { resetDraft(); setMobilePane('list'); }} disabled={busy}>取消编辑</button>}
                 </div>
 
                 <label>
