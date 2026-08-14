@@ -9,6 +9,7 @@ const companionCss = fs.readFileSync(new URL('../src/ReadingCompanionPanel.css',
 const bookmarks = fs.readFileSync(new URL('../src/ReadingBookmarkOverlay.jsx', import.meta.url), 'utf8');
 const bookmarkCss = fs.readFileSync(new URL('../src/ReadingBookmarkOverlay.css', import.meta.url), 'utf8');
 const headers = fs.readFileSync(new URL('../src/UnifiedRoomHeaders.css', import.meta.url), 'utf8');
+const root = fs.readFileSync(new URL('../src/Root.jsx', import.meta.url), 'utf8');
 
 // The underlying selection storage stays compatible with the existing annotation API,
 // while the visible UX now presents these selections as bookmarks.
@@ -32,6 +33,12 @@ test('reading companion is chat-only and names the current book', () => {
   assert.doesNotMatch(companion, /边读边聊|reading-companion-tabs|tab === 'annotations'|tab === 'bookmarks'/);
   assert.match(companionCss, /reading-room--reader ~ \.reading-companion-fab[\s\S]*bottom: max\(116px/);
   assert.match(companionCss, /height: min\(72dvh, 680px\)/);
+});
+
+test('reading room mounts only the chat and bookmark surfaces beside the reader', () => {
+  assert.match(root, /<ReadingCompanionPanel \/>/);
+  assert.match(root, /<ReadingBookmarkOverlay \/>/);
+  assert.doesNotMatch(root, /ReadingShelfLiveNote/);
 });
 
 test('reading selections look like wave bookmarks and skip annotation writing UI', () => {
