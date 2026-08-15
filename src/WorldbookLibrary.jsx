@@ -126,6 +126,7 @@ export default function WorldbookLibrary() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [budgetReport, setBudgetReport] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [mobilePane, setMobilePane] = useState('library');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -145,6 +146,14 @@ export default function WorldbookLibrary() {
     return selectedSummary;
   }, [selectedDetail, selectedId, selectedSummary]);
   const enabledCount = useMemo(() => books.filter(isBookEffectivelyEnabled).length, [books]);
+  const budgetWarning = useMemo(() => {
+    const capped = [];
+    if (budgetReport?.chat?.reached_cap) capped.push('Chat');
+    if (budgetReport?.theater?.reached_cap) capped.push('小剧场');
+    return capped.length
+      ? `${capped.join('、')} 的常驻世界书已经达到本轮总上限，靠后的内容可能会被截断。可以关闭暂时不用的世界书。`
+      : '';
+  }, [budgetReport]);
 
   const resetSelection = useCallback(() => {
     detailRequestRef.current += 1;
@@ -205,6 +214,16 @@ export default function WorldbookLibrary() {
     }
   }, [resetSelection]);
 
+  const loadBudgetReport = useCallback(async () => {
+    try {
+      const response = await apiFetch(`${BACKEND}/lorebooks/context-budget`);
+      const data = await readJson(response);
+      if (response.ok && data?.basis) setBudgetReport(data);
+    } catch {
+      // Rolling deploy compatibility: budget visibility is optional until the backend catches up.
+    }
+  }, []);
+
   const loadBooks = useCallback(async (preferredId = null) => {
     setLoading(true);
     setError('');
@@ -215,6 +234,7 @@ export default function WorldbookLibrary() {
       const nextBooks = Array.isArray(data) ? data : [];
       setBooks(nextBooks);
       setLoaded(true);
+      loadBudgetReport();
       if (!preferredId) {
         resetSelection();
         return;
@@ -233,7 +253,7 @@ export default function WorldbookLibrary() {
     } finally {
       setLoading(false);
     }
-  }, [loadBookDetail, resetSelection]);
+  }, [loadBookDetail, loadBudgetReport, resetSelection]);
 
   useEffect(() => {
     if (!open) return;
@@ -551,6 +571,7 @@ export default function WorldbookLibrary() {
                   <span>OURHOME LOREBOOKS</span>
                   <h2>世界书</h2>
                   <p>{books.length} 本 · {enabledCount} 本正在使用</p>
+                  {budgetReport && <p>常驻上下文：Chat {Number(budgetReport.chat?.constant_context_chars || 0).toLocaleString()} 字 · 小剧场 {Number(budgetReport.theater?.constant_context_chars || 0).toLocaleString()} 字</p>}
                 </div>
                 <div className="worldbook-head-actions">
                   <button className="worldbook-add" type="button" aria-label="添加世界书" onClick={() => setAddMenuOpen(value => !value)}>＋</button>
@@ -567,6 +588,7 @@ export default function WorldbookLibrary() {
 
             {error && <div className="worldbook-error">{error}</div>}
             {notice && <div className="worldbook-notice">{notice}</div>}
+            {budgetWarning && <div className="worldbook-error">{budgetWarning}</div>}
 
             <div className="worldbook-body">
               <aside className={`worldbook-sidebar ${mobilePane !== 'library' ? 'is-mobile-hidden' : ''}`}>
