@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { HighlightedText } from './ChatDecorations.jsx';
 
 export function ChatSearchPanel({
@@ -17,6 +18,12 @@ export function ChatSearchPanel({
   onJump,
 }) {
   const semanticLabel = meta?.semanticAvailable ? '语义搜索' : '关键词搜索';
+  const wasOpenRef = useRef(false);
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current && scope !== 'all') setScope('all');
+    wasOpenRef.current = open;
+  }, [open, scope, setScope]);
 
   return (
     <>
@@ -72,8 +79,8 @@ export function ChatSearchPanel({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 9 }}>
             {[
-              ['current', '当前对话'],
               ['all', '全部对话'],
+              ['current', '当前对话'],
             ].map(([key, label]) => (
               <button key={key} type="button" onClick={() => setScope(key)} style={{ border: `1px solid ${scope === key ? C.honey : C.border}`, background: scope === key ? C.honeyLight : 'transparent', color: scope === key ? C.honeyDeep : C.muted, borderRadius: 999, padding: '4px 10px', fontSize: 10.5, cursor: 'pointer' }}>{label}</button>
             ))}
@@ -85,7 +92,9 @@ export function ChatSearchPanel({
             <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: '20px 0' }}>翻找中…</div>
           )}
           {!searching && lastQuery && results.length === 0 && (
-            <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: '20px 0' }}>没找到相关的内容。</div>
+            <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: '20px 0' }}>
+              {scope === 'current' ? '当前对话里没找到。可以切到“全部对话”继续找。' : '没找到相关的内容。'}
+            </div>
           )}
           {results.map(result => {
             const resultKind = result.match_type === 'semantic' ? '语义相关' : '关键词命中';
