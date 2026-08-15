@@ -47,6 +47,17 @@ test('worldbook shelf keeps creation upload activation and scope simple', () => 
   assert.doesNotMatch(worldbooks, /导出备份/);
 });
 
+test('worldbook housekeeping avoids redundant writes and exposes empty activation shells', () => {
+  assert.match(worldbooks, /target_book_id: bookDraft\.target_book_id \|\| null/);
+  assert.match(worldbooks, /form\.append\('enabled', String\(importEnabled\)\)/);
+  assert.doesNotMatch(worldbooks, /if \(!importEnabled && data\.id\)/);
+  assert.match(worldbooks, /entries: \[\{/);
+  assert.doesNotMatch(worldbooks, /const entryResponse = await apiFetch/);
+  assert.match(worldbooks, /enabled_entry_count/);
+  assert.match(worldbooks, /暂无启用内容/);
+  assert.match(worldbooks, /isBookEffectivelyEnabled/);
+});
+
 test('worldbook shelf waits for an explicit tap before loading one book body', () => {
   assert.match(worldbooks, /lorebooks\?summary=1/);
   assert.match(worldbooks, /apiFetch\(`\$\{BACKEND\}\/lorebooks\/\$\{bookId\}`\)/);

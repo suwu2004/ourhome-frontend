@@ -79,6 +79,38 @@ function scopeLabel(book) {
   return scopeOptions.find(item => item.value === book?.apply_scope)?.label || 'Chat';
 }
 
+function bookEntryCounts(book) {
+  if (Array.isArray(book?.entries)) {
+    return {
+      total: book.entries.length,
+      enabled: book.entries.filter(entry => entry?.enabled !== false).length,
+      known: true,
+    };
+  }
+  if (Object.prototype.hasOwnProperty.call(book || {}, 'entry_count')) {
+    return {
+      total: Number(book.entry_count) || 0,
+      enabled: Number(book.enabled_entry_count) || 0,
+      known: true,
+    };
+  }
+  return { total: 0, enabled: 0, known: false };
+}
+
+function isBookEffectivelyEnabled(book) {
+  if (book?.enabled === false) return false;
+  const counts = bookEntryCounts(book);
+  return !counts.known || counts.enabled > 0;
+}
+
+function bookStatusLabel(book) {
+  if (book?.enabled === false) return '未启用';
+  const counts = bookEntryCounts(book);
+  if (counts.known && counts.total === 0) return '已启用 · 暂无内容';
+  if (counts.known && counts.enabled === 0) return '已启用 · 暂无启用内容';
+  return `已启用 · ${scopeLabel(book)}`;
+}
+
 export default function WorldbookLibrary() {
   const [open, setOpen] = useState(false);
   const [books, setBooks] = useState([]);
@@ -112,7 +144,7 @@ export default function WorldbookLibrary() {
     if (selectedDetail && String(selectedDetail.id) === String(selectedId)) return selectedDetail;
     return selectedSummary;
   }, [selectedDetail, selectedId, selectedSummary]);
-  const enabledCount = useMemo(() => books.filter(book => book.enabled).length, [books]);
+  const enabledCount = useMemo(() => books.filter(isBookEffectivelyEnabled).length, [books]);
 
   const resetSelection = useCallback(() => {
     detailRequestRef.current += 1;
@@ -266,7 +298,7 @@ export default function WorldbookLibrary() {
           description: bookDraft.description.trim(),
           enabled: bookDraft.enabled,
           apply_scope: bookDraft.apply_scope,
-          target_book_id: null,
+          target_book_id: bookDraft.target_book_id || null,
           scan_depth: Number(bookDraft.scan_depth) || 12,
           token_budget: Number(bookDraft.token_budget) || 2000,
           recursive_scanning: bookDraft.recursive_scanning,
@@ -303,28 +335,22 @@ export default function WorldbookLibrary() {
           scan_depth: 12,
           token_budget: 2000,
           recursive_scanning: false,
+          entries: [{
+            name: '完整设定',
+            content: newBookContent.trim(),
+            keys: [],
+            secondary_keys: [],
+            selective: false,
+            constant: true,
+            use_regex: false,
+            enabled: true,
+            priority: 0,
+            insertion_order: 0,
+          }],
         }),
       });
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || '世界书没有保存成功');
-      const entryResponse = await apiFetch(`${BACKEND}/lorebooks/${data.id}/entries`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: '完整设定',
-          content: newBookContent.trim(),
-          keys: [],
-          secondary_keys: [],
-          selective: false,
-          constant: true,
-          use_regex: false,
-          enabled: true,
-          priority: 0,
-          insertion_order: 0,
-        }),
-      });
-      const entryData = await readJson(entryResponse);
-      if (!entryResponse.ok) throw new Error(entryData.error || '世界书正文没有保存成功');
       setCreatingNew(false);
       setNewBookContent('');
       await loadBooks(data.id);
@@ -451,17 +477,10 @@ export default function WorldbookLibrary() {
     const form = new FormData();
     form.append('file', file);
     form.append('apply_scope', importScope);
+    form.append('enabled', String(importEnabled));
     const response = await apiFetch(`${BACKEND}/lorebooks/import`, { method: 'POST', body: form });
     const data = await readJson(response);
     if (!response.ok) throw new Error(data.error || `${file.name} 没有导入成功`);
-    if (!importEnabled && data.id) {
-      const patchResponse = await apiFetch(`${BACKEND}/lorebooks/${data.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: false }),
-      });
-      if (!patchResponse.ok) throw new Error(`${file.name} 已导入，但关闭状态没有保存成功`);
-    }
     return { created: data.id ? 1 : 0, skipped: 0 };
   };
 
@@ -567,9 +586,9 @@ export default function WorldbookLibrary() {
                     <button key={book.id} type="button" className={String(selectedId) === String(book.id) ? 'is-selected' : ''} onClick={() => chooseBook(book)}>
                       <span>
                         <strong>{book.name || '未命名世界书'}</strong>
-                        <small>{book.enabled ? `已启用 · ${scopeLabel(book)}` : '未启用'}</small>
+                        <small>{bookStatusLabel(book)}</small>
                       </span>
-                      <i className={book.enabled ? 'is-on' : ''} aria-label={book.enabled ? '已启用' : '未启用'} />
+                      <i className={isBookEffectivelyEnabled(book) ? 'is-on' : ''} aria-label={bookStatusLabel(book)} />
                     </button>
                   ))}
                   {!loading && books.length === 0 && <div className="worldbook-empty">书架还是空的。点右上角 ＋ 添加第一本。</div>}
@@ -597,7 +616,7 @@ export default function WorldbookLibrary() {
                   <>
                     <section className="worldbook-book-editor worldbook-existing-editor">
                       <div className="worldbook-section-title">
-                        <div><span>WORLD BOOK</span><h3>{selectedBook.name || '未命名世界书'}</h3><small className="worldbook-detail-status">{selectedBook.enabled ? `已启用 · ${scopeLabel(selectedBook)}` : '未启用'}</small></div>
+                        <div><span>WORLD BOOK</span><h3>{selectedBook.name || '未命名世界书'}</h3><small className="worldbook-detail-status">{bookStatusLabel(selectedBook)}</small></div>
                         <button className="is-danger" type="button" disabled={busy} onClick={() => deleteBook(selectedBook)}>删除</button>
                       </div>
                       <div className="worldbook-simple-fields">
