@@ -58,6 +58,15 @@ test('worldbook housekeeping avoids redundant writes and exposes empty activatio
   assert.match(worldbooks, /isBookEffectivelyEnabled/);
 });
 
+test('worldbook shelf shows guaranteed constant-context weight and warns only at the real compiled cap', () => {
+  assert.match(worldbooks, /lorebooks\/context-budget/);
+  assert.match(worldbooks, /constant_context_chars/);
+  assert.match(worldbooks, /常驻上下文：Chat/);
+  assert.match(worldbooks, /reached_cap/);
+  assert.match(worldbooks, /已经达到本轮总上限/);
+  assert.match(worldbooks, /Rolling deploy compatibility: budget visibility is optional/);
+});
+
 test('worldbook shelf waits for an explicit tap before loading one book body', () => {
   assert.match(worldbooks, /lorebooks\?summary=1/);
   assert.match(worldbooks, /apiFetch\(`\$\{BACKEND\}\/lorebooks\/\$\{bookId\}`\)/);
