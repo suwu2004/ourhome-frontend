@@ -28,7 +28,7 @@ test('active memory stays separate while the three automatic layers share one ov
   assert.doesNotMatch(memory, /title="记忆分层"/);
 });
 
-test('worldbook shelf keeps creation, upload, activation and location simple', () => {
+test('worldbook shelf keeps creation upload activation and scope simple', () => {
   assert.match(worldbooks, /手动创建/);
   assert.match(worldbooks, /上传文件/);
   assert.match(worldbooks, /type="file" hidden multiple/);
@@ -36,22 +36,32 @@ test('worldbook shelf keeps creation, upload, activation and location simple', (
   assert.match(worldbooks, /JSON \/ DOCX \/ TXT \/ MD，可多选/);
   assert.match(worldbooks, /已启用 · \$\{scopeLabel\(book\)\}/);
   assert.match(worldbooks, /未启用/);
-  assert.match(worldbooks, />名称</);
+  assert.match(worldbooks, /名称 \+ 正文，一次写完/);
   assert.match(worldbooks, />使用位置</);
   assert.match(worldbooks, />启用</);
   assert.match(worldbooks, /触发方式（可选）/);
+  assert.doesNotMatch(worldbooks, /简介（可选）/);
   assert.doesNotMatch(worldbooks, />扫描深度</);
   assert.doesNotMatch(worldbooks, />单轮预算</);
   assert.doesNotMatch(worldbooks, /允许关联设定继续唤醒/);
   assert.doesNotMatch(worldbooks, /导出备份/);
 });
 
-test('worldbook shelf loads lightweight summaries before one selected book body', () => {
+test('worldbook shelf waits for an explicit tap before loading one book body', () => {
   assert.match(worldbooks, /lorebooks\?summary=1/);
   assert.match(worldbooks, /apiFetch\(`\$\{BACKEND\}\/lorebooks\/\$\{bookId\}`\)/);
   assert.match(worldbooks, /detailLoading/);
   assert.match(worldbooks, /正在打开正文…/);
   assert.match(worldbooks, /Rolling deploy compatibility/);
+  assert.doesNotMatch(worldbooks, /nextBooks\[0\]\?\.id/);
+});
+
+test('existing worldbook detail is not permanently an add-entry form', () => {
+  assert.match(worldbooks, /entryEditorOpen &&/);
+  assert.match(worldbooks, /openNewEntry/);
+  assert.match(worldbooks, /openEntryEditor/);
+  assert.match(worldbooks, /worldbook-entry-editor-title/);
+  assert.match(worldbooks, /worldbook-detail-status/);
 });
 
 test('theater no longer duplicates the shared rule-library controls', () => {
@@ -61,17 +71,18 @@ test('theater no longer duplicates the shared rule-library controls', () => {
   assert.match(rules, /只进小剧场、只进 Chat/);
 });
 
-test('memory, rules, and worldbooks keep a one-hand mobile layout', () => {
+test('memory rules and worldbooks keep a one-hand mobile layout', () => {
   assert.match(memoryCss, /@media \(max-width: 560px\)[\s\S]*\.memory-knowledge-grid \{\s*grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(memoryCss, /\.memory-layer-tabs \{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(worldbookCss, /@media \(max-width: 760px\)[\s\S]*\.worldbook-layer \{ align-items: flex-end/);
-  assert.match(worldbooks, /worldbook-mobile-tabs/);
-  assert.match(worldbookCss, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(worldbooks, />详情<\/button>/);
+  assert.doesNotMatch(worldbooks, /worldbook-mobile-tabs/);
+  assert.doesNotMatch(worldbooks, />详情<\/button>/);
+  assert.match(worldbooks, /worldbook-mobile-back/);
+  assert.match(worldbookCss, /\.worldbook-mobile-back \{ display: block/);
+  assert.match(worldbookCss, /worldbook-sidebar\.is-mobile-hidden/);
   assert.doesNotMatch(worldbooks, /书本设置|知识条目/);
   assert.match(rules, /theater-rule-mobile-tabs/);
   assert.doesNotMatch(rules, />添加规则<\/button>/);
-  assert.match(worldbookCss, /worldbook-sidebar\.is-mobile-hidden/);
   assert.match(ruleCss, /theater-rule-list\.is-mobile-hidden/);
   assert.match(mobilePolish, /theater-rule-library-trigger:not\(\.is-memory\)/);
   assert.match(ruleCss, /@media \(max-width: 460px\)[\s\S]*\.theater-rule-editor-actions \{\s*grid-template-columns: 1fr/);

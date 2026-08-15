@@ -87,6 +87,9 @@ export default function WorldbookLibrary() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [bookDraft, setBookDraft] = useState({ ...emptyBook });
   const [entryDraft, setEntryDraft] = useState({ ...emptyEntry });
+  const [entryEditorOpen, setEntryEditorOpen] = useState(false);
+  const [creatingNew, setCreatingNew] = useState(false);
+  const [newBookContent, setNewBookContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -111,11 +114,21 @@ export default function WorldbookLibrary() {
   }, [selectedDetail, selectedId, selectedSummary]);
   const enabledCount = useMemo(() => books.filter(book => book.enabled).length, [books]);
 
+  const resetSelection = useCallback(() => {
+    detailRequestRef.current += 1;
+    setSelectedId(null);
+    setSelectedDetail(null);
+    setBookDraft({ ...emptyBook });
+    setEntryDraft({ ...emptyEntry });
+    setEntryEditorOpen(false);
+    setCreatingNew(false);
+    setNewBookContent('');
+    setDetailLoading(false);
+  }, []);
+
   const loadBookDetail = useCallback(async (bookId, fallbackBook = null) => {
     if (!bookId) {
-      detailRequestRef.current += 1;
-      setSelectedDetail(null);
-      setDetailLoading(false);
+      resetSelection();
       return null;
     }
 
@@ -124,6 +137,7 @@ export default function WorldbookLibrary() {
       setSelectedDetail(fallbackBook);
       setBookDraft(bookToDraft(fallbackBook));
       setEntryDraft({ ...emptyEntry });
+      setEntryEditorOpen(false);
       setDetailLoading(false);
       return fallbackBook;
     }
@@ -149,6 +163,7 @@ export default function WorldbookLibrary() {
       setSelectedDetail(detail);
       setBookDraft(bookToDraft(detail));
       setEntryDraft({ ...emptyEntry });
+      setEntryEditorOpen(false);
       return detail;
     } catch (err) {
       if (requestId === detailRequestRef.current) setError(err.message || '世界书正文没有打开');
@@ -156,7 +171,7 @@ export default function WorldbookLibrary() {
     } finally {
       if (requestId === detailRequestRef.current) setDetailLoading(false);
     }
-  }, []);
+  }, [resetSelection]);
 
   const loadBooks = useCallback(async (preferredId = null) => {
     setLoading(true);
@@ -168,33 +183,39 @@ export default function WorldbookLibrary() {
       const nextBooks = Array.isArray(data) ? data : [];
       setBooks(nextBooks);
       setLoaded(true);
-      const nextId = preferredId || selectedId || nextBooks[0]?.id || null;
-      const nextBook = nextBooks.find(book => String(book.id) === String(nextId)) || null;
-      setSelectedId(nextId);
-      if (!nextId) {
-        detailRequestRef.current += 1;
-        setSelectedDetail(null);
-        setBookDraft({ ...emptyBook });
-        setEntryDraft({ ...emptyEntry });
-        setDetailLoading(false);
-      } else {
-        setBookDraft(bookToDraft(nextBook));
-        setEntryDraft({ ...emptyEntry });
-        await loadBookDetail(nextId, nextBook);
+      if (!preferredId) {
+        resetSelection();
+        return;
       }
+      const nextBook = nextBooks.find(book => String(book.id) === String(preferredId)) || null;
+      if (!nextBook) {
+        resetSelection();
+        return;
+      }
+      setSelectedId(nextBook.id);
+      setBookDraft(bookToDraft(nextBook));
+      setCreatingNew(false);
+      await loadBookDetail(nextBook.id, nextBook);
     } catch (err) {
       setError(err.message || '世界书库没有打开');
     } finally {
       setLoading(false);
     }
-  }, [loadBookDetail, selectedId]);
+  }, [loadBookDetail, resetSelection]);
 
   useEffect(() => {
     if (!open) return;
+    setMobilePane('library');
     loadBooks();
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const closeLibrary = useCallback(() => setOpen(false), []);
+  const closeLibrary = useCallback(() => {
+    setOpen(false);
+    setMobilePane('library');
+    setAddMenuOpen(false);
+    setUploadOpen(false);
+    resetSelection();
+  }, [resetSelection]);
   useDialogLayer(open, closeLibrary, closeButtonRef);
 
   const chooseBook = book => {
@@ -202,6 +223,8 @@ export default function WorldbookLibrary() {
     setSelectedDetail(Array.isArray(book.entries) ? book : null);
     setBookDraft(bookToDraft(book));
     setEntryDraft({ ...emptyEntry });
+    setEntryEditorOpen(false);
+    setCreatingNew(false);
     setError('');
     setNotice('');
     setAddMenuOpen(false);
@@ -210,13 +233,18 @@ export default function WorldbookLibrary() {
     loadBookDetail(book.id, book);
   };
 
+  const backToShelf = () => {
+    resetSelection();
+    setMobilePane('library');
+    setError('');
+    setNotice('');
+  };
+
   const startNewBook = () => {
-    detailRequestRef.current += 1;
-    setSelectedId(null);
-    setSelectedDetail(null);
-    setDetailLoading(false);
+    resetSelection();
     setBookDraft({ ...emptyBook });
-    setEntryDraft({ ...emptyEntry });
+    setCreatingNew(true);
+    setNewBookContent('');
     setError('');
     setNotice('');
     setUploadOpen(false);
@@ -224,14 +252,14 @@ export default function WorldbookLibrary() {
     setMobilePane('detail');
   };
 
-  const saveBook = async () => {
-    if (!bookDraft.name.trim()) return setError('先给世界书取一个名字。');
+  const saveExistingBook = async () => {
+    if (!selectedBook) return;
     setBusy(true);
     setError('');
     setNotice('');
     try {
-      const response = await apiFetch(`${BACKEND}/lorebooks${bookDraft.id ? `/${bookDraft.id}` : ''}`, {
-        method: bookDraft.id ? 'PATCH' : 'POST',
+      const response = await apiFetch(`${BACKEND}/lorebooks/${selectedBook.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: bookDraft.name.trim(),
@@ -246,7 +274,8 @@ export default function WorldbookLibrary() {
       });
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || '世界书没有保存成功');
-      await loadBooks(data.id || bookDraft.id);
+      await loadBooks(selectedBook.id);
+      setMobilePane('detail');
       setNotice('已经保存。');
     } catch (err) {
       setError(err.message || '世界书没有保存成功');
@@ -255,21 +284,54 @@ export default function WorldbookLibrary() {
     }
   };
 
-  const toggleBook = async book => {
+  const createWorldbook = async () => {
+    if (!bookDraft.name.trim()) return setError('先给世界书取一个名字。');
+    if (!newBookContent.trim()) return setError('把这本世界书的正文写进去。');
     setBusy(true);
     setError('');
     setNotice('');
     try {
-      const response = await apiFetch(`${BACKEND}/lorebooks/${book.id}`, {
-        method: 'PATCH',
+      const response = await apiFetch(`${BACKEND}/lorebooks`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !book.enabled }),
+        body: JSON.stringify({
+          name: bookDraft.name.trim(),
+          description: '',
+          enabled: bookDraft.enabled,
+          apply_scope: bookDraft.apply_scope,
+          target_book_id: null,
+          scan_depth: 12,
+          token_budget: 2000,
+          recursive_scanning: false,
+        }),
       });
       const data = await readJson(response);
-      if (!response.ok) throw new Error(data.error || '世界书状态没有保存成功');
-      await loadBooks(book.id);
+      if (!response.ok) throw new Error(data.error || '世界书没有保存成功');
+      const entryResponse = await apiFetch(`${BACKEND}/lorebooks/${data.id}/entries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: '完整设定',
+          content: newBookContent.trim(),
+          keys: [],
+          secondary_keys: [],
+          selective: false,
+          constant: true,
+          use_regex: false,
+          enabled: true,
+          priority: 0,
+          insertion_order: 0,
+        }),
+      });
+      const entryData = await readJson(entryResponse);
+      if (!entryResponse.ok) throw new Error(entryData.error || '世界书正文没有保存成功');
+      setCreatingNew(false);
+      setNewBookContent('');
+      await loadBooks(data.id);
+      setMobilePane('detail');
+      setNotice('新世界书已经放进书架。');
     } catch (err) {
-      setError(err.message || '世界书状态没有保存成功');
+      setError(err.message || '世界书没有保存成功');
     } finally {
       setBusy(false);
     }
@@ -283,10 +345,6 @@ export default function WorldbookLibrary() {
       const response = await apiFetch(`${BACKEND}/lorebooks/${book.id}`, { method: 'DELETE' });
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || '世界书没有删除成功');
-      detailRequestRef.current += 1;
-      setSelectedId(null);
-      setSelectedDetail(null);
-      setBookDraft({ ...emptyBook });
       await loadBooks();
       setMobilePane('library');
     } catch (err) {
@@ -296,8 +354,23 @@ export default function WorldbookLibrary() {
     }
   };
 
+  const openNewEntry = () => {
+    setEntryDraft({ ...emptyEntry });
+    setEntryEditorOpen(true);
+  };
+
+  const openEntryEditor = entry => {
+    setEntryDraft(entryToDraft(entry));
+    setEntryEditorOpen(true);
+  };
+
+  const closeEntryEditor = () => {
+    setEntryDraft({ ...emptyEntry });
+    setEntryEditorOpen(false);
+  };
+
   const saveEntry = async () => {
-    if (!selectedBook) return setError('先保存这本世界书，再添加内容。');
+    if (!selectedBook) return setError('先打开一本世界书。');
     if (!entryDraft.content.trim()) return setError('世界书正文还没有写。');
     if (!entryDraft.constant && splitKeys(entryDraft.keys_text).length === 0) return setError('非常驻内容需要填写触发词。');
     setBusy(true);
@@ -325,8 +398,9 @@ export default function WorldbookLibrary() {
       );
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || '世界书正文没有保存成功');
-      setEntryDraft({ ...emptyEntry });
+      closeEntryEditor();
       await loadBooks(selectedBook.id);
+      setMobilePane('detail');
       setNotice('正文已经保存。');
     } catch (err) {
       setError(err.message || '世界书正文没有保存成功');
@@ -347,6 +421,7 @@ export default function WorldbookLibrary() {
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || '内容状态没有保存成功');
       await loadBooks(selectedBook?.id);
+      setMobilePane('detail');
     } catch (err) {
       setError(err.message || '内容状态没有保存成功');
     } finally {
@@ -362,8 +437,9 @@ export default function WorldbookLibrary() {
       const response = await apiFetch(`${BACKEND}/lorebook-entries/${entry.id}`, { method: 'DELETE' });
       const data = await readJson(response);
       if (!response.ok) throw new Error(data.error || '内容没有删除成功');
-      if (entryDraft.id === entry.id) setEntryDraft({ ...emptyEntry });
+      if (entryDraft.id === entry.id) closeEntryEditor();
       await loadBooks(selectedBook?.id);
+      setMobilePane('detail');
     } catch (err) {
       setError(err.message || '内容没有删除成功');
     } finally {
@@ -386,7 +462,7 @@ export default function WorldbookLibrary() {
       });
       if (!patchResponse.ok) throw new Error(`${file.name} 已导入，但关闭状态没有保存成功`);
     }
-    return { created: data.id ? 1 : 0, skipped: 0, preferredId: data.id || null };
+    return { created: data.id ? 1 : 0, skipped: 0 };
   };
 
   const importOneFile = async file => {
@@ -401,7 +477,6 @@ export default function WorldbookLibrary() {
         return {
           created: Number(collectionData.created_count) || 0,
           skipped: Number(collectionData.skipped_count) || 0,
-          preferredId: collectionData.created?.[0]?.id || null,
         };
       }
       if (collectionResponse.status !== 422) throw new Error(collectionData.error || `${file.name} 没有导入成功`);
@@ -417,22 +492,20 @@ export default function WorldbookLibrary() {
     setNotice('');
     let created = 0;
     let skipped = 0;
-    let preferredId = null;
     try {
       for (const file of files) {
         const result = await importOneFile(file);
         created += result.created;
         skipped += result.skipped;
-        preferredId = preferredId || result.preferredId;
       }
-      await loadBooks(preferredId);
+      await loadBooks();
       setUploadOpen(false);
       setAddMenuOpen(false);
       setNotice(`导入完成：新增 ${created} 本${skipped ? `，跳过 ${skipped} 本重复内容` : ''}。`);
       setMobilePane('library');
     } catch (err) {
       setError(err.message || '世界书没有导入成功');
-      await loadBooks(preferredId);
+      await loadBooks();
     } finally {
       setBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -467,7 +540,7 @@ export default function WorldbookLibrary() {
               </div>
               {addMenuOpen && (
                 <div className="worldbook-add-menu">
-                  <button type="button" onClick={startNewBook}><b>手动创建</b><small>自己写名称和正文</small></button>
+                  <button type="button" onClick={startNewBook}><b>手动创建</b><small>名称 + 正文，一次写完</small></button>
                   <button type="button" onClick={() => { setUploadOpen(true); setAddMenuOpen(false); setMobilePane('library'); }}><b>上传文件</b><small>JSON / DOCX / TXT / MD，可多选</small></button>
                 </div>
               )}
@@ -475,11 +548,6 @@ export default function WorldbookLibrary() {
 
             {error && <div className="worldbook-error">{error}</div>}
             {notice && <div className="worldbook-notice">{notice}</div>}
-
-            <nav className="worldbook-mobile-tabs" aria-label="世界书页面">
-              <button type="button" className={mobilePane === 'library' ? 'is-active' : ''} onClick={() => setMobilePane('library')}>书架 <b>{books.length}</b></button>
-              <button type="button" className={mobilePane === 'detail' ? 'is-active' : ''} onClick={() => setMobilePane('detail')}>详情</button>
-            </nav>
 
             <div className="worldbook-body">
               <aside className={`worldbook-sidebar ${mobilePane !== 'library' ? 'is-mobile-hidden' : ''}`}>
@@ -490,7 +558,7 @@ export default function WorldbookLibrary() {
                     <label className="worldbook-switch-row"><span>导入后立即启用</span><input type="checkbox" checked={importEnabled} onChange={event => setImportEnabled(event.target.checked)} /></label>
                     <button className="worldbook-upload-button" type="button" disabled={busy} onClick={() => fileInputRef.current?.click()}>{busy ? '正在整理…' : '选择文件'}</button>
                     <input ref={fileInputRef} type="file" hidden multiple accept=".json,.docx,.txt,.md,application/json,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={event => importFiles(event.target.files)} />
-                    <small>合集 DOCX 会自动拆成多本；普通文件会各自成为一本世界书。默认关闭更安全，确认后再启用即可。</small>
+                    <small>合集 DOCX 会自动拆成多本；普通文件会各自成为一本世界书。</small>
                   </section>
                 )}
 
@@ -510,50 +578,59 @@ export default function WorldbookLibrary() {
               </aside>
 
               <main className={`worldbook-editor ${mobilePane !== 'detail' ? 'is-mobile-hidden' : ''}`}>
-                {(selectedBook || !bookDraft.id) ? (
-                  <>
-                    <section className="worldbook-book-editor">
-                      <div className="worldbook-section-title">
-                        <div><span>{bookDraft.id ? 'WORLD BOOK' : 'NEW WORLD BOOK'}</span><h3>{bookDraft.id ? bookDraft.name || '未命名世界书' : '新建世界书'}</h3></div>
-                        {bookDraft.id && selectedBook && <button className="is-danger" type="button" disabled={busy} onClick={() => deleteBook(selectedBook)}>删除</button>}
-                      </div>
+                {(creatingNew || selectedBook) && (
+                  <button type="button" className="worldbook-mobile-back" onClick={backToShelf}>← 返回世界书</button>
+                )}
 
-                      <label><span>名称</span><input value={bookDraft.name} maxLength={120} onChange={event => setBookDraft(value => ({ ...value, name: event.target.value }))} placeholder="例如：一颗透明的心" /></label>
-                      <label><span>简介（可选）</span><textarea className="worldbook-description" value={bookDraft.description} maxLength={2000} onChange={event => setBookDraft(value => ({ ...value, description: event.target.value }))} placeholder="简单写它负责什么" /></label>
+                {creatingNew ? (
+                  <section className="worldbook-book-editor worldbook-new-editor">
+                    <div className="worldbook-section-title"><div><span>NEW WORLD BOOK</span><h3>新建世界书</h3></div></div>
+                    <label><span>名称</span><input value={bookDraft.name} maxLength={120} onChange={event => setBookDraft(value => ({ ...value, name: event.target.value }))} placeholder="给这个世界取个名字" /></label>
+                    <label><span>正文</span><textarea className="worldbook-new-content" value={newBookContent} onChange={event => setNewBookContent(event.target.value)} placeholder="人物、背景、关系、规则……都可以直接写在这里" /></label>
+                    <div className="worldbook-simple-fields">
+                      <label><span>使用位置</span><select value={bookDraft.apply_scope} onChange={event => setBookDraft(value => ({ ...value, apply_scope: event.target.value }))}>{scopeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+                      <label className="worldbook-switch-row"><span>启用</span><input type="checkbox" checked={bookDraft.enabled} onChange={event => setBookDraft(value => ({ ...value, enabled: event.target.checked }))} /></label>
+                    </div>
+                    <div className="worldbook-book-actions"><button type="button" onClick={backToShelf}>取消</button><button className="is-primary" type="button" disabled={busy} onClick={createWorldbook}>{busy ? '保存中…' : '保存到书架'}</button></div>
+                  </section>
+                ) : selectedBook ? (
+                  <>
+                    <section className="worldbook-book-editor worldbook-existing-editor">
+                      <div className="worldbook-section-title">
+                        <div><span>WORLD BOOK</span><h3>{selectedBook.name || '未命名世界书'}</h3><small className="worldbook-detail-status">{selectedBook.enabled ? `已启用 · ${scopeLabel(selectedBook)}` : '未启用'}</small></div>
+                        <button className="is-danger" type="button" disabled={busy} onClick={() => deleteBook(selectedBook)}>删除</button>
+                      </div>
                       <div className="worldbook-simple-fields">
                         <label><span>使用位置</span><select value={bookDraft.apply_scope} onChange={event => setBookDraft(value => ({ ...value, apply_scope: event.target.value }))}>{scopeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
                         <label className="worldbook-switch-row"><span>启用</span><input type="checkbox" checked={bookDraft.enabled} onChange={event => setBookDraft(value => ({ ...value, enabled: event.target.checked }))} /></label>
                       </div>
-                      <div className="worldbook-book-actions">
-                        <button className="is-primary" type="button" disabled={busy || detailLoading} onClick={saveBook}>{busy ? '保存中…' : '保存世界书'}</button>
-                        {selectedBook && <button type="button" disabled={busy || detailLoading} onClick={() => toggleBook(selectedBook)}>{selectedBook.enabled ? '停用' : '启用'}</button>}
-                      </div>
+                      <div className="worldbook-book-actions"><button className="is-primary" type="button" disabled={busy || detailLoading} onClick={saveExistingBook}>{busy ? '保存中…' : '保存'}</button></div>
                     </section>
 
-                    {selectedBook && (
-                      <section className="worldbook-entries">
-                        <div className="worldbook-section-title">
-                          <div><span>CONTENT</span><h3>正文</h3></div>
-                          <button type="button" disabled={detailLoading} onClick={() => setEntryDraft({ ...emptyEntry })}>＋ 添加</button>
-                        </div>
+                    <section className="worldbook-entries">
+                      <div className="worldbook-section-title">
+                        <div><span>CONTENT</span><h3>内容</h3></div>
+                        <button type="button" disabled={detailLoading} onClick={openNewEntry}>＋ 添加</button>
+                      </div>
 
-                        {detailLoading ? <div className="worldbook-empty">正在打开正文…</div> : (
-                          <>
-                            <div className="worldbook-entry-cards">
-                              {(selectedBook.entries || []).map(entry => (
-                                <article key={entry.id} className={entry.enabled === false ? 'is-disabled' : ''}>
-                                  <header><div><strong>{entry.name || '完整设定'}</strong><small>{entry.constant ? '常驻' : `${(entry.keys || []).slice(0, 3).join(' · ') || '关键词触发'}`}</small></div><input type="checkbox" checked={entry.enabled !== false} aria-label="启用这段内容" onChange={() => patchEntry(entry, { enabled: entry.enabled === false })} /></header>
-                                  <p>{entry.content}</p>
-                                  <footer><button type="button" onClick={() => setEntryDraft(entryToDraft(entry))}>修改</button><button className="is-danger" type="button" onClick={() => deleteEntry(entry)}>删除</button></footer>
-                                </article>
-                              ))}
-                              {(selectedBook.entries || []).length === 0 && <div className="worldbook-empty">还没有正文，下面添加一段即可。</div>}
-                            </div>
+                      {detailLoading ? <div className="worldbook-empty">正在打开正文…</div> : (
+                        <>
+                          <div className="worldbook-entry-cards">
+                            {(selectedBook.entries || []).map(entry => (
+                              <article key={entry.id} className={entry.enabled === false ? 'is-disabled' : ''}>
+                                <header><div><strong>{entry.name || '完整设定'}</strong><small>{entry.constant ? '常驻' : `${(entry.keys || []).slice(0, 3).join(' · ') || '关键词触发'}`}</small></div><input type="checkbox" checked={entry.enabled !== false} aria-label="启用这段内容" onChange={() => patchEntry(entry, { enabled: entry.enabled === false })} /></header>
+                                <p>{entry.content}</p>
+                                <footer><button type="button" onClick={() => openEntryEditor(entry)}>修改</button><button className="is-danger" type="button" onClick={() => deleteEntry(entry)}>删除</button></footer>
+                              </article>
+                            ))}
+                            {(selectedBook.entries || []).length === 0 && <div className="worldbook-empty">还没有内容，点右上角 ＋ 添加。</div>}
+                          </div>
 
+                          {entryEditorOpen && (
                             <div className="worldbook-entry-editor">
-                              <label><span>这一段的名称</span><input value={entryDraft.name} onChange={event => setEntryDraft(value => ({ ...value, name: event.target.value }))} placeholder="完整设定" /></label>
+                              <div className="worldbook-entry-editor-title"><strong>{entryDraft.id ? '修改这段内容' : '添加内容'}</strong><button type="button" onClick={closeEntryEditor}>×</button></div>
+                              <label><span>名称</span><input value={entryDraft.name} onChange={event => setEntryDraft(value => ({ ...value, name: event.target.value }))} placeholder="完整设定" /></label>
                               <label><span>正文</span><textarea value={entryDraft.content} onChange={event => setEntryDraft(value => ({ ...value, content: event.target.value }))} placeholder="把世界书正文放在这里" /></label>
-
                               <details className="worldbook-advanced">
                                 <summary>触发方式（可选）</summary>
                                 <div className="worldbook-advanced-body">
@@ -566,18 +643,14 @@ export default function WorldbookLibrary() {
                                   </div>
                                 </div>
                               </details>
-
-                              <div className="worldbook-entry-options">
-                                {entryDraft.id && <button type="button" onClick={() => setEntryDraft({ ...emptyEntry })}>取消修改</button>}
-                                <button type="button" disabled={busy} onClick={saveEntry}>{entryDraft.id ? '保存修改' : '加入正文'}</button>
-                              </div>
+                              <div className="worldbook-entry-options"><button type="button" onClick={closeEntryEditor}>取消</button><button type="button" disabled={busy} onClick={saveEntry}>{entryDraft.id ? '保存修改' : '加入内容'}</button></div>
                             </div>
-                          </>
-                        )}
-                      </section>
-                    )}
+                          )}
+                        </>
+                      )}
+                    </section>
                   </>
-                ) : <div className="worldbook-empty">从左边选一本世界书，或者点右上角 ＋。</div>}
+                ) : <div className="worldbook-empty worldbook-detail-placeholder">点左边一本世界书查看详情；新建或导入都从右上角 ＋ 开始。</div>}
               </main>
             </div>
           </section>
