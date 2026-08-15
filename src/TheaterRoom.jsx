@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import './TheaterShelfPolish.css';
 
+const THEATER_MIN_REPLY_MAX = 4000;
+
 const emptySettings = {
   worldbook_text: '',
   worldbook_only: false,
@@ -117,7 +119,7 @@ function normalizeDraftSettings(value = {}) {
     ...value,
     worldbook_only: Boolean(value.worldbook_only),
     chat_background_mode: value.chat_background_mode || 'main',
-    min_reply_chars: Number.isFinite(minimum) ? Math.min(1200, Math.max(0, Math.round(minimum))) : 120,
+    min_reply_chars: Number.isFinite(minimum) ? Math.min(THEATER_MIN_REPLY_MAX, Math.max(0, Math.round(minimum))) : 120,
   };
 }
 
@@ -747,16 +749,16 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
                       <input
                         type="number"
                         min="0"
-                        max="1200"
+                        max={THEATER_MIN_REPLY_MAX}
                         step="20"
                         value={bookDraft.settings.min_reply_chars}
-                        onChange={event => patchDraftSettings({ min_reply_chars: Math.min(1200, Math.max(0, Number(event.target.value) || 0)) })}
+                        onChange={event => patchDraftSettings({ min_reply_chars: Math.min(THEATER_MIN_REPLY_MAX, Math.max(0, Number(event.target.value) || 0)) })}
                         style={{ width: 68, border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, color: C.text, padding: '4px 6px', fontFamily: 'inherit', textAlign: 'right' }}
                       />
                       字
                     </label>
                   </div>
-                  <input aria-label="这本小剧场的最低回复长度" type="range" min="0" max="1200" step="20" value={bookDraft.settings.min_reply_chars} onChange={event => patchDraftSettings({ min_reply_chars: Number(event.target.value) })} style={{ width: '100%' }} />
+                  <input aria-label="这本小剧场的最低回复长度" type="range" min="0" max={THEATER_MIN_REPLY_MAX} step="20" value={bookDraft.settings.min_reply_chars} onChange={event => patchDraftSettings({ min_reply_chars: Number(event.target.value) })} style={{ width: '100%' }} />
                   <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.55 }}>人物会按这一轮剧情自行决定长短；较短时只补一点世界内的余韵，不会每次写成同样篇幅。</div>
                 </div>
                 <select value={model} onChange={event => setModel(event.target.value)} style={{ width: '100%', marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.muted, borderRadius: 999, padding: '7px 10px', fontFamily: 'inherit', fontSize: 11 }}>
