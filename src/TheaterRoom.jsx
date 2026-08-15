@@ -18,14 +18,7 @@ const emptySettings = {
   min_reply_chars: 120,
 };
 
-const importStarter = `剧场名：
-
-世界观：
-
-人设 / 角色关系：
-
-禁区 / 写作规则：
-`;
+const importStarter = `剧场名：\n\n世界观：\n\n人设 / 角色关系：\n\n禁区 / 写作规则：\n`;
 
 const theaterImportSections = [
   ['title', /^(?:#+\s*)?(?:剧场名|小剧场名|书名|标题|世界名|世界名称)\s*[：:]\s*(.*)$/i],
@@ -186,9 +179,9 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const [chatting, setChatting] = useState(false);
   const [regeneratingMessageId, setRegeneratingMessageId] = useState(null);
   const [error, setError] = useState('');
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importText, setImportText] = useState('');
-  const [importPreview, setImportPreview] = useState(makeBookDraft('导入的小世界'));
   const [importingWorld, setImportingWorld] = useState(false);
   const [importingFile, setImportingFile] = useState(false);
   const [uploadingChatBg, setUploadingChatBg] = useState(false);
@@ -218,9 +211,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   }, [selectedModel]);
 
   useEffect(() => {
-    if (visible) {
-      loadBooks();
-    }
+    if (visible) loadBooks();
   }, [visible]);
 
   useEffect(() => {
@@ -272,9 +263,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '剧场书架没有打开');
       setBooks(Array.isArray(data) ? data : []);
-      if (selectedBookId && !data.some(book => String(book.id) === String(selectedBookId))) {
-        setSelectedBookId(null);
-      }
+      if (selectedBookId && !data.some(book => String(book.id) === String(selectedBookId))) setSelectedBookId(null);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -285,6 +274,8 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const createBook = async () => {
     setSavingBook(true);
     setError('');
+    setAddMenuOpen(false);
+    setImportOpen(false);
     try {
       const response = await apiFetch(`${BACKEND}/theater/books`, {
         method: 'POST',
@@ -303,21 +294,16 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     }
   };
 
-  const updateImportText = value => {
-    setImportText(value);
-    setImportPreview(parseTheaterImport(value));
-  };
-
   const openImportPanel = () => {
     setError('');
+    setAddMenuOpen(false);
     setImportOpen(true);
-    if (!importText.trim()) updateImportText(importStarter);
   };
 
   const importWorld = async () => {
     const draft = parseTheaterImport(importText);
     if (!draft.settings.worldbook_text.trim() && !draft.settings.premise.trim() && !draft.settings.characters.trim() && !draft.settings.rules.trim()) {
-      setError('先把世界观、人设或者规则贴进来。');
+      setError('先把小世界设定贴进来。');
       return;
     }
     setImportingWorld(true);
@@ -335,7 +321,6 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       setBookPane('settings');
       setImportOpen(false);
       setImportText('');
-      setImportPreview(makeBookDraft('导入的小世界'));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -358,7 +343,6 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       setBookPane('settings');
       setImportOpen(false);
       setImportText('');
-      setImportPreview(makeBookDraft('导入的小世界'));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -410,6 +394,10 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     }));
   };
 
+  const patchStructuredSetting = patch => {
+    patchDraftSettings({ ...patch, worldbook_only: false });
+  };
+
   const uploadChatBackground = async file => {
     if (!file) return;
     setUploadingChatBg(true);
@@ -420,10 +408,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       const response = await apiFetch(`${BACKEND}/upload`, { method: 'POST', body: formData });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.url) throw new Error(data.error || '背景图片没有上传成功');
-      patchDraftSettings({
-        chat_background_mode: 'custom',
-        chat_background_image_url: data.url,
-      });
+      patchDraftSettings({ chat_background_mode: 'custom', chat_background_image_url: data.url });
     } catch (err) {
       setError(err.message || '背景图片没有上传成功');
     } finally {
@@ -441,15 +426,9 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
         ? { background: `url(${mainImage}) center/cover no-repeat` }
         : { background: mainColor || `linear-gradient(180deg, ${C.white}, ${C.surface})` };
     }
-    if (settings.chat_background_mode === 'cream') {
-      return { background: `radial-gradient(circle at 20% 0%, ${C.honeyLight}, transparent 36%), linear-gradient(180deg, ${C.cream}, ${C.surface})` };
-    }
-    if (settings.chat_background_mode === 'blush') {
-      return { background: `radial-gradient(circle at 12% 15%, ${C.blush}, transparent 38%), linear-gradient(180deg, ${C.white}, ${C.blush})` };
-    }
-    if (settings.chat_background_mode === 'night') {
-      return { background: `linear-gradient(180deg, #25180F, #130D08)` };
-    }
+    if (settings.chat_background_mode === 'cream') return { background: `radial-gradient(circle at 20% 0%, ${C.honeyLight}, transparent 36%), linear-gradient(180deg, ${C.cream}, ${C.surface})` };
+    if (settings.chat_background_mode === 'blush') return { background: `radial-gradient(circle at 12% 15%, ${C.blush}, transparent 38%), linear-gradient(180deg, ${C.white}, ${C.blush})` };
+    if (settings.chat_background_mode === 'night') return { background: 'linear-gradient(180deg, #25180F, #130D08)' };
     if (settings.chat_background_mode === 'custom') {
       return settings.chat_background_image_url
         ? { background: `url(${settings.chat_background_image_url}) center/cover no-repeat` }
@@ -466,12 +445,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       setError('先在小剧场里说一句。');
       return;
     }
-    const fingerprint = theaterSendFingerprint({
-      bookId: selectedBook.id,
-      text,
-      mode,
-      model,
-    });
+    const fingerprint = theaterSendFingerprint({ bookId: selectedBook.id, text, mode, model });
     const requestId = chatRetryRef.current?.fingerprint === fingerprint
       ? chatRetryRef.current.requestId
       : createTheaterRequestId();
@@ -485,15 +459,8 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     try {
       const response = await apiFetch(`${BACKEND}/theater/books/${selectedBook.id}/chat`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-OurHome-Request-Id': requestId,
-        },
-        body: JSON.stringify({
-          message: text,
-          play_mode: mode,
-          model,
-        }),
+        headers: { 'Content-Type': 'application/json', 'X-OurHome-Request-Id': requestId },
+        body: JSON.stringify({ message: text, play_mode: mode, model }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || '小剧场这次没有接上');
@@ -502,11 +469,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
         if (String(book.id) !== String(selectedBook.id)) return book;
         return {
           ...book,
-          messages: [
-            ...(book.messages || []),
-            data.user_message,
-            data.assistant_message,
-          ].filter(Boolean),
+          messages: [...(book.messages || []), data.user_message, data.assistant_message].filter(Boolean),
           message_count: (book.message_count || 0) + 2,
           last_message_at: data.assistant_message?.created_at || new Date().toISOString(),
         };
@@ -528,13 +491,10 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       const response = await apiFetch(`${BACKEND}/theater/books/${selectedBook.id}/messages/${message.id}/regenerate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          play_mode: mode,
-          model,
-        }),
+        body: JSON.stringify({ play_mode: mode, model }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || '这条回复没有重写成功');
+      if (!response.ok) throw new Error(data.error || '这条回复没有重新生成成功');
       setBooks(items => items.map(book => {
         if (String(book.id) !== String(selectedBook.id)) return book;
         return {
@@ -555,6 +515,8 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     setSelectedBookId(null);
     setBookPane('settings');
     setError('');
+    setAddMenuOpen(false);
+    setImportOpen(false);
   };
 
   const openBook = (bookId, pane = null) => {
@@ -575,55 +537,52 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   const renderShelf = () => (
     <main style={{ flex: 1, overflowY: 'auto', padding: '18px min(18px, 4vw) 28px' }}>
       <section style={{ maxWidth: 920, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <div>
             <div style={{ color: C.text, fontSize: 20, fontWeight: 700 }}>剧场书架</div>
             <div style={{ color: C.mutedLight, fontSize: 11, letterSpacing: '.12em', marginTop: 3 }}>每一本书，都是一个小世界。</div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <button type="button" onClick={openImportPanel} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '10px 13px', fontFamily: 'inherit', cursor: 'pointer' }}>导入世界</button>
-            <button type="button" onClick={createBook} disabled={savingBook} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '10px 15px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer', opacity: savingBook ? .65 : 1 }}>＋ 新书</button>
-          </div>
+          <button
+            type="button"
+            aria-label="添加小世界"
+            onClick={() => setAddMenuOpen(open => !open)}
+            style={{ width: 42, height: 42, flexShrink: 0, border: `1px solid ${C.honeyMid}`, borderRadius: '50%', background: C.honeyLight, color: C.honeyDeep, fontFamily: 'inherit', fontSize: 24, lineHeight: 1, cursor: 'pointer' }}
+          >＋</button>
+          {addMenuOpen && (
+            <div style={{ position: 'absolute', zIndex: 5, right: 0, top: 48, width: 'min(260px, calc(100vw - 44px))', padding: 7, display: 'grid', gap: 6, border: `1px solid ${C.border}`, borderRadius: 15, background: C.white, boxShadow: '0 14px 34px rgba(54,35,16,.17)' }}>
+              <button type="button" onClick={createBook} disabled={savingBook} style={{ minHeight: 58, border: 0, borderRadius: 11, background: C.cream, color: C.text, padding: '9px 12px', textAlign: 'left', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer' }}><b style={{ display: 'block', fontSize: 13 }}>手动创建</b><small style={{ display: 'block', color: C.muted, marginTop: 3 }}>自己设计一个小世界</small></button>
+              <button type="button" onClick={openImportPanel} style={{ minHeight: 58, border: 0, borderRadius: 11, background: C.cream, color: C.text, padding: '9px 12px', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer' }}><b style={{ display: 'block', fontSize: 13 }}>导入文件 / 世界书</b><small style={{ display: 'block', color: C.muted, marginTop: 3 }}>Word、TXT、MD，或直接粘贴设定</small></button>
+            </div>
+          )}
         </div>
+
         {error && <div style={{ marginBottom: 12, color: C.blushDeep, fontSize: 12 }}>{error}</div>}
+
         {importOpen && (
           <section style={{ border: `1px solid ${C.border}`, borderRadius: 16, background: C.white, padding: 14, marginBottom: 16, boxShadow: `0 10px 26px ${C.borderLight}66` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
               <div>
-                <div style={{ color: C.text, fontWeight: 700 }}>一键导入小世界</div>
-                <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 3 }}>把世界观、人设、关系和禁区整段贴进来，也可以上传 .docx 世界书，不会额外花 API 额度。</div>
+                <div style={{ color: C.text, fontWeight: 700 }}>添加小世界</div>
+                <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 3 }}>整段世界书直接放进来就行，不需要先拆成人设、世界观和规则。</div>
               </div>
-              <button type="button" onClick={() => setImportOpen(false)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer' }}>收起</button>
+              <button type="button" onClick={() => setImportOpen(false)} style={{ border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', cursor: 'pointer' }}>×</button>
             </div>
             <textarea
               value={importText}
-              onChange={event => updateImportText(event.target.value)}
+              onChange={event => setImportText(event.target.value)}
               rows={8}
-              placeholder="可以直接贴：剧场名、世界观、人设、关系、禁区、写作规则……"
+              placeholder="直接粘贴完整设定，或者用下面的文件导入。"
               style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${C.border}`, borderRadius: 13, background: C.surface, color: C.text, padding: '10px 11px', outline: 'none', resize: 'vertical', fontFamily: 'inherit', fontSize: 13, lineHeight: 1.65 }}
             />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginTop: 10 }}>
-              {[
-                ['书名', importPreview.title],
-                ['全文', importPreview.settings.worldbook_text ? `${importPreview.settings.worldbook_text.length} 字` : '未识别'],
-                ['世界观', importPreview.settings.premise ? `${importPreview.settings.premise.length} 字` : '可空'],
-                ['人设', importPreview.settings.characters ? `${importPreview.settings.characters.length} 字` : '未识别'],
-                ['规则', importPreview.settings.rules ? `${importPreview.settings.rules.length} 字` : '未识别'],
-              ].map(([label, value]) => (
-                <div key={label} style={{ border: `1px solid ${C.borderLight}`, borderRadius: 12, background: C.cream, padding: '8px 9px', minWidth: 0 }}>
-                  <span style={{ display: 'block', color: C.mutedLight, fontSize: 9, letterSpacing: '.12em' }}>{label}</span>
-                  <b style={{ display: 'block', color: C.text, fontSize: 12, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</b>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
               <input ref={worldFileInputRef} type="file" accept=".docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" style={{ display: 'none' }} onChange={event => importWorldFile(event.target.files?.[0])} />
-              <button type="button" onClick={() => worldFileInputRef.current?.click()} disabled={importingFile} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '8px 12px', fontFamily: 'inherit', cursor: importingFile ? 'default' : 'pointer', opacity: importingFile ? .65 : 1 }}>{importingFile ? '读取中' : '上传 Word'}</button>
-              <button type="button" onClick={() => updateImportText(importStarter)} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.muted, padding: '8px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>填模板</button>
-              <button type="button" onClick={importWorld} disabled={importingWorld} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '8px 14px', fontFamily: 'inherit', cursor: importingWorld ? 'default' : 'pointer', opacity: importingWorld ? .65 : 1 }}>{importingWorld ? '导入中' : '生成一本书'}</button>
+              <button type="button" onClick={() => worldFileInputRef.current?.click()} disabled={importingFile} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '8px 12px', fontFamily: 'inherit', cursor: importingFile ? 'default' : 'pointer', opacity: importingFile ? .65 : 1 }}>{importingFile ? '读取中' : '选择文件'}</button>
+              <button type="button" onClick={() => setImportText(importStarter)} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.muted, padding: '8px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>填模板</button>
+              <button type="button" onClick={importWorld} disabled={importingWorld || !importText.trim()} style={{ border: 'none', borderRadius: 999, background: `linear-gradient(145deg, ${C.honey}, ${C.honeyDeep})`, color: C.white, padding: '8px 14px', fontFamily: 'inherit', cursor: importingWorld || !importText.trim() ? 'default' : 'pointer', opacity: importingWorld || !importText.trim() ? .55 : 1 }}>{importingWorld ? '添加中' : '放进书架'}</button>
             </div>
           </section>
         )}
+
         {loadingBooks && <div style={{ color: C.muted, padding: '24px 0', textAlign: 'center' }}>正在整理书架…</div>}
         {!loadingBooks && books.length === 0 && (
           <button type="button" onClick={createBook} style={{ width: '100%', border: `1.5px dashed ${C.honeyMid}`, borderRadius: 16, background: C.white, color: C.honeyDeep, padding: '30px 18px', fontFamily: 'inherit', fontSize: 15, cursor: 'pointer' }}>
@@ -633,11 +592,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
         <div className="theater-book-shelf">
           {books.map((book, index) => (
             <div key={book.id} className={`theater-book-volume theater-book-volume--${index % 4}`}>
-              <button
-                type="button"
-                onClick={() => openBook(book.id)}
-                className="theater-book-cover"
-              >
+              <button type="button" onClick={() => openBook(book.id)} className="theater-book-cover">
                 <span className="theater-book-ornament" aria-hidden="true">✦</span>
                 <span className="theater-book-title">
                   <small>OUR LITTLE THEATER · {String(index + 1).padStart(2, '0')}</small>
@@ -663,6 +618,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     const settingsReady = bookDraft.settings.worldbook_text.trim() || bookDraft.settings.premise.trim() || bookDraft.settings.characters.trim();
     const userDisplayName = bookDraft.settings.user_name?.trim() || '你';
     const assistantDisplayName = bookDraft.settings.assistant_name?.trim() || '小剧场';
+
     if (bookPane === 'settings') {
       return (
         <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -670,7 +626,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
             <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 9 }}>
               <button type="button" onClick={goBackToShelf} style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', cursor: 'pointer' }}>← 书架</button>
               <input value={bookDraft.title} onChange={event => setBookDraft(current => ({ ...current, title: event.target.value }))} style={{ flex: '1 1 180px', minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '8px 12px', outline: 'none', fontFamily: 'inherit', fontSize: 14 }} />
-              <button type="button" onClick={saveBook} disabled={savingBook} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '8px 12px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer' }}>{savingBook ? '保存中' : '保存设定'}</button>
+              <button type="button" onClick={saveBook} disabled={savingBook} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '8px 12px', fontFamily: 'inherit', cursor: savingBook ? 'default' : 'pointer' }}>{savingBook ? '保存中' : '保存'}</button>
             </div>
           </div>
 
@@ -680,57 +636,56 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 12 }}>
                   <label>
                     <span style={{ display: 'block', color: C.text, fontSize: 13, fontWeight: 700, marginBottom: 6 }}>我在这本书里的名字</span>
-                    <input value={bookDraft.settings.user_name || ''} onChange={event => patchDraftSettings({ user_name: event.target.value })} placeholder="比如：方淳安、叶檀、阿苑…" style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '8px 12px', outline: 'none', fontFamily: 'inherit', fontSize: 13 }} />
+                    <input value={bookDraft.settings.user_name || ''} onChange={event => patchDraftSettings({ user_name: event.target.value })} placeholder="比如：叶檀、阿苑…" style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '8px 12px', outline: 'none', fontFamily: 'inherit', fontSize: 13 }} />
                   </label>
                   <label>
                     <span style={{ display: 'block', color: C.text, fontSize: 13, fontWeight: 700, marginBottom: 6 }}>对方 / 剧场的名字</span>
-                    <input value={bookDraft.settings.assistant_name || ''} onChange={event => patchDraftSettings({ assistant_name: event.target.value })} placeholder="比如：哥哥、陆泽、旁白…" style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '8px 12px', outline: 'none', fontFamily: 'inherit', fontSize: 13 }} />
+                    <input value={bookDraft.settings.assistant_name || ''} onChange={event => patchDraftSettings({ assistant_name: event.target.value })} placeholder="比如：陆泽、哥哥、旁白…" style={{ width: '100%', boxSizing: 'border-box', border: `1.5px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.text, padding: '8px 12px', outline: 'none', fontFamily: 'inherit', fontSize: 13 }} />
                   </label>
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.muted, fontSize: 12, marginBottom: 10 }}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(bookDraft.settings.worldbook_only)}
-                    onChange={event => patchDraftSettings({ worldbook_only: event.target.checked })}
-                  />
-                  只按完整世界书读取，不强迫拆角色卡和禁区
-                </label>
+
                 <Field
                   theme={C}
                   label="完整世界书"
-                  hint={bookDraft.settings.worldbook_text ? `${bookDraft.settings.worldbook_text.length} 字` : '上传 Word 后会自动放这里'}
-                  rows={7}
+                  hint={bookDraft.settings.worldbook_text ? `${bookDraft.settings.worldbook_text.length} 字` : '人物、背景、关系、规则都可以放一起'}
+                  rows={8}
                   value={bookDraft.settings.worldbook_text}
                   onChange={value => patchDraftSettings({ worldbook_text: value })}
-                  placeholder="可以整段放世界书全文。打开“只按完整世界书读取”后，下面的分栏可以留空。"
+                  placeholder="直接放完整世界书。没有必要先拆成几栏。"
                 />
-                <div style={{ height: 12 }} />
-                <Field theme={C} label="世界观 / 剧情设定" rows={5} value={bookDraft.settings.premise} onChange={value => patchDraftSettings({ premise: value })} placeholder="这里写这个小世界的基础设定。" />
-                <div style={{ height: 10 }} />
-                <Field theme={C} label="角色卡 / 关系" rows={5} value={bookDraft.settings.characters} onChange={value => patchDraftSettings({ characters: value })} placeholder="人物性格、关系张力、称呼、不能崩的点。" />
-                <div style={{ height: 10 }} />
-                <Field theme={C} label="禁区 / 写作规则" rows={4} value={bookDraft.settings.rules} onChange={value => patchDraftSettings({ rules: value })} placeholder="不要突兀和解、不要现代词、不要跳出剧情解释……" />
+
+                <details open={!bookDraft.settings.worldbook_text.trim()} style={{ marginTop: 12, border: `1px solid ${C.borderLight}`, borderRadius: 12, background: C.cream }}>
+                  <summary style={{ padding: '10px 11px', color: C.honeyDeep, fontSize: 12, cursor: 'pointer', fontWeight: 650 }}>分栏补充（可选）</summary>
+                  <div style={{ padding: '0 11px 11px' }}>
+                    <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.55, marginBottom: 10 }}>只有想单独补充某一部分时再打开这里；完整世界书已经写全的话，可以一直收着。</div>
+                    <Field theme={C} label="世界观 / 剧情设定" rows={4} value={bookDraft.settings.premise} onChange={value => patchStructuredSetting({ premise: value })} placeholder="可留空" />
+                    <div style={{ height: 9 }} />
+                    <Field theme={C} label="角色卡 / 关系" rows={4} value={bookDraft.settings.characters} onChange={value => patchStructuredSetting({ characters: value })} placeholder="可留空" />
+                    <div style={{ height: 9 }} />
+                    <Field theme={C} label="禁区 / 写作规则" rows={4} value={bookDraft.settings.rules} onChange={value => patchStructuredSetting({ rules: value })} placeholder="可留空" />
+                  </div>
+                </details>
               </div>
 
-              <div style={{ border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 13 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-                  <div>
-                    <div style={{ color: C.text, fontWeight: 700 }}>聊天背景</div>
-                    <div style={{ color: C.mutedLight, fontSize: 10.5, marginTop: 2 }}>默认跟随陆泽 chat，也可以给这本书单独换气氛。</div>
+              <details style={{ border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: '0 13px' }}>
+                <summary style={{ padding: '12px 0', color: C.text, fontWeight: 700, cursor: 'pointer' }}>聊天背景（可选）</summary>
+                <div style={{ paddingBottom: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+                    <div style={{ color: C.mutedLight, fontSize: 10.5 }}>默认跟随正式 Chat，也可以给这本书单独换气氛。</div>
+                    <input ref={chatBgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={event => uploadChatBackground(event.target.files?.[0])} />
+                    <button type="button" onClick={() => chatBgInputRef.current?.click()} disabled={uploadingChatBg} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '7px 11px', fontFamily: 'inherit', cursor: uploadingChatBg ? 'default' : 'pointer', opacity: uploadingChatBg ? .65 : 1 }}>{uploadingChatBg ? '上传中' : '上传图'}</button>
                   </div>
-                  <input ref={chatBgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={event => uploadChatBackground(event.target.files?.[0])} />
-                  <button type="button" onClick={() => chatBgInputRef.current?.click()} disabled={uploadingChatBg} style={{ border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, padding: '7px 11px', fontFamily: 'inherit', cursor: uploadingChatBg ? 'default' : 'pointer', opacity: uploadingChatBg ? .65 : 1 }}>{uploadingChatBg ? '上传中' : '上传图'}</button>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {chatBackgroundOptions.map(([value, label]) => (
+                      <button key={value} type="button" onClick={() => patchDraftSettings({ chat_background_mode: value })} style={{ border: `1px solid ${bookDraft.settings.chat_background_mode === value ? C.honeyMid : C.border}`, background: bookDraft.settings.chat_background_mode === value ? C.honeyLight : C.surface, color: bookDraft.settings.chat_background_mode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 11px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
+                    ))}
+                    <input type="color" value={bookDraft.settings.chat_background_color || '#fff8ef'} onChange={event => patchDraftSettings({ chat_background_mode: 'custom', chat_background_color: event.target.value, chat_background_image_url: '' })} style={{ width: 34, height: 34, borderRadius: 12, border: `1px solid ${C.border}`, background: 'transparent', padding: 0, cursor: 'pointer' }} />
+                  </div>
+                  {bookDraft.settings.chat_background_image_url && (
+                    <button type="button" onClick={() => patchDraftSettings({ chat_background_image_url: '' })} style={{ marginTop: 8, border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>清除背景图</button>
+                  )}
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {chatBackgroundOptions.map(([value, label]) => (
-                    <button key={value} type="button" onClick={() => patchDraftSettings({ chat_background_mode: value })} style={{ border: `1px solid ${bookDraft.settings.chat_background_mode === value ? C.honeyMid : C.border}`, background: bookDraft.settings.chat_background_mode === value ? C.honeyLight : C.surface, color: bookDraft.settings.chat_background_mode === value ? C.honeyDeep : C.muted, borderRadius: 999, padding: '7px 11px', fontFamily: 'inherit', cursor: 'pointer' }}>{label}</button>
-                  ))}
-                  <input type="color" value={bookDraft.settings.chat_background_color || '#fff8ef'} onChange={event => patchDraftSettings({ chat_background_mode: 'custom', chat_background_color: event.target.value, chat_background_image_url: '' })} style={{ width: 34, height: 34, borderRadius: 12, border: `1px solid ${C.border}`, background: 'transparent', padding: 0, cursor: 'pointer' }} />
-                </div>
-                {bookDraft.settings.chat_background_image_url && (
-                  <button type="button" onClick={() => patchDraftSettings({ chat_background_image_url: '' })} style={{ marginTop: 8, border: 'none', background: 'transparent', color: C.muted, fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>清除这本书的背景图</button>
-                )}
-              </div>
+              </details>
 
               <div style={{ border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, padding: 13 }}>
                 <div style={{ color: C.text, fontWeight: 700, marginBottom: 9 }}>玩法</div>
@@ -754,12 +709,11 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
                         value={bookDraft.settings.min_reply_chars}
                         onChange={event => patchDraftSettings({ min_reply_chars: Math.min(THEATER_MIN_REPLY_MAX, Math.max(0, Number(event.target.value) || 0)) })}
                         style={{ width: 68, border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, color: C.text, padding: '4px 6px', fontFamily: 'inherit', textAlign: 'right' }}
-                      />
-                      字
+                      /> 字
                     </label>
                   </div>
                   <input aria-label="这本小剧场的最低回复长度" type="range" min="0" max={THEATER_MIN_REPLY_MAX} step="20" value={bookDraft.settings.min_reply_chars} onChange={event => patchDraftSettings({ min_reply_chars: Number(event.target.value) })} style={{ width: '100%' }} />
-                  <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.55 }}>人物会按这一轮剧情自行决定长短；较短时只补一点世界内的余韵，不会每次写成同样篇幅。</div>
+                  <div style={{ color: C.mutedLight, fontSize: 10.5, lineHeight: 1.55 }}>这是柔性下限，具体长短仍跟着这一轮剧情走。</div>
                 </div>
                 <select value={model} onChange={event => setModel(event.target.value)} style={{ width: '100%', marginTop: 10, border: `1px solid ${C.border}`, background: C.surface, color: C.muted, borderRadius: 999, padding: '7px 10px', fontFamily: 'inherit', fontSize: 11 }}>
                   {modelOptions.length ? modelOptions.map(item => <option key={item} value={item}>{item}</option>) : <option value="">默认模型</option>}
@@ -778,50 +732,47 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
     }
 
     return (
-      <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '12px min(16px, 4vw) 14px' }}>
-        <div style={{ flexShrink: 0, maxWidth: 760, width: '100%', margin: '0 auto 10px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ color: C.text, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bookDraft.title || '未命名小剧本'}</div>
-            <div style={{ color: C.mutedLight, fontSize: 10, letterSpacing: '.12em' }}>{mode === 'interactive' ? '互动推进' : '沉浸纯文'} · 最低 {bookDraft.settings.min_reply_chars} 字</div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <button type="button" onClick={() => setBookPane('settings')} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.honeyDeep, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>设定</button>
-          </div>
+      <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '10px min(16px, 4vw) 14px' }}>
+        <div style={{ flexShrink: 0, maxWidth: 760, width: '100%', margin: '0 auto 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ color: C.mutedLight, fontSize: 10.5, letterSpacing: '.08em' }}>{mode === 'interactive' ? '互动推进' : '沉浸纯文'} · 最低 {bookDraft.settings.min_reply_chars} 字</div>
+          <button type="button" onClick={() => setBookPane('settings')} style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.surface, color: C.honeyDeep, padding: '7px 12px', fontFamily: 'inherit', cursor: 'pointer' }}>设定</button>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, maxWidth: 760, width: '100%', margin: '0 auto', border: `1px solid ${C.border}`, borderRadius: 18, ...theaterChatBackgroundStyle(), padding: 12, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
           <div ref={chatScrollerRef} onScroll={handleChatScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px 12px' }}>
             {messages.length === 0 && (
               <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.8, padding: '30px 10px', textAlign: 'center' }}>
-                这本书还没有开演。你可以直接说：从哪里开始、你扮演谁、想让剧情怎么动。
+                这本书还没有开演。直接说从哪里开始就好。
               </div>
             )}
             {messages.map(message => (
               <div key={message.id} style={{ alignSelf: message.role === 'user' ? 'flex-end' : 'stretch', maxWidth: message.role === 'user' ? '82%' : '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: message.role === 'user' ? 'flex-end' : 'space-between', gap: 8, color: message.role === 'user' ? C.honeyDeep : C.mutedLight, fontSize: 10, marginBottom: 4, textAlign: message.role === 'user' ? 'right' : 'left' }}>
-                  <span>{message.role === 'user' ? userDisplayName : assistantDisplayName} · {formatDate(message.created_at)}</span>
-                  {message.role === 'assistant' && (
-                    <button
-                      type="button"
-                      onClick={() => regenerateMessage(message)}
-                      disabled={chatting || Boolean(regeneratingMessageId)}
-                      style={{ border: 'none', background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontSize: 10, cursor: chatting || regeneratingMessageId ? 'default' : 'pointer', opacity: chatting || regeneratingMessageId ? .55 : 1, padding: '2px 0' }}
-                    >
-                      {String(regeneratingMessageId) === String(message.id) ? '重写中' : '重写'}
-                    </button>
-                  )}
+                <div style={{ color: message.role === 'user' ? C.honeyDeep : C.mutedLight, fontSize: 10, marginBottom: 4, textAlign: message.role === 'user' ? 'right' : 'left' }}>
+                  {message.role === 'user' ? userDisplayName : assistantDisplayName} · {formatDate(message.created_at)}
                 </div>
-                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.85, fontSize: message.role === 'user' ? 13.5 : 14.5, color: C.text, background: message.role === 'user' ? C.honeyLight : C.white, border: `1px solid ${message.role === 'user' ? C.honeyMid : C.border}`, borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : 13, padding: '10px 12px' }}>{message.content}</div>
+                <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.85, fontSize: message.role === 'user' ? 13.5 : 14.5, color: C.text, background: message.role === 'user' ? C.honeyLight : C.white, border: `1px solid ${message.role === 'user' ? C.honeyMid : C.border}`, borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', padding: '10px 12px' }}>{message.content}</div>
+                {message.role === 'assistant' && (
+                  <button
+                    type="button"
+                    onClick={() => regenerateMessage(message)}
+                    disabled={chatting || Boolean(regeneratingMessageId)}
+                    style={{ display: 'block', marginTop: 4, border: 0, padding: '3px 1px', background: 'transparent', fontSize: 10.5, color: C.muted, cursor: chatting || regeneratingMessageId ? 'default' : 'pointer', fontFamily: 'inherit', opacity: chatting || regeneratingMessageId ? .55 : 1 }}
+                  >
+                    {String(regeneratingMessageId) === String(message.id) ? '重新生成中…' : '↻ 重新生成'}
+                  </button>
+                )}
               </div>
             ))}
             {chatting && <div style={{ color: C.muted, fontSize: 12, padding: '4px 2px' }}>小剧场正在接戏…</div>}
             <div ref={chatEndRef} />
           </div>
+
           {messages.length > 3 && !nearLatest && (
             <div className="theater-latest-row" style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', padding: '4px 2px 6px' }}>
               <button type="button" onClick={() => scrollToLatest('smooth')} aria-label="跳到小剧场最新消息" style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, boxShadow: '0 4px 12px rgba(46,31,18,.14)', padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: 'pointer' }}>↓ 最新</button>
             </div>
           )}
+
           {error && <div style={{ color: C.blushDeep, fontSize: 12, marginBottom: 8 }}>{error}</div>}
           <div style={{ flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, border: `1.5px solid ${C.border}`, borderRadius: 20, background: C.surface, padding: '7px 7px 7px 10px' }}>
@@ -845,7 +796,7 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
       <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
         <span onClick={selectedBook ? goBackToShelf : leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: 'pointer', padding: 4 }}>←</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: '.05em' }}>{selectedBook ? selectedBook.title : '小剧场'}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: '.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedBook ? selectedBook.title : '小剧场'}</div>
           <div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: '.14em' }}>{selectedBook ? (bookPane === 'chat' ? 'story chat' : 'story settings') : 'theater bookshelf'}</div>
         </div>
         <button type="button" onClick={loadBooks} disabled={loadingBooks} style={{ border: `1px solid ${C.border}`, background: C.surface, color: C.honeyDeep, borderRadius: 999, padding: '6px 10px', fontFamily: 'inherit', fontSize: 11, cursor: loadingBooks ? 'default' : 'pointer' }}>{loadingBooks ? '整理中' : '刷新'}</button>
