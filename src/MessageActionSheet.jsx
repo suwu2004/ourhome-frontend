@@ -12,6 +12,9 @@ export function MessageActionSheet({
   setAction,
   startEditMessage,
   confirmRollback,
+  userName = '叶檀',
+  assistantName = '陆泽',
+  rollbackNote = '聊天回溯只调整对话分支，已经执行过的金库、日历等操作不会跟着撤销。',
 }) {
   const close = () => {
     if (!loading) setAction(null);
@@ -35,7 +38,7 @@ export function MessageActionSheet({
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>这条消息</div>
-                    <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{action.message.role === 'me' ? '叶檀' : '陆泽'} · {action.message.time || formatMessageTime(action.message.createdAt)}</div>
+                    <div style={{ fontSize: 10.5, color: C.muted, marginTop: 2 }}>{action.message.role === 'me' ? userName : assistantName} · {action.message.time || formatMessageTime(action.message.createdAt)}</div>
                   </div>
                   <button type="button" onClick={close} aria-label="关闭消息操作" style={{ width: 38, height: 38, border: 0, borderRadius: "50%", background: C.cream, color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 15 }}>✕</button>
                 </div>
@@ -57,7 +60,7 @@ export function MessageActionSheet({
               <>
                 <div style={{ fontSize: 16, fontWeight: 700, color: C.text, textAlign: "center" }}>回到这条消息？</div>
                 <div style={{ marginTop: 8, color: C.muted, fontSize: 12, lineHeight: 1.7, textAlign: "center" }}>后面的 {action.afterCount} 条消息会暂时收起来，不会删除；完成后可以立即撤销。</div>
-                <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 10, background: C.cream, color: C.muted, fontSize: 10.5, lineHeight: 1.6 }}>聊天回溯只调整对话分支，已经执行过的金库、日历等操作不会跟着撤销。</div>
+                <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 10, background: C.cream, color: C.muted, fontSize: 10.5, lineHeight: 1.6 }}>{rollbackNote}</div>
                 {error && <div role="alert" style={{ marginTop: 10, color: C.blushDeep, fontSize: 11, textAlign: "center" }}>{error}</div>}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1.35fr", gap: 10, marginTop: 16 }}>
                   <button type="button" onClick={() => setAction(current => current ? { ...current, mode: 'menu' } : null)} disabled={loading} style={{ minHeight: 48, border: `1px solid ${C.border}`, borderRadius: 14, background: C.white, color: C.muted, cursor: loading ? "default" : "pointer", fontFamily: "inherit", fontSize: 13 }}>再想想</button>
