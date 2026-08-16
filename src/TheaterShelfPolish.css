@@ -147,13 +147,106 @@
 
 .theater-book-delete:hover { color: #a45d55; opacity: 1; }
 
+/* Chat parity polish: keep Theater visually aligned with the main Chat without
+   changing its story, memory, model or message semantics. */
+button[aria-label="重新拉取当前 API 站点的模型"],
+button[aria-label="刷新小剧场书架和消息"] {
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  text-align: center !important;
+}
+
+/* The chat pane already has the title in the shared header. Remove the extra
+   status sentence and let the conversation use the same generous width as Chat. */
+main:has(textarea[placeholder*="小剧场"]) > div:first-child {
+  position: absolute;
+  top: 10px;
+  right: 58px;
+  z-index: 4;
+  width: auto !important;
+  margin: 0 !important;
+}
+main:has(textarea[placeholder*="小剧场"]) > div:first-child > div:first-child {
+  display: none !important;
+}
+main:has(textarea[placeholder*="小剧场"]) > div:first-child > button {
+  width: 32px !important;
+  height: 32px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  font-size: 0 !important;
+}
+main:has(textarea[placeholder*="小剧场"]) > div:first-child > button::before {
+  content: '⚙';
+  font-size: 15px;
+  line-height: 1;
+}
+main:has(textarea[placeholder*="小剧场"]) > div:nth-child(2) {
+  max-width: none !important;
+  width: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Keep the jump-to-latest behavior, but make the control quiet like main Chat. */
+.theater-latest-row button[aria-label="跳到小剧场最新消息"] {
+  font-size: 0 !important;
+}
+.theater-latest-row button[aria-label="跳到小剧场最新消息"]::after {
+  content: '最新';
+  font-size: 10.5px;
+}
+
+/* Reuse the main Chat wording without changing Theater send behavior. */
+div:has(> textarea[placeholder*="小剧场"]) {
+  position: relative;
+}
+textarea[placeholder*="小剧场"]::placeholder {
+  color: transparent !important;
+}
+div:has(> textarea[placeholder*="小剧场"])::before {
+  content: '在云端漫步';
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a99279;
+  opacity: .72;
+  pointer-events: none;
+  font-size: 14.5px;
+  line-height: 1;
+}
+div:has(> textarea[placeholder*="小剧场"]):focus-within::before,
+div:has(> textarea[placeholder*="小剧场"]):has(textarea:not(:placeholder-shown))::before {
+  display: none;
+}
+
+/* Give the bottom controls breathing room and keep the circular refresh optically centered. */
+main:has(textarea[placeholder*="小剧场"]) select[aria-label="选择小剧场模型"] {
+  min-width: 0 !important;
+}
+main:has(textarea[placeholder*="小剧场"]) button[aria-label="重新拉取当前 API 站点的模型"] {
+  flex: 0 0 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+
 @media (max-width: 420px) {
   .theater-book-shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 11px; }
   .theater-book-cover { min-height: 194px; padding: 17px 12px 13px 21px; }
   .theater-book-title b { font-size: 15px; }
+  main:has(textarea[placeholder*="小剧场"]) { padding-left: 8px !important; padding-right: 8px !important; }
+  main:has(textarea[placeholder*="小剧场"]) > div:first-child { right: 52px; }
 }
 
 @media (min-width: 760px) {
   .theater-book-shelf { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 24px 20px; }
   .theater-book-cover { min-height: 230px; }
+  main:has(textarea[placeholder*="小剧场"]) > div:nth-child(2) { max-width: 980px !important; margin-left: auto !important; margin-right: auto !important; }
 }
