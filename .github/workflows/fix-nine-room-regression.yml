@@ -1,0 +1,30 @@
+name: Fix Nine Room Regression
+
+on:
+  push:
+    branches:
+      - feat/theater-chat-polish-drawing
+    paths:
+      - .github/workflows/fix-nine-room-regression.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/theater-chat-polish-drawing
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/fix-nine-room-regression.mjs
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Update home shell regression for nine rooms"
+          git push origin HEAD:feat/theater-chat-polish-drawing
