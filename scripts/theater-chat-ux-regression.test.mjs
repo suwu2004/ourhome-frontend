@@ -135,3 +135,20 @@ test('theater composer matches main Chat width and cloud-wandering placeholder',
   assert.match(source, /'在云端漫游'/);
   assert.doesNotMatch(source, /互动推进.*最低/);
 });
+
+
+test('theater Chat mirrors the formal Chat header, bubbles and composer', () => {
+  assert.match(source, /import \{ Stars \} from '\.\/ChatDecorations\.jsx'/);
+  assert.match(source, /穿越平行时空/);
+  assert.match(source, />♡<\/button>/);
+  const heartIndex = source.indexOf('>♡</button>');
+  const refreshIndex = source.indexOf('aria-label="刷新小剧场书架和消息"');
+  assert.ok(heartIndex > 0 && refreshIndex > heartIndex);
+  assert.match(source, /<Stars theme=\{C\} \/>/);
+  assert.match(source, /TheaterAvatar/);
+  assert.match(source, /maxWidth: '72%'/);
+  assert.match(source, /18px 18px 4px 18px/);
+  assert.match(source, /className="ourhome-safe-bottom"/);
+  assert.match(source, /myBubbleColor \|\| C\.blush/);
+  assert.match(source, /partnerBubbleColor \|\| C\.white/);
+});
