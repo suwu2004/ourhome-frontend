@@ -2444,6 +2444,10 @@ export default function App({ initialView = 'chat', onHome }) {
         selectedModel={selectedModel}
         availableModels={availableModels}
         mainChatBackground={{ image: bgImage, color: bgColor || "#FDFAF5" }}
+        myAvatar={myAvatar}
+        partnerAvatar={partnerAvatar}
+        myBubbleColor={myBubbleColor}
+        partnerBubbleColor={partnerBubbleColor}
       />
 
       <MusicRoom

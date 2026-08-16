@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import { MessageActionSheet } from './MessageActionSheet.jsx';
+import { Stars } from './ChatDecorations.jsx';
 import './TheaterShelfPolish.css';
 
 const THEATER_MIN_REPLY_MAX = 4000;
@@ -68,6 +69,20 @@ function compactUsageNumber(value) {
   if (number >= 1_000_000) return `${(number / 1_000_000).toFixed(number >= 10_000_000 ? 0 : 1)}m`;
   if (number >= 1000) return `${(number / 1000).toFixed(number >= 10_000 ? 0 : 1)}k`;
   return String(number);
+}
+
+function TheaterAvatar({ isMe, src, theme }) {
+  return (
+    <div style={{
+      width: 30, height: 30, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 12, fontWeight: 700, color: theme.white,
+      background: isMe ? `linear-gradient(150deg, #F2AFA2, ${theme.blushDeep})` : `linear-gradient(150deg, #E8B45A, ${theme.honeyDeep})`,
+      boxShadow: `0 2px 6px ${isMe ? 'rgba(232,144,122,.3)' : 'rgba(185,122,31,.25)'}`,
+    }}>
+      {src ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (isMe ? '檀' : '泽')}
+    </div>
+  );
 }
 
 function Field({ label, hint, value, onChange, rows = 4, placeholder, theme }) {
@@ -157,7 +172,7 @@ function toActionMessage(message) {
   };
 }
 
-export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availableModels = [], mainChatBackground = {} }) {
+export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availableModels = [], mainChatBackground = {}, myAvatar = '', partnerAvatar = '', myBubbleColor = '', partnerBubbleColor = '' }) {
   const C = theme;
   const [books, setBooks] = useState([]);
   const [selectedBookId, setSelectedBookId] = useState(null);
@@ -712,34 +727,56 @@ export function TheaterRoom({ visible, theme, leaveRoom, selectedModel, availabl
   };
 
   const renderChat = () => <main style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: 0 }}>
-    <div style={{ flex: 1, minHeight: 0, width: '100%', margin: 0, ...theaterChatBackgroundStyle(), padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', boxSizing: 'border-box' }}>
-      <div ref={chatScrollerRef} onScroll={handleChatScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 2px 12px' }}>
+    <div style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', ...theaterChatBackgroundStyle() }}>
+      <div ref={chatScrollerRef} onScroll={handleChatScroll} style={{ position: 'absolute', inset: 0, overflowY: 'auto', overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch', padding: '16px 14px 8px' }}>
         {messages.length === 0 && <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.8, padding: '30px 10px', textAlign: 'center' }}>这本书还没有开演。直接说从哪里开始就好。</div>}
-        {messages.map(message => <div key={message.id} style={{ alignSelf: message.role === 'user' ? 'flex-end' : 'stretch', maxWidth: message.role === 'user' ? '86%' : '100%' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: message.role === 'user' ? 'flex-end' : 'space-between', gap: 7, color: message.role === 'user' ? C.honeyDeep : C.mutedLight, fontSize: 10, marginBottom: 4 }}>
-            {message.role !== 'user' && <span>{assistantDisplayName} · {formatDate(message.created_at)}</span>}
-            <button type="button" onClick={() => openMessageActions(message)} disabled={chatting || messageActionLoading || Boolean(regeneratingMessageId)} aria-label="打开小剧场消息操作" style={{ width: 24, height: 24, border: 0, borderRadius: '50%', background: 'transparent', color: C.muted, fontSize: 13, cursor: chatting || messageActionLoading ? 'default' : 'pointer', fontFamily: 'inherit' }}>⌄</button>
-            {message.role === 'user' && <span>{userDisplayName} · {formatDate(message.created_at)}</span>}
-          </div>
-          <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.85, fontSize: message.role === 'user' ? 13.5 : 14.5, color: C.text, background: message.role === 'user' ? C.honeyLight : C.white, border: `1px solid ${message.role === 'user' ? C.honeyMid : C.border}`, borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', padding: '10px 12px' }}>{message.content}</div>
-          {message.role === 'assistant' && <button type="button" onClick={() => regenerateMessage(message)} disabled={chatting || Boolean(regeneratingMessageId) || messageActionLoading} style={{ display: 'block', marginTop: 4, border: 0, padding: '3px 1px', background: 'transparent', fontSize: 10.5, color: C.muted, fontFamily: 'inherit', opacity: chatting || regeneratingMessageId ? .55 : 1 }}>{String(regeneratingMessageId) === String(message.id) ? '重新生成中…' : '↻ 重新生成'}</button>}
-        </div>)}
-        {chatting && <div style={{ color: C.muted, fontSize: 12, padding: '4px 2px' }}>{editingMessage ? '正在按修改后的内容重新接戏…' : '小剧场正在接戏…'}</div>}
+        {messages.map((message, index) => {
+          const isMe = message.role === 'user';
+          const isLast = index === messages.length - 1;
+          return <div key={message.id} style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 120px' }}>
+            <div style={{ display: 'flex', marginBottom: 14, flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 6 }}>
+              <TheaterAvatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} theme={C} />
+              <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ padding: '10px 14px', fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? '#F5CABB' : C.border}`, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</div>
+                {!isMe && isLast && <button type="button" onClick={() => regenerateMessage(message)} disabled={chatting || Boolean(regeneratingMessageId) || messageActionLoading} style={{ border: 0, padding: '3px 0', background: 'transparent', fontSize: 10.5, color: C.muted, cursor: chatting || regeneratingMessageId ? 'default' : 'pointer', alignSelf: 'flex-start', fontFamily: 'inherit', opacity: chatting || regeneratingMessageId ? .55 : 1 }}>{String(regeneratingMessageId) === String(message.id) ? '重新生成中…' : '↻ 重新生成'}</button>}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: 4, flexShrink: 0 }}>
+                <span style={{ fontSize: 9.5, color: C.mutedLight }}>{formatClock(message.created_at)}</span>
+                <button type="button" onClick={() => openMessageActions(message)} disabled={chatting || messageActionLoading || Boolean(regeneratingMessageId)} aria-label="打开小剧场消息操作" title="编辑或回到这里" style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: 'transparent', color: C.muted, cursor: chatting || messageActionLoading ? 'default' : 'pointer', opacity: .78, fontSize: 20, lineHeight: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 1, fontFamily: 'inherit' }}><span aria-hidden="true" style={{ transform: 'translateY(-2px)' }}>⌄</span></button>
+              </div>
+            </div>
+          </div>;
+        })}
+        {chatting && <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 14 }}><TheaterAvatar isMe={false} src={partnerAvatar} theme={C} /><div style={{ padding: '10px 16px', borderRadius: '18px 18px 18px 4px', background: partnerBubbleColor || C.white, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, letterSpacing: '.12em', fontStyle: 'italic' }}>{editingMessage ? '正在按修改后的内容重新接戏…' : '穿越中…'}</div></div>}
         <div ref={chatEndRef} />
       </div>
-      {messages.length > 3 && !nearLatest && <div className="theater-latest-row" style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', padding: '4px 2px 6px' }}><button type="button" onClick={() => scrollToLatest('smooth')} aria-label="跳到小剧场最新消息" style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, boxShadow: '0 4px 12px rgba(46,31,18,.14)', padding: '6px 10px', fontFamily: 'inherit', fontSize: 11 }}>最新</button></div>}
-      {editingMessage && <div style={{ flexShrink: 0, marginBottom: 8, padding: '8px 10px', borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}><div style={{ minWidth: 0 }}><div style={{ color: C.honeyDeep, fontSize: 11.5, fontWeight: 700 }}>正在重新编辑这条消息</div><div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>发送后会从这里重新接剧情，后面的 {editingMessage.afterCount} 条会收进旧分支。</div></div><button type="button" onClick={cancelEditMessage} disabled={messageActionLoading} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit' }}>取消</button></div>}
-      {rollbackUndo && <div style={{ flexShrink: 0, marginBottom: 8, padding: '8px 10px', borderRadius: 12, background: C.cream, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}><span style={{ color: C.muted, fontSize: 10.5 }}>已回到这里，收起了 {rollbackUndo.hiddenMessages.length} 条消息。</span><button type="button" onClick={undoRollback} disabled={messageActionLoading} style={{ border: 0, background: 'transparent', color: C.honeyDeep, fontFamily: 'inherit', fontWeight: 700 }}>撤销</button></div>}
-      {error && <div style={{ color: C.blushDeep, fontSize: 12, marginBottom: 8 }}>{error}</div>}
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, background: C.surface, padding: '6px 6px 6px 10px' }}><textarea value={chatInput} onChange={event => setChatInput(event.target.value)} rows={1} placeholder={editingMessage ? '修改好后重新发送…' : '在云端漫游'} style={{ flex: 1, maxHeight: 120, border: 0, outline: 0, background: 'transparent', color: C.text, resize: 'none', fontFamily: 'inherit', fontSize: 14.5, lineHeight: 1.5, padding: '6px 0' }} /><button type="button" onClick={() => sendChat()} disabled={chatting || messageActionLoading || !chatInput.trim()} aria-label={editingMessage ? '重新发送修改后的小剧场消息' : '发送小剧场消息'} style={{ width: 36, height: 36, border: 0, borderRadius: '50%', background: chatInput.trim() && !chatting && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontFamily: 'inherit', opacity: chatting || messageActionLoading ? .62 : 1 }}>↑</button></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingLeft: 2 }}>{modelControl()}<button type="button" title={lastOutputTokens ? `最近一轮生成 ${lastOutputTokens.toLocaleString('zh-CN')} tokens` : '最近一轮上下文用量'} style={{ minWidth: 86, height: 26, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, padding: '0 9px', fontFamily: 'inherit', fontSize: 9.5, whiteSpace: 'nowrap' }}>◎ 上下文 {compactUsageNumber(lastContextTokens)}</button></div>
-      </div>
+    </div>
+
+    <div className="ourhome-safe-bottom" style={{ background: C.white, borderTop: `1px solid ${C.border}`, paddingTop: 10, paddingLeft: 14, paddingRight: 14, flexShrink: 0 }}>
+      {messages.length > 3 && !nearLatest && <div className="theater-latest-row" style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 2px 8px' }}><button type="button" onClick={() => scrollToLatest('smooth')} aria-label="跳到小剧场最新消息" style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, boxShadow: '0 4px 12px rgba(46,31,18,.14)', padding: '6px 10px', fontFamily: 'inherit', fontSize: 11 }}>最新</button></div>}
+      {editingMessage && <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '8px 10px', borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}><div style={{ flex: 1, minWidth: 0 }}><div style={{ color: C.honeyDeep, fontSize: 11.5, fontWeight: 700 }}>正在重新编辑这条消息</div><div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>发送后会从这里重新接剧情，后面的 {editingMessage.afterCount} 条会收进旧分支。</div></div><button type="button" onClick={cancelEditMessage} disabled={messageActionLoading} style={{ flexShrink: 0, minWidth: 44, minHeight: 34, border: 0, borderRadius: 999, background: C.surface, color: C.muted, fontFamily: 'inherit', fontSize: 11 }}>取消</button></div>}
+      {rollbackUndo && <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '8px 10px', borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}><span style={{ flex: 1, color: C.honeyDeep, fontSize: 11, lineHeight: 1.5 }}>已回到这里，收起了 {rollbackUndo.hiddenMessages.length} 条消息。</span><button type="button" onClick={undoRollback} disabled={messageActionLoading} style={{ minWidth: 52, minHeight: 34, border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.white, color: C.honeyDeep, fontFamily: 'inherit', fontSize: 11, fontWeight: 700 }}>撤销</button></div>}
+      {error && <div role="alert" style={{ marginBottom: 8, padding: '7px 10px', borderRadius: 10, background: 'rgba(214,120,104,.1)', color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{error}</div>}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, background: C.surface, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, padding: '6px 6px 6px 10px' }}><textarea value={chatInput} onChange={event => setChatInput(event.target.value)} rows={1} placeholder={editingMessage ? '修改好后重新发送…' : '在云端漫游'} style={{ flex: 1, maxHeight: 120, border: 'none', outline: 'none', background: 'transparent', color: C.text, resize: 'none', fontFamily: 'inherit', fontSize: 14.5, lineHeight: 1.5, padding: '6px 0' }} /><button type="button" onClick={() => sendChat()} disabled={chatting || messageActionLoading || !chatInput.trim()} aria-label={editingMessage ? '重新发送修改后的小剧场消息' : '发送小剧场消息'} style={{ width: 36, height: 36, border: 'none', borderRadius: '50%', background: chatInput.trim() && !chatting && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontFamily: 'inherit', opacity: chatting || messageActionLoading ? .62 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↑</button></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingLeft: 2 }}>{modelControl()}<button type="button" title={lastOutputTokens ? `最近一轮生成 ${lastOutputTokens.toLocaleString('zh-CN')} tokens` : '最近一轮上下文用量'} style={{ minWidth: 86, height: 26, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted, padding: '0 9px', fontFamily: 'inherit', fontSize: 9.5, whiteSpace: 'nowrap' }}>◎ 上下文 {compactUsageNumber(lastContextTokens)}</button></div>
     </div>
   </main>;
 
   return <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none', transition: 'opacity .4s ease', background: C.cream }}>
-    <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}><span onClick={selectedBook ? goBackToShelf : leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: 'pointer', padding: 4 }}>←</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: '.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedBook ? selectedBook.title : '小剧场'}</div><div style={{ fontSize: 10, color: C.mutedLight, letterSpacing: '.08em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedBook ? (bookPane === 'chat' ? `${assistantDisplayName}` : '小剧场设定') : 'theater bookshelf'}</div></div><button type="button" onClick={loadBooks} disabled={loadingBooks} aria-label="刷新小剧场书架和消息" title="刷新小剧场书架和消息" style={{ width: 32, height: 32, border: `1px solid ${C.border}`, background: C.surface, color: C.honeyDeep, borderRadius: '50%', fontFamily: 'inherit', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1, opacity: loadingBooks ? .55 : 1 }}>{loadingBooks ? '…' : '↻'}</button>{selectedBook && bookPane === 'chat' && <button type="button" onClick={() => setBookPane('settings')} aria-label="打开小剧场设定" title="设定" style={{ width: 32, height: 32, border: `1px solid ${C.border}`, background: C.surface, color: C.honeyDeep, borderRadius: '50%', fontFamily: 'inherit', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1 }}>⚙</button>}</header>
+    <header className="ourhome-safe-top theater-chat-header" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, flexShrink: 0 }}>
+      <div className="theater-chat-header-row" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10 }}>
+        <div style={{ display: 'flex', gap: 5 }}><button type="button" onClick={selectedBook ? goBackToShelf : leaveRoom} aria-label={selectedBook ? '回到剧场书架' : '回到主页'} style={{ fontSize: 18, color: C.honeyDeep, background: 'transparent', border: 0, padding: 4, width: 30, height: 30, cursor: 'pointer' }}>←</button></div>
+        <div className="theater-chat-header-title" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 'min(58vw, 360px)', textAlign: 'center', pointerEvents: 'none' }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: '.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedBook ? selectedBook.title : '小剧场'}</div>
+          <div style={{ fontSize: 10, color: chatting ? C.honey : C.muted, letterSpacing: '.12em', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}><div style={{ width: 5, height: 5, borderRadius: '50%', background: chatting ? C.honey : C.mutedLight, boxShadow: chatting ? `0 0 5px ${C.honey}` : 'none', transition: 'background .3s, box-shadow .3s' }} /><span>{selectedBook ? (bookPane === 'chat' ? (chatting ? '穿越中…' : '穿越平行时空') : '小剧场设定') : 'theater bookshelf'}</span></div>
+        </div>
+        <div className="theater-chat-header-actions" style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+          {selectedBook && bookPane === 'chat' && <button type="button" onClick={() => setBookPane('settings')} aria-label="打开小剧场设定" title="设定" style={{ fontSize: 20, lineHeight: 1, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial, sans-serif' }}>♡</button>}
+          <button type="button" onClick={loadBooks} disabled={loadingBooks} aria-label="刷新小剧场书架和消息" title="刷新小剧场书架和消息" style={{ fontSize: 19, lineHeight: 1, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, padding: 0, cursor: loadingBooks ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: loadingBooks ? .55 : 1, fontFamily: 'Arial, sans-serif' }}>{loadingBooks ? '…' : '↻'}</button>
+        </div>
+      </div>
+      <Stars theme={C} />
+    </header>
     {selectedBook ? (bookPane === 'settings' ? renderSettings() : renderChat()) : renderShelf()}
     <MessageActionSheet action={messageAction} loading={messageActionLoading} error={messageActionError} theme={C} setAction={setMessageAction} startEditMessage={startEditMessage} confirmRollback={confirmRollback} userName={userDisplayName} assistantName={assistantDisplayName} rollbackNote="只调整这本小剧场的剧情分支；旧消息和旧记忆会保留为归档，不会直接删除。" />
   </div>;
