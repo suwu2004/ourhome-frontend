@@ -1,4 +1,4 @@
-/* 八个小功能：保留原来的七个位置，陆泽的房间放在第三行右侧。
+/* 九个小功能：保留原来的七个位置，陆泽的房间放在第三行右侧。
    第一行 一起听 / 光影相册 / 猫的金库
    第二行 时光信差 / 共读小屋 / 小剧场
    第三行 玩具熊仍在共读小屋下方，右侧是陆泽自己的房间。 */
@@ -16,7 +16,7 @@
   grid-template-areas:
     "music photos vault"
     "letters reading theater"
-    ". toybox luze" !important;
+    "drawing toybox luze" !important;
   align-content: center !important;
   align-items: center !important;
   justify-items: center !important;
@@ -32,6 +32,7 @@
 .home-scene .home-music-garden .home-room-app--theater,
 .home-scene .home-music-garden .home-room-app--vault,
 .home-scene .home-music-garden .home-room-app--photos,
+.home-scene .home-music-garden .home-room-app--drawing,
 .home-scene .home-music-garden .home-room-app--reading,
 .home-scene .home-music-garden .home-room-app--toybox,
 .home-scene .home-music-garden .home-room-app--luze {
@@ -55,6 +56,7 @@
 
 .home-scene .home-music-garden .home-room-app--music { grid-area: music !important; }
 .home-scene .home-music-garden .home-room-app--photos { grid-area: photos !important; }
+.home-scene .home-music-garden .home-room-app--drawing { grid-area: drawing !important; }
 .home-scene .home-music-garden .home-room-app--vault { grid-area: vault !important; }
 .home-scene .home-music-garden .home-room-app--letters { grid-area: letters !important; }
 .home-scene .home-music-garden .home-room-app--reading { grid-area: reading !important; }
@@ -68,8 +70,9 @@
 .home-scene .home-room-app--letters { animation-delay: .48s !important; }
 .home-scene .home-room-app--reading { animation-delay: .54s !important; }
 .home-scene .home-room-app--theater { animation-delay: .60s !important; }
-.home-scene .home-room-app--toybox { animation-delay: .66s !important; }
-.home-scene .home-room-app--luze { animation-delay: .72s !important; }
+.home-scene .home-room-app--drawing { animation-delay: .66s !important; }
+.home-scene .home-room-app--toybox { animation-delay: .72s !important; }
+.home-scene .home-room-app--luze { animation-delay: .78s !important; }
 
 .home-scene .home-music-garden .home-room-app > span,
 .home-scene .home-music-garden .home-room-app--music > span {
@@ -83,6 +86,7 @@
 .home-scene .home-room-app--letters > span { animation-delay: -2.7s !important; }
 .home-scene .home-room-app--reading > span { animation-delay: -8.9s !important; }
 .home-scene .home-room-app--theater > span { animation-delay: -5.9s !important; }
+.home-scene .home-room-app--drawing > span { animation-delay: -6.6s !important; }
 .home-scene .home-room-app--toybox > span { animation-delay: -10.1s !important; }
 .home-scene .home-room-app--luze > span { animation-delay: -3.8s !important; }
 

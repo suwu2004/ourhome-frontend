@@ -24,7 +24,8 @@ test('theater model controls match main Chat with local refresh and context usag
   assert.match(source, /◎ 上下文/);
   assert.match(source, /lastContextTokens/);
   assert.match(source, /lastOutputTokens/);
-  assert.match(source, /\$\{assistantDisplayName\} · \$\{model \|\| '默认模型'\}/);
+  assert.doesNotMatch(source, /\$\{assistantDisplayName\} · \$\{model \|\| '默认模型'\}/);
+  assert.match(source, /aria-label="打开小剧场设定"/);
 });
 
 test('model refresh does not persist or silently switch the main Chat model', () => {
@@ -105,6 +106,8 @@ test('jump-to-latest sits in its own row above the composer', () => {
   const composerIndex = source.indexOf('aria-label={editingMessage', latestIndex);
   assert.ok(rowIndex > 0 && latestIndex > rowIndex);
   assert.ok(composerIndex > latestIndex);
+  assert.match(source, />最新<\/button>/);
+  assert.doesNotMatch(source, />↓ 最新<\/button>/);
 });
 
 test('theater preserves old-story reading position and only offers latest when needed', () => {
@@ -121,4 +124,14 @@ test('theater chat locks rapid duplicate submits and reuses the request id on re
   assert.match(source, /chatRetryRef\.current\?\.fingerprint === fingerprint/);
   assert.match(source, /'X-OurHome-Request-Id': requestId/);
   assert.match(source, /chatRetryRef\.current = null/);
+});
+
+
+test('theater composer matches main Chat width and cloud-wandering placeholder', () => {
+  const chatStart = source.indexOf('const renderChat =');
+  const chatSlice = source.slice(chatStart);
+  assert.match(chatSlice, /padding: 0/);
+  assert.doesNotMatch(chatSlice.slice(0, 1200), /maxWidth: 760/);
+  assert.match(source, /'在云端漫游'/);
+  assert.doesNotMatch(source, /互动推进.*最低/);
 });

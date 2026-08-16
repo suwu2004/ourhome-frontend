@@ -116,6 +116,16 @@ function PhotoIcon() {
   );
 }
 
+function DrawingIcon() {
+  return (
+    <svg className="home-room-glyph" viewBox="0 0 36 36" aria-hidden="true">
+      <path d="M9 27 24.8 11.2l4 4L13 31H9v-4Z" />
+      <path d="m22.8 13.2 4 4M25.8 10.2l2-2a2.6 2.6 0 0 1 3.7 0l.3.3a2.6 2.6 0 0 1 0 3.7l-2 2" />
+      <path d="M8 9h10M8 14h7" />
+    </svg>
+  );
+}
+
 function ReadingIcon() {
   return (
     <svg className="home-room-glyph" viewBox="0 0 36 36" aria-hidden="true">
@@ -541,6 +551,10 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
             <button className="home-room-app home-room-app--photos" type="button" onClick={() => onOpen('photos')} aria-label="打开光影相册">
               <span><PhotoIcon /><HomeCatFrame /></span>
               <strong>光影相册</strong>
+            </button>
+            <button className="home-room-app home-room-app--drawing" type="button" onClick={() => onOpen('drawing')} aria-label="打开画画">
+              <span><DrawingIcon /><HomeCatFrame /></span>
+              <strong>画画</strong>
             </button>
             <button className="home-room-app home-room-app--reading" type="button" onClick={() => onOpen('reading')} aria-label="打开共读小屋">
               <span><ReadingIcon /><HomeCatFrame /></span>

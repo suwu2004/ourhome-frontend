@@ -31,8 +31,9 @@ const ApiUsageLogPanel = lazy(() => import('./ApiUsageLogPanel.jsx'));
 const LuzeAutonomySettingsPanel = lazy(() => import('./LuzeAutonomySettingsPanel.jsx'));
 const LuzePrivateRoom = lazy(() => import('./LuzePrivateRoom.jsx'));
 const VaultPage = lazy(() => import('./VaultPage.jsx'));
+const DrawingRoom = lazy(() => import('./DrawingRoom.jsx'));
 
-const roomKeys = new Set(['chat', 'theater', 'music', 'reading', 'letters', 'memories', 'calendar', 'vault', 'photos', 'settings', 'toybox', 'luze-room']);
+const roomKeys = new Set(['chat', 'theater', 'music', 'reading', 'letters', 'memories', 'calendar', 'vault', 'photos', 'settings', 'toybox', 'luze-room', 'drawing']);
 const persistentAppRoomKeys = new Set(['chat', 'theater', 'music', 'letters', 'memories', 'calendar', 'photos', 'settings']);
 
 function roomFromHash() {
@@ -142,7 +143,9 @@ export default function Root() {
   );
 
   let foregroundRoom = null;
-  if (room === 'vault') {
+  if (room === 'drawing') {
+    foregroundRoom = roomShell(<DrawingRoom onClose={goHome} />);
+  } else if (room === 'vault') {
     foregroundRoom = roomShell(<VaultPage onClose={goHome} />);
   } else if (room === 'luze-room') {
     foregroundRoom = roomShell(<LuzePrivateRoom onClose={goHome} />);
