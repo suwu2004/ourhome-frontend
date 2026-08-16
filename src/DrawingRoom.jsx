@@ -1,28 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiFetch, BACKEND } from './api.js';
 import './DrawingRoom.css';
 
-const HISTORY_KEY = 'ourhome:drawing-history:v1';
-const HISTORY_LIMIT = 24;
-
-function readHistory() {
-  try {
-    const value = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-    return Array.isArray(value) ? value.filter(item => item?.image).slice(0, HISTORY_LIMIT) : [];
-  } catch {
-    return [];
-  }
-}
-
-function normalizeImage(payload) {
-  const direct = payload?.image_url || payload?.url || payload?.image;
-  if (typeof direct === 'string' && direct.trim()) return direct.trim();
-  const first = Array.isArray(payload?.data) ? payload.data[0] : null;
-  if (typeof first?.url === 'string' && first.url.trim()) return first.url.trim();
-  if (typeof first?.b64_json === 'string' && first.b64_json.trim()) return `data:image/png;base64,${first.b64_json.trim()}`;
-  if (typeof payload?.b64_json === 'string' && payload.b64_json.trim()) return `data:image/png;base64,${payload.b64_json.trim()}`;
-  return '';
-}
+const HISTORY_LIMIT = 36;
 
 function DrawingMark() {
   return (
@@ -34,46 +14,133 @@ function DrawingMark() {
   );
 }
 
+function requestId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export default function DrawingRoom({ onClose }) {
   const [prompt, setPrompt] = useState('');
   const [image, setImage] = useState('');
-  const [history, setHistory] = useState(readHistory);
+  const [activeId, setActiveId] = useState('');
+  const [history, setHistory] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [drawing, setDrawing] = useState(false);
+  const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
 
   const canDraw = useMemo(() => prompt.trim().length > 0 && !drawing, [prompt, drawing]);
 
-  const remember = (nextImage, nextPrompt) => {
-    const entry = { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, image: nextImage, prompt: nextPrompt, created_at: new Date().toISOString() };
-    const next = [entry, ...history.filter(item => item.image !== nextImage)].slice(0, HISTORY_LIMIT);
-    setHistory(next);
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch { /* device storage can be unavailable */ }
+  const selectDrawing = item => {
+    if (!item) return;
+    setImage(item.image || '');
+    setActiveId(item.id || '');
+    setPrompt(item.prompt || '');
   };
+
+  const loadHistory = async ({ selectFirst = false } = {}) => {
+    setHistoryLoading(true);
+    try {
+      const response = await apiFetch(`${BACKEND}/drawing/history?limit=${HISTORY_LIMIT}`);
+      const payload = await response.json().catch(() => ([]));
+      if (!response.ok) throw new Error(payload?.error || '小画册暂时没有翻开');
+      const next = Array.isArray(payload) ? payload.filter(item => item?.id) : [];
+      setHistory(next);
+      if (selectFirst && next[0]) selectDrawing(next[0]);
+    } catch (cause) {
+      setError(cause?.message || '小画册暂时没有翻开');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistory({ selectFirst: true });
+  }, []);
 
   const generate = async () => {
     const text = prompt.trim();
     if (!text || drawing) return;
     setDrawing(true);
     setError('');
+    const id = requestId();
     try {
       const response = await apiFetch(`${BACKEND}/drawing/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: text }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-OurHome-Request-Id': id,
+        },
+        body: JSON.stringify({ prompt: text, request_id: id, source: 'drawing-room' }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || payload?.message || '画笔暂时没有接上生图接口');
-      const nextImage = normalizeImage(payload);
-      if (!nextImage) throw new Error('这次没有收到画面，再画一次就好');
-      setImage(nextImage);
-      remember(nextImage, text);
+      if (!payload?.image && !payload?.image_url) throw new Error('这次没有收到画面，再画一次就好');
+      const item = { ...payload, image: payload.image || payload.image_url };
+      selectDrawing(item);
+      setHistory(previous => [item, ...previous.filter(entry => entry.id !== item.id)].slice(0, HISTORY_LIMIT));
     } catch (cause) {
       setError(cause?.message || '画笔暂时没有接上生图接口');
     } finally {
       setDrawing(false);
     }
   };
+
+  const download = async item => {
+    if (!item?.id || busyId) return;
+    setBusyId(item.id);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/drawing/history/${encodeURIComponent(item.id)}/download`);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error || '这张画暂时下载不了');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `ourhome-drawing-${String(item.id).slice(0, 8)}.png`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (cause) {
+      setError(cause?.message || '这张画暂时下载不了');
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const remove = async item => {
+    if (!item?.id || busyId) return;
+    const confirmed = window.confirm('把这张画从小画册里删掉吗？删除后不能恢复。');
+    if (!confirmed) return;
+    setBusyId(item.id);
+    setError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/drawing/history/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || '这张画暂时删不掉');
+      const next = history.filter(entry => entry.id !== item.id);
+      setHistory(next);
+      if (activeId === item.id) {
+        if (next[0]) selectDrawing(next[0]);
+        else {
+          setImage('');
+          setActiveId('');
+          setPrompt('');
+        }
+      }
+    } catch (cause) {
+      setError(cause?.message || '这张画暂时删不掉');
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const activeDrawing = history.find(item => item.id === activeId) || (activeId ? { id: activeId, image, prompt } : null);
 
   return (
     <section className="drawing-room">
@@ -94,13 +161,37 @@ export default function DrawingRoom({ onClose }) {
             {image ? <img src={image} alt={prompt ? `根据“${prompt}”生成的画` : '生成的画'} /> : <div className="drawing-room__empty"><DrawingMark /><p>把心里想的，画给我看。</p><span>一句话，也可以长成一张画。</span></div>}
             {drawing && <div className="drawing-room__painting"><i /><span>正在画……</span></div>}
           </div>
+          {activeDrawing && !drawing && (
+            <div className="drawing-room__current-actions">
+              <button type="button" onClick={() => download(activeDrawing)} disabled={Boolean(busyId)}>保存到本地</button>
+              <button type="button" className="is-danger" onClick={() => remove(activeDrawing)} disabled={Boolean(busyId)}>删除</button>
+            </div>
+          )}
           {error && <p className="drawing-room__error" role="alert">{error}</p>}
         </main>
 
         {historyOpen && (
           <aside className="drawing-room__history" aria-label="小画册">
-            <div className="drawing-room__history-head"><strong>小画册</strong><span>{history.length} 张</span></div>
-            {history.length === 0 ? <p className="drawing-room__history-empty">第一张画还在等你。</p> : <div className="drawing-room__history-grid">{history.map(item => <button key={item.id} type="button" onClick={() => { setImage(item.image); setPrompt(item.prompt || ''); setHistoryOpen(false); }}><img src={item.image} alt="" /><span>{item.prompt || '没有题目的画'}</span></button>)}</div>}
+            <div className="drawing-room__history-head">
+              <strong>小画册</strong>
+              <span>{historyLoading ? '翻页中…' : `${history.length} 张`}</span>
+            </div>
+            {history.length === 0 && !historyLoading ? <p className="drawing-room__history-empty">第一张画还在等你。</p> : (
+              <div className="drawing-room__history-grid">
+                {history.map(item => (
+                  <div className={`drawing-room__history-card ${item.id === activeId ? 'is-active' : ''}`} key={item.id}>
+                    <button type="button" className="drawing-room__history-pick" onClick={() => { selectDrawing(item); setHistoryOpen(false); }}>
+                      <img src={item.image} alt="" />
+                      <span>{item.prompt || '没有题目的画'}</span>
+                    </button>
+                    <div className="drawing-room__history-actions">
+                      <button type="button" onClick={() => download(item)} disabled={busyId === item.id} aria-label="保存到本地">↓</button>
+                      <button type="button" onClick={() => remove(item)} disabled={busyId === item.id} aria-label="删除画作">×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </aside>
         )}
       </div>
@@ -110,7 +201,7 @@ export default function DrawingRoom({ onClose }) {
           <textarea rows={1} value={prompt} onChange={event => setPrompt(event.target.value)} placeholder="想画什么，就告诉我……" maxLength={1200} />
           <button type="button" onClick={generate} disabled={!canDraw} aria-label="开始画">{drawing ? '…' : '✦'}</button>
         </div>
-        <span className="drawing-room__hint">生成的画会先留在小画册里，之后再接进光影相册。</span>
+        <span className="drawing-room__hint">画会留在这里的小画册，和光影相册各自安静保存。</span>
       </footer>
     </section>
   );

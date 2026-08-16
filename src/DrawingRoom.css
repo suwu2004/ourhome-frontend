@@ -78,6 +78,26 @@
 .drawing-room__painting i { width: 30px; height: 30px; border: 2px solid color-mix(in srgb, currentColor 24%, transparent); border-top-color: currentColor; border-radius: 50%; animation: drawing-room-spin .82s linear infinite; }
 @keyframes drawing-room-spin { to { transform: rotate(360deg); } }
 
+.drawing-room__current-actions {
+  width: min(100%, 620px);
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.drawing-room__current-actions button {
+  min-width: 92px;
+  padding: 7px 13px;
+  border: 1px solid var(--home-border, #ead8b6);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--home-card-solid, #fff) 82%, transparent);
+  color: var(--home-honey-deep, #b77a1f);
+  font: inherit;
+  font-size: 10.5px;
+}
+.drawing-room__current-actions button.is-danger { color: var(--home-blush-deep, #c86f62); }
+.drawing-room__current-actions button:disabled { opacity: .45; }
+
 .drawing-room__error { width: min(100%, 620px); margin: 9px 0 0; color: var(--home-blush-deep, #c86f62); font-size: 11px; line-height: 1.5; text-align: center; }
 
 .drawing-room__history { position: absolute; z-index: 5; inset: 0 0 0 auto; width: min(82vw, 360px); padding: 16px; box-sizing: border-box; overflow-y: auto; background: color-mix(in srgb, var(--home-card-solid, #fff) 96%, transparent); border-left: 1px solid var(--home-border, #ead8b6); box-shadow: -18px 0 38px color-mix(in srgb, var(--home-shadow, #886c4c) 18%, transparent); backdrop-filter: blur(18px); }
@@ -86,9 +106,42 @@
 .drawing-room__history-head span { color: var(--home-muted, #8f7b60); font-size: 10px; }
 .drawing-room__history-empty { color: var(--home-muted, #8f7b60); font-size: 12px; text-align: center; margin: 34px 0; }
 .drawing-room__history-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.drawing-room__history-grid button { min-width: 0; padding: 0; overflow: hidden; border: 1px solid var(--home-border, #ead8b6); border-radius: 13px; background: var(--home-surface, #fffaf0); color: var(--home-ink, #3b2c20); font: inherit; text-align: left; }
+.drawing-room__history-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--home-border, #ead8b6);
+  border-radius: 13px;
+  background: var(--home-surface, #fffaf0);
+}
+.drawing-room__history-card.is-active { border-color: var(--home-honey, #d7a23a); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--home-honey, #d7a23a) 32%, transparent); }
+.drawing-room__history-pick { width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; color: var(--home-ink, #3b2c20); font: inherit; text-align: left; }
 .drawing-room__history-grid img { width: 100%; aspect-ratio: 1; display: block; object-fit: cover; }
 .drawing-room__history-grid span { display: block; padding: 7px 8px 8px; overflow: hidden; color: var(--home-muted, #8f7b60); font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
+.drawing-room__history-actions {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: flex;
+  gap: 4px;
+}
+.drawing-room__history-actions button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--home-border, #ead8b6) 78%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--home-card-solid, #fff) 88%, transparent);
+  color: var(--home-ink, #3b2c20);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  backdrop-filter: blur(8px);
+}
+.drawing-room__history-actions button:last-child { color: var(--home-blush-deep, #c86f62); }
+.drawing-room__history-actions button:disabled { opacity: .45; }
 
 .drawing-room__composer { flex: 0 0 auto; padding: 10px 14px 12px; background: color-mix(in srgb, var(--home-card-solid, #fff) 96%, transparent); border-top: 1px solid var(--home-border, #ead8b6); }
 .drawing-room__input { max-width: 760px; margin: 0 auto; display: flex; align-items: flex-end; gap: 8px; padding: 6px 6px 6px 13px; border: 1.5px solid var(--home-border, #ead8b6); border-radius: 23px; background: var(--home-surface, #fffaf0); }
