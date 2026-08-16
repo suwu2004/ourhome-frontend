@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const emptyDraft = () => ({ id: null, name: '', base_url: '', api_key: '', selected_model: '' });
+const emptyDrawingConfig = () => ({
+  base_url: 'https://jixiangai.lol/v1',
+  model: 'GPT-magic2',
+  api_key: '',
+  enabled: true,
+  has_api_key: false,
+});
 
 export default function ApiProfilesSettings({ apiFetch, backend, theme, onActiveChange, onModelsChange, embedded = false }) {
   const [profiles, setProfiles] = useState([]);
@@ -10,6 +17,10 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
   const [notice, setNotice] = useState('');
   const [models, setModels] = useState([]);
   const [modelsBusy, setModelsBusy] = useState(false);
+  const [drawingConfig, setDrawingConfig] = useState(emptyDrawingConfig);
+  const [drawingBusy, setDrawingBusy] = useState(false);
+  const [drawingError, setDrawingError] = useState('');
+  const [drawingNotice, setDrawingNotice] = useState('');
   const lastNotifiedActiveRef = useRef('');
 
   const active = useMemo(() => profiles.find(profile => profile.is_active) || null, [profiles]);
@@ -34,7 +45,26 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
     }
   };
 
-  useEffect(() => { loadProfiles(); }, []);
+  const loadDrawingConfig = async () => {
+    setDrawingError('');
+    try {
+      const response = await apiFetch(`${backend}/drawing/config`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '读取画画 API 失败');
+      setDrawingConfig(value => ({
+        ...emptyDrawingConfig(),
+        ...data,
+        api_key: value.api_key || '',
+      }));
+    } catch (err) {
+      setDrawingError(err.message);
+    }
+  };
+
+  useEffect(() => {
+    loadProfiles();
+    loadDrawingConfig();
+  }, []);
 
   const editProfile = profile => {
     setDraft({
@@ -80,6 +110,37 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
       setError(err.message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveDrawingConfig = async event => {
+    event.preventDefault();
+    if (!drawingConfig.base_url.trim() || !drawingConfig.model.trim()) {
+      setDrawingError('请填写画画 API 网址和模型');
+      return;
+    }
+    setDrawingBusy(true);
+    setDrawingError('');
+    setDrawingNotice('');
+    try {
+      const response = await apiFetch(`${backend}/drawing/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base_url: drawingConfig.base_url.trim(),
+          model: drawingConfig.model.trim(),
+          api_key: drawingConfig.api_key.trim() || undefined,
+          enabled: drawingConfig.enabled !== false,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '画画 API 保存失败');
+      setDrawingConfig({ ...emptyDrawingConfig(), ...data, api_key: '' });
+      setDrawingNotice('画笔线路已保存');
+    } catch (err) {
+      setDrawingError(err.message);
+    } finally {
+      setDrawingBusy(false);
     }
   };
 
@@ -148,7 +209,7 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
         <div>
           <div style={{ fontSize: 12, color: theme.muted, letterSpacing: '.05em' }}>API 站点档案</div>
-          <div style={{ fontSize: 10.5, color: theme.mutedLight, marginTop: 3 }}>密钥只保存在服务端，页面不会再把原文读回来</div>
+          <div style={{ fontSize: 10.5, color: theme.mutedLight, marginTop: 3 }}>聊天线路 · 密钥只保存在服务端</div>
         </div>
         <button type="button" onClick={() => { setDraft(emptyDraft()); setModels([]); setError(''); setNotice(''); }} style={pill}>＋ 新站点</button>
       </div>
@@ -193,7 +254,29 @@ export default function ApiProfilesSettings({ apiFetch, backend, theme, onActive
 
       {error && <div role="alert" style={{ marginTop: 8, fontSize: 11, color: theme.blushDeep }}>{error}</div>}
       {notice && <div role="status" style={{ marginTop: 8, fontSize: 10.5, color: theme.muted }}>{notice}</div>}
-      {active && <div style={{ marginTop: 8, fontSize: 10.5, color: theme.mutedLight }}>当前：{active.name}{active.selected_model ? ` · ${active.selected_model}` : ''}</div>}
+      {active && <div style={{ marginTop: 8, fontSize: 10.5, color: theme.mutedLight }}>当前聊天：{active.name}{active.selected_model ? ` · ${active.selected_model}` : ''}</div>}
+
+      <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${theme.border}` }}>
+        <div style={{ marginBottom: 9 }}>
+          <div style={{ fontSize: 12, color: theme.muted, letterSpacing: '.05em' }}>画画 API · 独立线路</div>
+          <div style={{ fontSize: 10.5, color: theme.mutedLight, marginTop: 3 }}>只给画室和陆泽的画笔使用，不跟随聊天站点切换</div>
+        </div>
+        <form onSubmit={saveDrawingConfig} style={{ display: 'grid', gap: 8, padding: 11, borderRadius: 12, background: theme.cream, border: `1px solid ${theme.borderLight}` }}>
+          <input aria-label="画画 API 网址" value={drawingConfig.base_url} onChange={event => setDrawingConfig(value => ({ ...value, base_url: event.target.value }))} placeholder="https://jixiangai.lol/v1" inputMode="url" style={field} />
+          <input aria-label="画画模型" value={drawingConfig.model} onChange={event => setDrawingConfig(value => ({ ...value, model: event.target.value }))} placeholder="GPT-magic2" style={field} />
+          <input aria-label="画画 API 密钥" type="password" value={drawingConfig.api_key} onChange={event => setDrawingConfig(value => ({ ...value, api_key: event.target.value }))} placeholder={drawingConfig.has_api_key ? '新密钥（留空保留已保存密钥）' : '画画 API 密钥'} autoComplete="new-password" style={field} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 10.5, color: theme.muted }}>
+            <input type="checkbox" checked={drawingConfig.enabled !== false} onChange={event => setDrawingConfig(value => ({ ...value, enabled: event.target.checked }))} />
+            启用画笔线路
+            <span style={{ marginLeft: 'auto', color: drawingConfig.has_api_key ? theme.muted : theme.blushDeep }}>{drawingConfig.has_api_key ? '密钥已保存' : '还没有密钥'}</span>
+          </label>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="submit" disabled={drawingBusy} style={{ border: 0, borderRadius: 999, padding: '7px 16px', color: theme.white, background: `linear-gradient(150deg, ${theme.honey}, ${theme.honeyDeep})`, cursor: drawingBusy ? 'default' : 'pointer', fontSize: 12 }}>{drawingBusy ? '保存中…' : '保存画笔线路'}</button>
+          </div>
+        </form>
+        {drawingError && <div role="alert" style={{ marginTop: 8, fontSize: 11, color: theme.blushDeep }}>{drawingError}</div>}
+        {drawingNotice && <div role="status" style={{ marginTop: 8, fontSize: 10.5, color: theme.muted }}>{drawingNotice}</div>}
+      </div>
     </section>
   );
 }
