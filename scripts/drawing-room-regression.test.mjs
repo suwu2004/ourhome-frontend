@@ -21,4 +21,5 @@ test('drawing room keeps the one-sentence generation and mini-album flow', () =>
   assert.match(drawing, /小画册/);
   assert.match(drawing, /ourhome:drawing-history:v1/);
   assert.match(drawing, /之后再接进光影相册/);
+  assert.match(drawing, /画笔暂时没有接上生图接口/);
 });
