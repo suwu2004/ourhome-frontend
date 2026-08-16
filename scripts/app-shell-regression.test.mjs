@@ -177,10 +177,10 @@ test('home shelf owns all room entries without portal injection', () => {
   assert.doesNotMatch(root, /useHomeShelfTarget/);
   assert.doesNotMatch(root, /HomeShelfEntries/);
   assert.doesNotMatch(root, /createPortal/);
-  assert.equal((homeHubSource.match(/className="home-room-app home-room-app--/g) || []).length, 8);
+  assert.equal((homeHubSource.match(/className="home-room-app home-room-app--/g) || []).length, 9);
 });
 
-test('all eight home room icons share one pointed cat-ear frame', () => {
+test('all nine home room icons share one pointed cat-ear frame', () => {
   assert.match(homeRoomGrid, /--home-cat-icon-bg/);
   assert.match(homeRoomGrid, /home-cat-frame__face/);
   assert.match(homeRoomGrid, /home-cat-frame__whiskers/);
@@ -189,7 +189,7 @@ test('all eight home room icons share one pointed cat-ear frame', () => {
   assert.match(homeCatFrame, /className="home-cat-frame__whiskers"/);
   assert.match(homeCatFrame, /home-cat-frame__ear--left/);
   assert.match(homeCatFrame, /home-cat-frame__ear--right/);
-  assert.equal((homeHubSource.match(/<HomeCatFrame \/>/g) || []).length, 8);
+  assert.equal((homeHubSource.match(/<HomeCatFrame \/>/g) || []).length, 9);
   assert.equal((root.match(/<HomeCatFrame \/>/g) || []).length, 0);
   assert.doesNotMatch(homeRoomGrid, /clip-path/);
 });
