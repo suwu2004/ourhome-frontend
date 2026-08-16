@@ -28,7 +28,7 @@ test('deferred connection panels are genuinely mount-fetching components', async
     read('../src/IntegrationSettings.jsx'),
     read('../src/AgentMailSettings.jsx'),
   ]);
-  assert.match(profiles, /useEffect\(\(\) => \{ loadProfiles\(\); \}, \[\]\)/);
+  assert.match(profiles, /useEffect\(\(\) => \{[\s\S]{0,180}loadProfiles\(\);[\s\S]{0,180}loadDrawingConfig\(\);[\s\S]{0,80}\}, \[\]\)/);
   assert.match(integrations, /useEffect\(\(\) => \{ loadConnections\(\); \}, \[loadConnections\]\)/);
   assert.match(mail, /useEffect\(\(\) => \{[\s\S]*loadConfig\(\)/);
 });
