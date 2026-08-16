@@ -1,0 +1,33 @@
+name: Apply Theater Chat Parity
+
+on:
+  push:
+    branches:
+      - fix/theater-chat-parity
+    paths:
+      - .github/workflows/apply-theater-chat-parity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/theater-chat-parity
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply Theater Chat parity
+        run: node scripts/apply-theater-chat-parity.mjs
+      - name: Commit transformed source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Match Theater chat to formal Chat UI"
+          git push origin HEAD:fix/theater-chat-parity
