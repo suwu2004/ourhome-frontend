@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
-const root = readFileSync(new URL('../src/Root.jsx', import.meta.url), 'utf8');
-const home = readFileSync(new URL('../src/HomeHub.jsx', import.meta.url), 'utf8');
-const drawing = readFileSync(new URL('../src/DrawingRoom.jsx', import.meta.url), 'utf8');
-const grid = readFileSync(new URL('../src/HomeRoomGrid.css', import.meta.url), 'utf8');
+const read = async path => (await import('node:fs/promises')).readFile(new URL(path, import.meta.url), 'utf8');
+
+const [root, home, drawing, grid] = await Promise.all([
+  read('../src/Root.jsx'),
+  read('../src/HomeHub.jsx'),
+  read('../src/DrawingRoom.jsx'),
+  read('../src/HomeRoomGrid.css'),
+]);
 
 test('drawing room is a first-class OurHome room with a home entry', () => {
   assert.match(root, /DrawingRoom/);
@@ -27,4 +30,12 @@ test('drawing room keeps one-sentence generation with private cloud mini-album c
   assert.doesNotMatch(drawing, /ourhome:drawing-history:v1/);
   assert.doesNotMatch(drawing, /之后再接进光影相册/);
   assert.match(drawing, /画笔暂时没有接上生图接口/);
+});
+
+test('drawing room uses the direct Render backend so Vercel /api rewrites cannot swallow drawing mutations', () => {
+  assert.match(drawing, /DIRECT_BACKEND/);
+  assert.match(drawing, /DRAWING_BACKEND/);
+  assert.match(drawing, /drawingUrl\('\/drawing\/generate'\)/);
+  assert.match(drawing, /drawingUrl\(`\/drawing\/history/);
+  assert.doesNotMatch(drawing, /apiFetch\(\`\$\{BACKEND\}\/drawing\/generate/);
 });
