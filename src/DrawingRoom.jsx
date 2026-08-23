@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { apiFetch, BACKEND } from './api.js';
+import { apiFetch, BACKEND, DIRECT_BACKEND } from './api.js';
 import './DrawingRoom.css';
 
 const HISTORY_LIMIT = 36;
+const DRAWING_BACKEND = (DIRECT_BACKEND || BACKEND).replace(/\/$/, '');
+const drawingUrl = path => `${DRAWING_BACKEND}${path}`;
 
 function DrawingMark() {
   return (
@@ -42,7 +44,7 @@ export default function DrawingRoom({ onClose }) {
   const loadHistory = async ({ selectFirst = false } = {}) => {
     setHistoryLoading(true);
     try {
-      const response = await apiFetch(`${BACKEND}/drawing/history?limit=${HISTORY_LIMIT}`);
+      const response = await apiFetch(drawingUrl(`/drawing/history?limit=${HISTORY_LIMIT}`));
       const payload = await response.json().catch(() => ([]));
       if (!response.ok) throw new Error(payload?.error || '小画册暂时没有翻开');
       const next = Array.isArray(payload) ? payload.filter(item => item?.id) : [];
@@ -66,7 +68,7 @@ export default function DrawingRoom({ onClose }) {
     setError('');
     const id = requestId();
     try {
-      const response = await apiFetch(`${BACKEND}/drawing/generate`, {
+      const response = await apiFetch(drawingUrl('/drawing/generate'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,7 +94,7 @@ export default function DrawingRoom({ onClose }) {
     setBusyId(item.id);
     setError('');
     try {
-      const response = await apiFetch(`${BACKEND}/drawing/history/${encodeURIComponent(item.id)}/download`);
+      const response = await apiFetch(drawingUrl(`/drawing/history/${encodeURIComponent(item.id)}/download`));
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload?.error || '这张画暂时下载不了');
@@ -120,7 +122,7 @@ export default function DrawingRoom({ onClose }) {
     setBusyId(item.id);
     setError('');
     try {
-      const response = await apiFetch(`${BACKEND}/drawing/history/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+      const response = await apiFetch(drawingUrl(`/drawing/history/${encodeURIComponent(item.id)}`), { method: 'DELETE' });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload?.error || '这张画暂时删不掉');
       const next = history.filter(entry => entry.id !== item.id);
