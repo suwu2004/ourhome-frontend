@@ -21,6 +21,41 @@ function requestId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+async function readErrorPayload(response) {
+  const raw = await response.text().catch(() => '');
+  let payload = {};
+  try { payload = raw ? JSON.parse(raw) : {}; } catch { /* handled below */ }
+  return { payload, raw };
+}
+
+function friendlyDrawingError(response, payload = {}, raw = '', fallback = '画笔暂时没有接上生图接口') {
+  const status = Number(response?.status || 0);
+  const code = String(payload?.code || payload?.error_code || payload?.type || '').toLowerCase();
+  const detail = String(payload?.error?.message || payload?.message || (typeof payload?.error === 'string' ? payload.error : '') || '').trim();
+  const source = `${code} ${detail} ${raw}`.toLowerCase();
+
+  if (status === 401 || status === 403 || /invalid.*(key|token)|unauthori[sz]ed|api.?key/.test(source)) {
+    return '画画 API 的密钥没有通过验证，请检查「设置 → API 与模型 → 画画 API」里的 Key。';
+  }
+  if (status === 402 || /insufficient|balance|quota|credit|billing|余额|额度/.test(source)) {
+    return '画画 API 的额度暂时不够了，检查一下吉祥 AI 的余额或调用额度。';
+  }
+  if (status === 404 || /model.*not.*found|unknown.*model|模型不存在|model.*does not exist/.test(source)) {
+    return '画画模型没有找到，先确认模型名是不是 GPT-magic2。';
+  }
+  if (status === 429 || /rate.?limit|too many requests|频率/.test(source)) {
+    return '画画 API 现在有点忙，等一会儿再画一次就好。';
+  }
+  if (status === 408 || status === 502 || status === 503 || status === 504 || /timeout|timed out|gateway|upstream/.test(source)) {
+    return '生图服务这会儿没有及时回应，画室线路还在，过一会儿再试一次。';
+  }
+  if (/unsupported|not support|images\/generations|image generation/.test(source) && /endpoint|format|unsupported|not support/.test(source)) {
+    return '这个画画模型暂时不接受当前生图接口格式，需要调整上游接口适配。';
+  }
+  if (detail) return `画画没有成功：${detail.slice(0, 220)}`;
+  return fallback;
+}
+
 export default function DrawingRoom({ onClose }) {
   const [prompt, setPrompt] = useState('');
   const [image, setImage] = useState('');
@@ -45,8 +80,8 @@ export default function DrawingRoom({ onClose }) {
     setHistoryLoading(true);
     try {
       const response = await apiFetch(drawingUrl(`/drawing/history?limit=${HISTORY_LIMIT}`));
-      const payload = await response.json().catch(() => ([]));
-      if (!response.ok) throw new Error(payload?.error || '小画册暂时没有翻开');
+      const { payload, raw } = await readErrorPayload(response);
+      if (!response.ok) throw new Error(friendlyDrawingError(response, payload, raw, '小画册暂时没有翻开'));
       const next = Array.isArray(payload) ? payload.filter(item => item?.id) : [];
       setHistory(next);
       if (selectFirst && next[0]) selectDrawing(next[0]);
@@ -76,8 +111,8 @@ export default function DrawingRoom({ onClose }) {
         },
         body: JSON.stringify({ prompt: text, request_id: id, source: 'drawing-room' }),
       });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error || payload?.message || '画笔暂时没有接上生图接口');
+      const { payload, raw } = await readErrorPayload(response);
+      if (!response.ok) throw new Error(friendlyDrawingError(response, payload, raw));
       if (!payload?.image && !payload?.image_url) throw new Error('这次没有收到画面，再画一次就好');
       const item = { ...payload, image: payload.image || payload.image_url };
       selectDrawing(item);
@@ -96,8 +131,8 @@ export default function DrawingRoom({ onClose }) {
     try {
       const response = await apiFetch(drawingUrl(`/drawing/history/${encodeURIComponent(item.id)}/download`));
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || '这张画暂时下载不了');
+        const { payload, raw } = await readErrorPayload(response);
+        throw new Error(friendlyDrawingError(response, payload, raw, '这张画暂时下载不了'));
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -123,8 +158,8 @@ export default function DrawingRoom({ onClose }) {
     setError('');
     try {
       const response = await apiFetch(drawingUrl(`/drawing/history/${encodeURIComponent(item.id)}`), { method: 'DELETE' });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error || '这张画暂时删不掉');
+      const { payload, raw } = await readErrorPayload(response);
+      if (!response.ok) throw new Error(friendlyDrawingError(response, payload, raw, '这张画暂时删不掉'));
       const next = history.filter(entry => entry.id !== item.id);
       setHistory(next);
       if (activeId === item.id) {
