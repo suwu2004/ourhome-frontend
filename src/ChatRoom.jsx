@@ -24,19 +24,28 @@ function chatDraftKey(sessionId) {
   return sessionId ? `${CHAT_DRAFT_PREFIX}${sessionId}` : '';
 }
 
-function messageDateKey(date) {
+function shanghaiDateParts(date) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
-  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(d);
+  return Object.fromEntries(parts.map(part => [part.type, part.value]));
+}
+
+function messageDateKey(date) {
+  const parts = shanghaiDateParts(date);
+  if (!parts?.year || !parts?.month || !parts?.day) return '';
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function formatMsgDate(date) {
   const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
   if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
+  }).format(d);
 }
 
 function compactUsageNumber(value) {
@@ -78,6 +87,7 @@ export function ChatRoom(props) {
 
   const [chatModel, setChatModel] = useState(selectedModel || '');
   const [chatRefreshing, setChatRefreshing] = useState(false);
+  const [chatNearBottom, setChatNearBottom] = useState(true);
   const [cachedConversation, setCachedConversation] = useState(null);
   const [cachedSessionId, setCachedSessionId] = useState(null);
   const draftSessionRef = useRef(null);
@@ -108,12 +118,14 @@ export function ChatRoom(props) {
       waitingForFreshMessagesRef.current = false;
       setCachedSessionId(null);
       setCachedConversation(null);
+      setChatNearBottom(true);
       return;
     }
     messagesAtSessionChangeRef.current = msgs;
     waitingForFreshMessagesRef.current = true;
     setCachedSessionId(sessionId);
     setCachedConversation(conversationCache.get(String(sessionId)) || []);
+    setChatNearBottom(true);
   }, [sessionId]);
 
   useEffect(() => {
@@ -173,7 +185,7 @@ export function ChatRoom(props) {
 
   const sendWithDraftCleanup = model => {
     if (!editingMessage && sessionId) {
-      try { localStorage.removeItem(chatDraftKey(sessionId)); } catch { /* ignore storage failures */ }
+      try { localStorage.removeItem(chatDraftKey(sessionId)); } catch { /* ignore storage cleanup failures */ }
       pendingAttachmentCache.delete(String(sessionId));
     }
     return send(model);
@@ -190,6 +202,20 @@ export function ChatRoom(props) {
     } finally {
       setChatRefreshing(false);
     }
+  };
+
+  const handleLocalScroll = event => {
+    onListScroll?.(event);
+    const list = event.currentTarget;
+    const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+    setChatNearBottom(distanceFromBottom < 120);
+  };
+
+  const jumpToLatest = () => {
+    const list = listRef.current;
+    if (!list) return;
+    setChatNearBottom(true);
+    list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
   };
 
   return (
@@ -209,21 +235,14 @@ export function ChatRoom(props) {
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button aria-label="搜索聊天记录" title="搜索聊天记录" onClick={() => { setSearchOpen(true); setSearchQuery(""); setLastSearchQuery(''); setSearchResults([]); setSearchMeta({ total: 0, page: 1, hasMore: false }); setSearchScope('current'); }} style={{ fontSize: 14, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🔍</button>
-              <button
-                type="button"
-                onClick={refreshCurrentChat}
-                disabled={!sessionId || chatRefreshBlocked}
-                aria-label="刷新当前对话"
-                title="刷新当前对话"
-                style={{ fontSize: 19, lineHeight: 1, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, padding: 0, cursor: !sessionId || chatRefreshBlocked ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: chatRefreshBlocked ? .55 : 1, fontFamily: 'Arial, sans-serif' }}
-              >{chatRefreshing ? '…' : '↻'}</button>
+              <button type="button" onClick={refreshCurrentChat} disabled={!sessionId || chatRefreshBlocked} aria-label="刷新当前对话" title="刷新当前对话" style={{ fontSize: 19, lineHeight: 1, color: C.honeyDeep, background: C.honeyLight, border: `1px solid ${C.honeyMid}`, borderRadius: 10, width: 30, height: 30, padding: 0, cursor: !sessionId || chatRefreshBlocked ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: chatRefreshBlocked ? .55 : 1, fontFamily: 'Arial, sans-serif' }}>{chatRefreshing ? '…' : '↻'}</button>
             </div>
           </div>
           <Stars theme={C} />
         </header>
 
         <div style={{ position: "relative", flex: 1, minHeight: 0, overflow: "hidden", background: bgImage ? `url(${bgImage}) center/cover no-repeat` : (bgColor || "#FDFAF5") }}>
-          <div ref={listRef} onScroll={onListScroll} style={{ position: "absolute", inset: 0, overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch", padding: "16px 14px 8px" }}>
+          <div ref={listRef} onScroll={handleLocalScroll} style={{ position: "absolute", inset: 0, overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch", padding: "16px 14px 8px", scrollbarGutter: 'stable' }}>
           {!ready && (
             <div style={{ textAlign: "center", fontSize: 11, color: C.muted, letterSpacing: ".15em", padding: "30px 0" }}>正在开门…</div>
           )}
@@ -252,170 +271,37 @@ export function ChatRoom(props) {
                 <div id={`msg-${m.id}`} style={{ display: "flex", marginBottom: 14, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", gap: 6, background: highlightMsgId === m.id ? C.honeyLight : "transparent", borderRadius: 14, padding: highlightMsgId === m.id ? "6px 4px" : "0px", transition: "background .6s ease" }}>
                   <Avatar isMe={isMe} src={isMe ? myAvatar : partnerAvatar} theme={C} />
                   <div style={{ maxWidth: "72%", display: "flex", flexDirection: "column", gap: 6 }}>
-                    {m.image && (
-                      <ViewportChatImage src={m.image} rootRef={listRef} borderColor={isMe ? "#F5CABB" : C.border} />
-                    )}
-                    {m.file && (
-                      <a href={m.file.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 14, background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, textDecoration: "none", color: C.text, maxWidth: "100%" }}>
-                        <span style={{ fontSize: 20 }}>📄</span>
-                        <span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.file.name}</span>
-                      </a>
-                    )}
-                    {!isMe && m.thinking && (
-                      <div>
-                        <span onClick={() => toggleThinking(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }}>
-                          💭 想了想{m.thinkingOpen ? " ▲" : " ▼"}
-                        </span>
-                        {m.thinkingOpen && (
-                          <div style={{ fontSize: 12, lineHeight: 1.6, color: C.muted, background: C.borderLight, borderRadius: 10, padding: "8px 12px", marginTop: 4, whiteSpace: "pre-wrap", fontStyle: "italic" }}>{m.thinking}</div>
-                        )}
-                      </div>
-                    )}
-                    {m.text && (
-                      <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>
-                    )}
-                    {!isMe && isLast && !thinking && !showingCachedConversation && (
-                      <button type="button" onClick={() => regenerateLast(chatModel)} disabled={regenerating} style={{ border: 0, padding: "3px 0", background: "transparent", fontSize: 10.5, color: C.muted, cursor: regenerating ? "default" : "pointer", alignSelf: "flex-start", fontFamily: "inherit" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</button>
-                    )}
+                    {m.image && <ViewportChatImage src={m.image} rootRef={listRef} borderColor={isMe ? "#F5CABB" : C.border} />}
+                    {m.file && <a href={m.file.url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 14, background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, textDecoration: "none", color: C.text, maxWidth: "100%" }}><span style={{ fontSize: 20 }}>📄</span><span style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.file.name}</span></a>}
+                    {!isMe && m.thinking && <div><span onClick={() => toggleThinking(m.id)} style={{ fontSize: 10.5, color: C.muted, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3 }}>💭 想了想{m.thinkingOpen ? " ▲" : " ▼"}</span>{m.thinkingOpen && <div style={{ fontSize: 12, lineHeight: 1.6, color: C.muted, background: C.borderLight, borderRadius: 10, padding: "8px 12px", marginTop: 4, whiteSpace: "pre-wrap", fontStyle: "italic" }}>{m.thinking}</div>}</div>}
+                    {m.text && <div style={{ padding: "10px 14px", fontSize: 14.5, lineHeight: 1.72, color: C.text, borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: isMe ? (myBubbleColor || C.blush) : (partnerBubbleColor || C.white), border: `1px solid ${isMe ? "#F5CABB" : C.border}`, whiteSpace: "pre-wrap", wordBreak: "break-word" }}><HighlightedText text={m.text} query={highlightMsgId === m.id ? highlightQuery : ''} /></div>}
+                    {!isMe && isLast && !thinking && !showingCachedConversation && <button type="button" onClick={() => regenerateLast(chatModel)} disabled={regenerating} style={{ border: 0, padding: "3px 0", background: "transparent", fontSize: 10.5, color: C.muted, cursor: regenerating ? "default" : "pointer", alignSelf: "flex-start", fontFamily: "inherit" }}>{regenerating ? "思考中…" : "↻ 重新生成"}</button>}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: isMe ? "flex-end" : "flex-start", gap: 4, flexShrink: 0 }}>
                     <span style={{ fontSize: 9.5, color: C.mutedLight }}>{m.time || formatMsgTime(m.createdAt)}</span>
-                    <button
-                      type="button"
-                      onClick={() => openMessageActions(m)}
-                      disabled={showingCachedConversation || thinking || messageActionLoading || String(m.id).startsWith('temp-')}
-                      aria-label={`${isMe ? '我的' : '陆泽的'}消息操作`}
-                      title={showingCachedConversation ? "正在同步最新内容" : "编辑或回到这里"}
-                      style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "transparent", color: C.muted, cursor: showingCachedConversation || thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: showingCachedConversation || String(m.id).startsWith('temp-') ? .28 : .78, fontSize: 20, lineHeight: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 1, fontFamily: "inherit" }}
-                    ><span aria-hidden="true" style={{ transform: "translateY(-2px)" }}>⌄</span></button>
+                    <button type="button" onClick={() => openMessageActions(m)} disabled={showingCachedConversation || thinking || messageActionLoading || String(m.id).startsWith('temp-')} aria-label={`${isMe ? '我的' : '陆泽的'}消息操作`} title={showingCachedConversation ? "正在同步最新内容" : "编辑或回到这里"} style={{ width: 40, height: 40, border: 0, borderRadius: 999, background: "transparent", color: C.muted, cursor: showingCachedConversation || thinking || messageActionLoading || String(m.id).startsWith('temp-') ? "default" : "pointer", opacity: showingCachedConversation || String(m.id).startsWith('temp-') ? .28 : .78, fontSize: 20, lineHeight: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 1, fontFamily: "inherit" }}><span aria-hidden="true" style={{ transform: "translateY(-2px)" }}>⌄</span></button>
                   </div>
                 </div>
               </div>
             );
           })}
-          {thinking && !showingCachedConversation && (
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 14 }}>
-              <Avatar isMe={false} src={partnerAvatar} theme={C} />
-              <div style={{ padding: "10px 16px", borderRadius: "18px 18px 18px 4px", background: C.white, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, letterSpacing: ".15em", fontStyle: "italic" }}>想你中…</div>
-            </div>
-          )}
+          {thinking && !showingCachedConversation && <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 14 }}><Avatar isMe={false} src={partnerAvatar} theme={C} /><div style={{ padding: "10px 16px", borderRadius: "18px 18px 18px 4px", background: C.white, border: `1px solid ${C.border}`, fontSize: 12, color: C.muted, letterSpacing: ".15em", fontStyle: "italic" }}>想你中…</div></div>}
           </div>
+          {!chatNearBottom && ready && !showingCachedConversation && (
+            <button type="button" onClick={jumpToLatest} aria-label="回到最新消息" style={{ position: 'absolute', right: 18, bottom: 16, zIndex: 3, minWidth: 54, height: 32, padding: '0 11px', borderRadius: 999, border: `1px solid ${C.honeyMid}`, background: C.white, color: C.honeyDeep, boxShadow: '0 4px 14px rgba(80,55,25,.12)', fontFamily: 'inherit', fontSize: 10.5, cursor: 'pointer' }}>最新</button>
+          )}
         </div>
 
         <div className="ourhome-safe-bottom" style={{ background: C.white, borderTop: `1px solid ${C.border}`, paddingTop: 10, paddingLeft: 14, paddingRight: 14, flexShrink: 0 }}>
-          {editingMessage && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>正在重新编辑这条消息</div>
-                <div style={{ fontSize: 10, lineHeight: 1.5, color: C.muted, marginTop: 2 }}>发送后会收起后面的 {editingMessage.afterCount} 条，陆泽会按新内容重新回复。</div>
-              </div>
-              <button type="button" onClick={cancelEditMsg} disabled={messageActionLoading} style={{ flexShrink: 0, minWidth: 44, minHeight: 34, border: 0, borderRadius: 999, background: C.surface, color: C.muted, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>取消</button>
-            </div>
-          )}
-          {rollbackUndo && !editingMessage && (
-            <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
-              <span style={{ flex: 1, fontSize: 11, lineHeight: 1.5, color: C.honeyDeep }}>已回到这里，收起了 {rollbackUndo.hiddenMessages.length} 条消息。</span>
-              <button type="button" onClick={undoRollback} disabled={messageActionLoading} style={{ minWidth: 52, minHeight: 34, border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.white, color: C.honeyDeep, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>{messageActionLoading ? "恢复中…" : "撤销"}</button>
-            </div>
-          )}
-          {sessionTokenPressure !== 'normal' && !editingMessage && (
-            <div role="status" style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: sessionTokenPressure === 'hard' ? "rgba(214,120,104,.12)" : C.honeyLight, border: `1px solid ${sessionTokenPressure === 'hard' ? C.blushDeep : C.honeyMid}` }}>
-              <span style={{ flex: 1, minWidth: 0, color: sessionTokenPressure === 'hard' ? C.blushDeep : C.honeyDeep, fontSize: 10.8, lineHeight: 1.55 }}>
-                {sessionTokenPressure === 'hard' ? '这个窗口已经很接近截断临界点，先生成简介再开新窗口会更稳。' : '这个窗口快接近长聊临界点了，可以先给它留一份简介。'}
-              </span>
-              <button type="button" onClick={generateCurrentSessionSummary} disabled={sessionSummaryLoading} style={{ flexShrink: 0, minHeight: 30, border: 0, borderRadius: 999, padding: "0 10px", background: sessionSummaryLoading ? C.honeyMid : C.honey, color: C.white, fontSize: 10.5, cursor: sessionSummaryLoading ? "default" : "pointer", fontFamily: "inherit" }}>{sessionSummaryLoading ? "生成中…" : sessionSummary ? "更新简介" : "生成简介"}</button>
-            </div>
-          )}
-          {messageActionError && !messageAction && (
-            <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{messageActionError}</div>
-          )}
-          {sessionSummaryError && (
-            <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{sessionSummaryError}</div>
-          )}
-          {tokenUsageOpen && (
-            <div id="chat-token-usage" style={{ marginBottom: 8, padding: "10px 11px", borderRadius: 14, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>当前对话用量</div>
-                <button type="button" onClick={() => setTokenUsageOpen(false)} aria-label="收起 token 用量" style={{ width: 28, height: 28, border: 0, borderRadius: "50%", background: C.surface, color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✕</button>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>
-                {[
-                  [chatUsage.totalChars, hasMoreChatHistory ? '已加载字数' : '聊天字数'],
-                  [chatUsage.currentContextTokens, '当前上下文'],
-                  [chatUsage.totalOutputTokens, hasMoreChatHistory ? '已加载生成' : '累计生成'],
-                ].map(([value, label]) => (
-                  <div key={label} style={{ minWidth: 0, textAlign: "center", background: C.surface, borderRadius: 10, padding: "7px 3px" }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.honeyDeep, overflow: "hidden", textOverflow: "ellipsis" }}>{Number(value).toLocaleString('zh-CN')}</div>
-                    <div style={{ fontSize: 9.5, color: C.muted, marginTop: 1 }}>{label}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ fontSize: 9.5, color: C.muted, lineHeight: 1.5, marginTop: 7 }}>上下文是陆泽下一次回复会带着的聊天量；累计生成是这段对话里已经生成的 token。</div>
-              <div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${C.honeyMid}` }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep }}>{sessionSummary?.title || "窗口简介"}</div>
-                    <div style={{ marginTop: 2, fontSize: 9.5, color: C.muted }}>{sessionSummary ? `${sessionSummary.message_count || msgs.length} 条消息 · 已托管在云端` : "这个聊天窗口还没有生成简介"}</div>
-                  </div>
-                  <button type="button" onClick={generateCurrentSessionSummary} disabled={sessionSummaryLoading || !sessionId} style={{ flexShrink: 0, minHeight: 28, border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.white, color: C.honeyDeep, cursor: sessionSummaryLoading ? "default" : "pointer", padding: "0 9px", fontFamily: "inherit", fontSize: 10 }}>{sessionSummaryLoading ? "生成中…" : sessionSummary ? "更新" : "生成"}</button>
-                </div>
-                {sessionSummary?.summary && (
-                  <p style={{ margin: "7px 0 0", color: C.text, fontSize: 10.5, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto" }}>{sessionSummary.summary}</p>
-                )}
-              </div>
-            </div>
-          )}
-          {(pendingFile || imageUploading) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              {imageUploading ? (
-                <div style={{ width: 52, height: 52, borderRadius: 10, border: `1px solid ${C.border}`, background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: 9, color: C.muted }}>上传中…</span>
-                </div>
-              ) : pendingFile && pendingFile.type && pendingFile.type.startsWith('image/') ? (
-                <div style={{ position: "relative", width: 52, height: 52, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
-                  <img src={pendingFile.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <span onClick={() => setPendingFile(null)} style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "rgba(46,31,18,.6)", color: C.white, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>✕</span>
-                </div>
-              ) : pendingFile && (
-                <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.cream, maxWidth: "80%" }}>
-                  <span style={{ fontSize: 16 }}>📄</span>
-                  <span style={{ fontSize: 11.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pendingFile.name}</span>
-                  <span onClick={() => setPendingFile(null)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", marginLeft: 4 }}>✕</span>
-                </div>
-              )}
-            </div>
-          )}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}>
-            <button type="button" onClick={() => chatImageInputRef.current?.click()} disabled={Boolean(editingMessage) || messageActionLoading} aria-label="添加图片或文件" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: editingMessage || messageActionLoading ? "default" : "pointer", opacity: editingMessage ? .3 : 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button>
-            <input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} />
-            <textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫游"} value={input} onChange={e => updateChatDraft(e.target.value)} style={{ flex: 1, maxHeight: 120, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} />
-            <button type="button" onClick={() => sendWithDraftCleanup(chatModel)} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "background .2s, box-shadow .2s, opacity .2s, transform .15s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}>
-            <select aria-label="选择聊天模型" value={chatModel} onChange={e => { const nextModel = e.target.value; setMessageActionError(""); setChatModel(nextModel); chooseModel(nextModel); }} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>
-              {modelOptions.length > 0 ? (
-                modelOptions.map(m => <option key={m} value={m}>{m}</option>)
-              ) : (
-                <option value="">暂无可用模型</option>
-              )}
-            </select>
-            <button
-              type="button"
-              onClick={() => loadActiveModels(chatModel)}
-              disabled={modelsLoading}
-              aria-label="重新拉取当前 API 站点的模型"
-              title={modelsError || '重新拉取当前 API 站点的模型'}
-              style={{ width: 26, height: 26, flexShrink: 0, borderRadius: '50%', border: `1px solid ${modelsError ? C.blushDeep : C.border}`, background: C.surface, color: modelsError ? C.blushDeep : C.honeyDeep, cursor: modelsLoading ? 'default' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1, opacity: modelsLoading ? .55 : 1 }}
-            >{modelsLoading ? '…' : '↻'}</button>
-            <button
-              type="button"
-              onClick={() => setTokenUsageOpen(open => !open)}
-              aria-expanded={tokenUsageOpen}
-              aria-controls="chat-token-usage"
-              style={{ minWidth: 86, height: 26, flexShrink: 0, borderRadius: 999, border: `1px solid ${tokenUsageOpen ? C.honeyMid : C.border}`, background: tokenUsageOpen ? C.honeyLight : "transparent", color: tokenUsageOpen ? C.honeyDeep : C.muted, cursor: "pointer", padding: "0 9px", fontFamily: "inherit", fontSize: 9.5, whiteSpace: "nowrap" }}
-            >◎ 上下文 {compactUsageNumber(chatUsage.currentContextTokens)}</button>
-          </div>
-
+          {editingMessage && <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>正在重新编辑这条消息</div><div style={{ fontSize: 10, lineHeight: 1.5, color: C.muted, marginTop: 2 }}>发送后会收起后面的 {editingMessage.afterCount} 条，陆泽会按新内容重新回复。</div></div><button type="button" onClick={cancelEditMsg} disabled={messageActionLoading} style={{ flexShrink: 0, minWidth: 44, minHeight: 34, border: 0, borderRadius: 999, background: C.surface, color: C.muted, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>取消</button></div>}
+          {rollbackUndo && !editingMessage && <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}><span style={{ flex: 1, fontSize: 11, lineHeight: 1.5, color: C.honeyDeep }}>已回到这里，收起了 {rollbackUndo.hiddenMessages.length} 条消息。</span><button type="button" onClick={undoRollback} disabled={messageActionLoading} style={{ minWidth: 52, minHeight: 34, border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.white, color: C.honeyDeep, cursor: messageActionLoading ? "default" : "pointer", fontFamily: "inherit", fontSize: 11 }}>{messageActionLoading ? "恢复中…" : "撤销"}</button></div>}
+          {sessionTokenPressure !== 'normal' && !editingMessage && <div role="status" style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8, padding: "8px 10px", borderRadius: 12, background: sessionTokenPressure === 'hard' ? "rgba(214,120,104,.12)" : C.honeyLight, border: `1px solid ${sessionTokenPressure === 'hard' ? C.blushDeep : C.honeyMid}` }}><span style={{ flex: 1, minWidth: 0, color: sessionTokenPressure === 'hard' ? C.blushDeep : C.honeyDeep, fontSize: 10.8, lineHeight: 1.55 }}>{sessionTokenPressure === 'hard' ? '这个窗口已经很接近截断临界点，先生成简介再开新窗口会更稳。' : '这个窗口快接近长聊临界点了，可以先给它留一份简介。'}</span><button type="button" onClick={generateCurrentSessionSummary} disabled={sessionSummaryLoading} style={{ flexShrink: 0, minHeight: 30, border: 0, borderRadius: 999, padding: "0 10px", background: sessionSummaryLoading ? C.honeyMid : C.honey, color: C.white, fontSize: 10.5, cursor: sessionSummaryLoading ? "default" : "pointer", fontFamily: "inherit" }}>{sessionSummaryLoading ? "生成中…" : sessionSummary ? "更新简介" : "生成简介"}</button></div>}
+          {messageActionError && !messageAction && <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{messageActionError}</div>}
+          {sessionSummaryError && <div role="alert" style={{ marginBottom: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(214,120,104,.1)", color: C.blushDeep, fontSize: 10.5, lineHeight: 1.5 }}>{sessionSummaryError}</div>}
+          {tokenUsageOpen && <div id="chat-token-usage" style={{ marginBottom: 8, padding: "10px 11px", borderRadius: 14, background: C.honeyLight, border: `1px solid ${C.honeyMid}` }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}><div style={{ fontSize: 11.5, fontWeight: 700, color: C.honeyDeep }}>当前对话用量</div><button type="button" onClick={() => setTokenUsageOpen(false)} aria-label="收起 token 用量" style={{ width: 28, height: 28, border: 0, borderRadius: "50%", background: C.surface, color: C.muted, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>✕</button></div><div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 7 }}>{[[chatUsage.totalChars, hasMoreChatHistory ? '已加载字数' : '聊天字数'], [chatUsage.currentContextTokens, '当前上下文'], [chatUsage.totalOutputTokens, hasMoreChatHistory ? '已加载生成' : '累计生成']].map(([value, label]) => <div key={label} style={{ minWidth: 0, textAlign: "center", background: C.surface, borderRadius: 10, padding: "7px 3px" }}><div style={{ fontSize: 14, fontWeight: 700, color: C.honeyDeep, overflow: "hidden", textOverflow: "ellipsis" }}>{Number(value).toLocaleString('zh-CN')}</div><div style={{ fontSize: 9.5, color: C.muted, marginTop: 1 }}>{label}</div></div>)}</div><div style={{ fontSize: 9.5, color: C.muted, lineHeight: 1.5, marginTop: 7 }}>上下文是陆泽下一次回复会带着的聊天量；累计生成是这段对话里已经生成的 token。</div><div style={{ marginTop: 9, paddingTop: 9, borderTop: `1px solid ${C.honeyMid}` }}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}><div style={{ minWidth: 0 }}><div style={{ fontSize: 11, fontWeight: 700, color: C.honeyDeep }}>{sessionSummary?.title || "窗口简介"}</div><div style={{ marginTop: 2, fontSize: 9.5, color: C.muted }}>{sessionSummary ? `${sessionSummary.message_count || msgs.length} 条消息 · 已托管在云端` : "这个聊天窗口还没有生成简介"}</div></div><button type="button" onClick={generateCurrentSessionSummary} disabled={sessionSummaryLoading || !sessionId} style={{ flexShrink: 0, minHeight: 28, border: `1px solid ${C.honeyMid}`, borderRadius: 999, background: C.white, color: C.honeyDeep, cursor: sessionSummaryLoading ? "default" : "pointer", padding: "0 9px", fontFamily: "inherit", fontSize: 10 }}>{sessionSummaryLoading ? "生成中…" : sessionSummary ? "更新" : "生成"}</button></div>{sessionSummary?.summary && <p style={{ margin: "7px 0 0", color: C.text, fontSize: 10.5, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto" }}>{sessionSummary.summary}</p>}</div></div>}
+          {(pendingFile || imageUploading) && <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>{imageUploading ? <div style={{ width: 52, height: 52, borderRadius: 10, border: `1px solid ${C.border}`, background: C.cream, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 9, color: C.muted }}>上传中…</span></div> : pendingFile && pendingFile.type && pendingFile.type.startsWith('image/') ? <div style={{ position: "relative", width: 52, height: 52, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}><img src={pendingFile.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /><span onClick={() => setPendingFile(null)} style={{ position: "absolute", top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", background: "rgba(46,31,18,.6)", color: C.white, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>✕</span></div> : pendingFile && <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 10, border: `1px solid ${C.border}`, background: C.cream, maxWidth: "80%" }}><span style={{ fontSize: 16 }}>📄</span><span style={{ fontSize: 11.5, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pendingFile.name}</span><span onClick={() => setPendingFile(null)} style={{ fontSize: 11, color: C.muted, cursor: "pointer", marginLeft: 4 }}>✕</span></div>}</div>}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, background: C.surface, border: `1.5px solid ${editingMessage ? C.honey : C.border}`, borderRadius: 22, padding: "6px 6px 6px 10px" }}><button type="button" onClick={() => chatImageInputRef.current?.click()} disabled={Boolean(editingMessage) || messageActionLoading} aria-label="添加图片或文件" style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: editingMessage || messageActionLoading ? "default" : "pointer", opacity: editingMessage ? .3 : 1, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>＋</button><input ref={chatImageInputRef} type="file" style={{ display: "none" }} onChange={e => pickFile(e.target.files?.[0])} /><textarea ref={chatInputRef} rows={1} placeholder={editingMessage ? "修改好后重新发送…" : "在云端漫游"} value={input} onChange={e => updateChatDraft(e.target.value)} style={{ flex: 1, maxHeight: 120, border: "none", outline: "none", background: "transparent", fontSize: 14.5, color: C.text, lineHeight: 1.5, resize: "none", fontFamily: "inherit", padding: "6px 0" }} /><button type="button" onClick={() => sendWithDraftCleanup(chatModel)} disabled={(!input.trim() && !pendingFile) || thinking || messageActionLoading} aria-label={editingMessage ? "重新发送修改后的消息" : "发送消息"} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", cursor: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? "pointer" : "default", background: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, color: C.white, fontSize: 15, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: (input.trim() || pendingFile) && !thinking && !messageActionLoading ? `0 3px 10px rgba(185,122,31,.35)` : "none", opacity: thinking || messageActionLoading ? .62 : 1, transition: "background .2s, box-shadow .2s, opacity .2s, transform .15s" }}>{editingMessage && messageActionLoading ? "…" : "↑"}</button></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 2 }}><select aria-label="选择聊天模型" value={chatModel} onChange={e => { const nextModel = e.target.value; setMessageActionError(""); setChatModel(nextModel); chooseModel(nextModel); }} style={{ flex: 1, minWidth: 0, fontSize: 11, color: C.muted, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 999, padding: "4px 10px", outline: "none", cursor: "pointer", fontFamily: "inherit" }}>{modelOptions.length > 0 ? modelOptions.map(m => <option key={m} value={m}>{m}</option>) : <option value="">暂无可用模型</option>}</select><button type="button" onClick={() => loadActiveModels(chatModel)} disabled={modelsLoading} aria-label="重新拉取当前 API 站点的模型" title={modelsError || '重新拉取当前 API 站点的模型'} style={{ width: 26, height: 26, flexShrink: 0, borderRadius: '50%', border: `1px solid ${modelsError ? C.blushDeep : C.border}`, background: C.surface, color: modelsError ? C.blushDeep : C.honeyDeep, cursor: modelsLoading ? 'default' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, lineHeight: 1, opacity: modelsLoading ? .55 : 1 }}> {modelsLoading ? '…' : '↻'} </button><button type="button" onClick={() => setTokenUsageOpen(open => !open)} aria-expanded={tokenUsageOpen} aria-controls="chat-token-usage" style={{ minWidth: 86, height: 26, flexShrink: 0, borderRadius: 999, border: `1px solid ${tokenUsageOpen ? C.honeyMid : C.border}`, background: tokenUsageOpen ? C.honeyLight : "transparent", color: tokenUsageOpen ? C.honeyDeep : C.muted, cursor: "pointer", padding: "0 9px", fontFamily: "inherit", fontSize: 9.5, whiteSpace: "nowrap" }}>◎ 上下文 {compactUsageNumber(chatUsage.currentContextTokens)}</button></div>
         </div>
       </div>
   );
