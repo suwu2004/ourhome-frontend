@@ -10,8 +10,18 @@ export function Stars({ theme = LIGHT_THEME }) {
   );
 }
 
+// History timestamps are transport metadata for the model, not part of the
+// conversational bubble. Older replies may already contain one or more copies
+// because the same history was annotated again on a later turn, so clean every
+// exact marker at render time without mutating the stored message.
+const HISTORY_TIMELINE_MARKER_RE = /(?:^|\n)\s*\[历史时间[：:]\s*\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}\]\s*/g;
+
+function displayMessageText(text) {
+  return String(text || '').replace(HISTORY_TIMELINE_MARKER_RE, (match, offset) => offset === 0 ? '' : '\n');
+}
+
 export function HighlightedText({ text, query }) {
-  const value = String(text || '');
+  const value = displayMessageText(text);
   const keyword = String(query || '').trim();
   if (!keyword) return value;
   const parts = [];
