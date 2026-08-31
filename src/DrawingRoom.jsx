@@ -135,15 +135,34 @@ export default function DrawingRoom({ onClose }) {
         throw new Error(friendlyDrawingError(response, payload, raw, '这张画暂时下载不了'));
       }
       const blob = await response.blob();
+      const contentType = response.headers.get('content-type') || blob.type || 'image/png';
+      const extension = /jpeg|jpg/i.test(contentType) ? 'jpg' : /webp/i.test(contentType) ? 'webp' : 'png';
+      const filename = `ourhome-drawing-${String(item.id).slice(0, 8)}.${extension}`;
+
+      // 手机浏览器 / WebView 对异步 <a download> 的支持不完全一致。
+      // 有文件分享能力时给系统一个“保存到设备”的正规出口，否则继续走下载目录。
+      const file = typeof File === 'function' ? new File([blob], filename, { type: contentType }) : null;
+      const canShareFile = file
+        && typeof navigator !== 'undefined'
+        && typeof navigator.share === 'function'
+        && typeof navigator.canShare === 'function'
+        && navigator.canShare({ files: [file] });
+      if (canShareFile) {
+        await navigator.share({ files: [file], title: 'OurHome 画作' });
+        return;
+      }
+
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `ourhome-drawing-${String(item.id).slice(0, 8)}.png`;
+      anchor.download = filename;
+      anchor.rel = 'noopener';
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (cause) {
+      if (cause?.name === 'AbortError') return;
       setError(cause?.message || '这张画暂时下载不了');
     } finally {
       setBusyId('');
