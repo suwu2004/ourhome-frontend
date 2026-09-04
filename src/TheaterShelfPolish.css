@@ -157,3 +157,6 @@
   .theater-book-shelf { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 24px 20px; }
   .theater-book-cover { min-height: 230px; }
 }
+
+/* 收起剧情后直接收起，不在输入框上方保留常驻撤销提示。 */
+.theater-chat-header ~ main div[role="status"] { display: none !important; }
