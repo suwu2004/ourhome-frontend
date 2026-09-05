@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import './chatNetworkGuard.js'
+import { installChatUsageLabelPatch } from './chatUsageLabelPatch.js'
 import Root from './Root.jsx'
 import './styles.css'
 import './chatInputAlignment.css'
@@ -19,6 +20,7 @@ import { requestPersistentLocalStorage } from './localFirstStore.js'
 
 applyAppFont(getSavedFont(), { persist: false })
 installMessageModelLabels()
+installChatUsageLabelPatch()
 registerOfflineShell()
 initializeWebPushRepair()
 initializeInstallExperience()
