@@ -59,27 +59,7 @@ function findLatestAssistantColumn(scroller) {
 function mountThinkingElement(column, thinking, open, setOpen) {
   if (!column || !thinking) return;
   const existing = column.querySelector('[data-ourhome-theater-thinking="true"]');
-  if (existing) {
-    const button = existing.querySelector('button');
-    if (button) {
-      button.textContent = `💭 想了想${open ? ' ▲' : ' ▼'}`;
-      button.setAttribute('aria-expanded', open ? 'true' : 'false');
-    }
-    const detail = existing.querySelector('[data-ourhome-theater-thinking-detail="true"]');
-    if (open && !detail) {
-      const next = document.createElement('div');
-      next.dataset.ourhomeTheaterThinkingDetail = 'true';
-      next.textContent = thinking;
-      next.style.cssText = 'margin-top:4px;padding:8px 12px;border-radius:10px;background:rgba(120,100,80,.08);color:#8B8177;font-size:12px;line-height:1.6;white-space:pre-wrap;font-style:italic;box-shadow:0 4px 16px rgba(80,55,25,.08);max-width:min(420px,78vw);';
-      existing.appendChild(next);
-    } else if (!open && detail) {
-      detail.remove();
-    } else if (detail) {
-      detail.textContent = thinking;
-    }
-    return;
-  }
-
+  if (existing) existing.remove();
   const wrap = document.createElement('div');
   wrap.dataset.ourhomeTheaterThinking = 'true';
   wrap.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;margin-top:0;padding:0;';
@@ -133,9 +113,7 @@ export function TheaterRoom(props) {
       const column = findLatestAssistantColumn(scroller);
       if (column) mountThinkingElement(column, thinking, thinkingOpen, setThinkingOpen);
     };
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(sync);
-    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(sync); };
     schedule();
     const observer = new MutationObserver(schedule);
     observer.observe(shell, { childList: true, subtree: true, characterData: true });
@@ -151,6 +129,7 @@ export function TheaterRoom(props) {
   }, [props.visible, thinking, thinkingOpen]);
 
   useEffect(() => {
+    if (!props.visible) return undefined;
     const shell = shellRef.current;
     if (!shell) return undefined;
     const onClickCapture = event => {
@@ -163,7 +142,7 @@ export function TheaterRoom(props) {
     };
     shell.addEventListener('click', onClickCapture, true);
     return () => shell.removeEventListener('click', onClickCapture, true);
-  }, []);
+  }, [props.visible]);
 
   useEffect(() => {
     if (!contextOpen) return undefined;
@@ -175,18 +154,28 @@ export function TheaterRoom(props) {
     return () => document.removeEventListener('pointerdown', close);
   }, [contextOpen]);
 
+  // Do not leave an invisible full-screen layer mounted. Its descendants may
+  // override pointer-events and steal clicks from the formal Chat underneath.
+  if (!props.visible) return null;
+
   return (
-    <div ref={shellRef} style={{ position: 'absolute', inset: 0, pointerEvents: props.visible ? 'auto' : 'none' }}>
+    <div ref={shellRef} style={{ position: 'absolute', inset: 0, zIndex: 25, display: 'block', pointerEvents: 'auto' }}>
       <TheaterRoomV2 {...props} />
-      {props.visible && contextOpen && (
+      {contextOpen && (
         <div style={{ position: 'absolute', right: 14, bottom: 62, zIndex: 40, width: 'min(78vw, 300px)', padding: '12px 14px', borderRadius: 14, background: props.theme?.white || '#fff', border: `1px solid ${props.theme?.border || '#E7D8B9'}`, boxShadow: '0 10px 28px rgba(80,55,25,.14)', color: props.theme?.text || '#4C433A' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <b style={{ fontSize: 12.5 }}>上下文用量</b>
             <button type="button" onClick={() => setContextOpen(false)} aria-label="关闭上下文用量" style={{ border: 0, background: 'transparent', color: props.theme?.muted || '#8B8177', fontSize: 14, cursor: 'pointer', padding: 0 }}>×</button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
-            <div style={{ padding: '8px 9px', borderRadius: 10, background: props.theme?.borderLight || 'rgba(120,100,80,.06)' }}><div style={{ fontSize: 9.5, color: props.theme?.muted || '#8B8177' }}>最近一次上下文</div><div style={{ marginTop: 3, fontSize: 14, fontWeight: 700 }}>{contextUsage.tokens ? contextUsage.tokens.toLocaleString('zh-CN') : '—'}</div></div>
-            <div style={{ padding: '8px 9px', borderRadius: 10, background: props.theme?.borderLight || 'rgba(120,100,80,.06)' }}><div style={{ padding: '8px 9px', borderRadius: 10, background: props.theme?.borderLight || 'rgba(120,100,80,.06)' }}><div style={{ fontSize: 9.5, color: props.theme?.muted || '#8B8177' }}>消息轮次</div><div style={{ marginTop: 3, fontSize: 14, fontWeight: 700 }}>最近 50 轮</div></div>
+            <div style={{ padding: '8px 9px', borderRadius: 10, background: props.theme?.borderLight || 'rgba(120,100,80,.06)' }}>
+              <div style={{ fontSize: 9.5, color: props.theme?.muted || '#8B8177' }}>最近一次上下文</div>
+              <div style={{ marginTop: 3, fontSize: 14, fontWeight: 700 }}>{contextUsage.tokens ? contextUsage.tokens.toLocaleString('zh-CN') : '—'}</div>
+            </div>
+            <div style={{ padding: '8px 9px', borderRadius: 10, background: props.theme?.borderLight || 'rgba(120,100,80,.06)' }}>
+              <div style={{ fontSize: 9.5, color: props.theme?.muted || '#8B8177' }}>消息轮次</div>
+              <div style={{ marginTop: 3, fontSize: 14, fontWeight: 700 }}>最近 50 轮</div>
+            </div>
           </div>
           <div style={{ marginTop: 9, fontSize: 9.5, color: props.theme?.muted || '#8B8177', lineHeight: 1.55 }}>这里显示最近一次实际送入模型的上下文量；小剧场与正式 Chat 使用同一套上下文管理思路。</div>
         </div>
