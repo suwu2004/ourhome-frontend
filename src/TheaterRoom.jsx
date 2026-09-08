@@ -59,12 +59,30 @@ function findLatestAssistantColumn(scroller) {
 function mountThinkingElement(column, thinking, open, setOpen) {
   if (!column || !thinking) return;
   const existing = column.querySelector('[data-ourhome-theater-thinking="true"]');
-  if (existing) existing.remove();
+  if (existing) {
+    const button = existing.querySelector('button');
+    if (button) {
+      button.textContent = `💭 想了想${open ? ' ▲' : ' ▼'}`;
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    const detail = existing.querySelector('[data-ourhome-theater-thinking-detail="true"]');
+    if (open && !detail) {
+      const next = document.createElement('div');
+      next.dataset.ourhomeTheaterThinkingDetail = 'true';
+      next.textContent = thinking;
+      next.style.cssText = 'margin-top:4px;padding:8px 12px;border-radius:10px;background:rgba(120,100,80,.08);color:#8B8177;font-size:12px;line-height:1.6;white-space:pre-wrap;font-style:italic;box-shadow:0 4px 16px rgba(80,55,25,.08);max-width:min(420px,78vw);';
+      existing.appendChild(next);
+    } else if (!open && detail) {
+      detail.remove();
+    } else if (detail) {
+      detail.textContent = thinking;
+    }
+    return;
+  }
 
   const wrap = document.createElement('div');
   wrap.dataset.ourhomeTheaterThinking = 'true';
   wrap.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;margin-top:0;padding:0;';
-
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = `💭 想了想${open ? ' ▲' : ' ▼'}`;
@@ -76,9 +94,9 @@ function mountThinkingElement(column, thinking, open, setOpen) {
     setOpen(value => !value);
   });
   wrap.appendChild(button);
-
   if (open) {
     const detail = document.createElement('div');
+    detail.dataset.ourhomeTheaterThinkingDetail = 'true';
     detail.textContent = thinking;
     detail.style.cssText = 'margin-top:4px;padding:8px 12px;border-radius:10px;background:rgba(120,100,80,.08);color:#8B8177;font-size:12px;line-height:1.6;white-space:pre-wrap;font-style:italic;box-shadow:0 4px 16px rgba(80,55,25,.08);max-width:min(420px,78vw);';
     wrap.appendChild(detail);
