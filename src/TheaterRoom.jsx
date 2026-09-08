@@ -43,6 +43,7 @@ function readContextButton() {
 export function TheaterRoom(props) {
   const [thinking, setThinking] = useState('');
   const [thinkingOpen, setThinkingOpen] = useState(false);
+  const [thinkingPosition, setThinkingPosition] = useState(null);
   const [contextOpen, setContextOpen] = useState(false);
   const [contextUsage, setContextUsage] = useState({ text: '', tokens: 0 });
   const shellRef = useRef(null);
@@ -57,6 +58,59 @@ export function TheaterRoom(props) {
     window.addEventListener(THINKING_EVENT, onThinking);
     return () => window.removeEventListener(THINKING_EVENT, onThinking);
   }, []);
+
+  useEffect(() => {
+    if (!props.visible || !thinking) {
+      setThinkingPosition(null);
+      return undefined;
+    }
+    const shell = shellRef.current;
+    if (!shell) return undefined;
+
+    let frame = 0;
+    const locateThinking = () => {
+      frame = 0;
+      const scroller = [...shell.querySelectorAll('div')].find(node => {
+        const style = window.getComputedStyle(node);
+        return style.overflowY === 'auto' && node.scrollHeight > node.clientHeight;
+      });
+      if (!scroller) return;
+      const rows = [...scroller.children].filter(node => node instanceof HTMLElement);
+      if (!rows.length) return;
+      const row = rows[rows.length - 1];
+      const rowChildren = [...row.children].filter(node => node instanceof HTMLElement);
+      const bubble = rowChildren[1] || row;
+      const shellRect = shell.getBoundingClientRect();
+      const bubbleRect = bubble.getBoundingClientRect();
+      const nextTop = bubbleRect.bottom - shellRect.top + 5;
+      const nextLeft = Math.max(14, bubbleRect.left - shellRect.left);
+      setThinkingPosition({ top: nextTop, left: nextLeft, maxWidth: Math.min(420, Math.max(180, shellRect.width - nextLeft - 14)) });
+    };
+    const schedule = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(locateThinking);
+    };
+
+    schedule();
+    const scroller = [...shell.querySelectorAll('div')].find(node => {
+      const style = window.getComputedStyle(node);
+      return style.overflowY === 'auto';
+    });
+    scroller?.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    const observer = new MutationObserver(schedule);
+    observer.observe(shell, { childList: true, subtree: true, characterData: true });
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    if (resizeObserver) resizeObserver.observe(shell);
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      scroller?.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      observer.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, [props.visible, thinking]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -86,14 +140,12 @@ export function TheaterRoom(props) {
   return (
     <div ref={shellRef} style={{ position: 'absolute', inset: 0 }}>
       <TheaterRoomV2 {...props} />
-      {props.visible && thinking && (
-        <div style={{ position: 'absolute', left: 14, right: 14, bottom: 70, zIndex: 30, pointerEvents: 'auto', display: 'flex', justifyContent: 'flex-start' }}>
-          <div style={{ maxWidth: 'min(78vw, 420px)' }}>
-            <button type="button" onClick={() => setThinkingOpen(open => !open)} style={{ border: 0, background: 'transparent', padding: '2px 0', color: props.theme?.muted || '#8B8177', fontFamily: 'inherit', fontSize: 10.5, cursor: 'pointer' }}>
-              💭 想了想{thinkingOpen ? ' ▲' : ' ▼'}
-            </button>
-            {thinkingOpen && <div style={{ marginTop: 4, padding: '8px 12px', borderRadius: 10, background: props.theme?.borderLight || 'rgba(120,100,80,.08)', color: props.theme?.muted || '#8B8177', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', fontStyle: 'italic', boxShadow: '0 4px 16px rgba(80,55,25,.08)' }}>{thinking}</div>}
-          </div>
+      {props.visible && thinking && thinkingPosition && (
+        <div style={{ position: 'absolute', top: thinkingPosition.top, left: thinkingPosition.left, width: `min(${thinkingPosition.maxWidth}px, calc(100% - ${thinkingPosition.left + 14}px))`, zIndex: 30, pointerEvents: 'auto' }}>
+          <button type="button" onClick={() => setThinkingOpen(open => !open)} style={{ border: 0, background: 'transparent', padding: 0, color: props.theme?.muted || '#8B8177', fontFamily: 'inherit', fontSize: 10.5, lineHeight: 1.4, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+            💭 想了想{thinkingOpen ? ' ▲' : ' ▼'}
+          </button>
+          {thinkingOpen && <div style={{ marginTop: 4, padding: '8px 12px', borderRadius: 10, background: props.theme?.borderLight || 'rgba(120,100,80,.08)', color: props.theme?.muted || '#8B8177', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', fontStyle: 'italic', boxShadow: '0 4px 16px rgba(80,55,25,.08)' }}>{thinking}</div>}
         </div>
       )}
       {props.visible && contextOpen && (
