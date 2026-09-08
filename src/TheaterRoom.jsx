@@ -138,7 +138,7 @@ export function TheaterRoom(props) {
   }, [contextOpen]);
 
   return (
-    <div ref={shellRef} style={{ position: 'absolute', inset: 0 }}>
+    <div ref={shellRef} style={{ position: 'absolute', inset: 0, pointerEvents: props.visible ? 'auto' : 'none' }}>
       <TheaterRoomV2 {...props} />
       {props.visible && thinking && thinkingPosition && (
         <div style={{ position: 'absolute', top: thinkingPosition.top, left: thinkingPosition.left, width: `min(${thinkingPosition.maxWidth}px, calc(100% - ${thinkingPosition.left + 14}px))`, zIndex: 30, pointerEvents: 'auto' }}>
