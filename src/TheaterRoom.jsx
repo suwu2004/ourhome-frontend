@@ -58,30 +58,46 @@ function findLatestAssistantColumn(scroller) {
 
 function mountThinkingElement(column, thinking, open, setOpen) {
   if (!column || !thinking) return;
-  const existing = column.querySelector('[data-ourhome-theater-thinking="true"]');
-  if (existing) existing.remove();
-  const wrap = document.createElement('div');
-  wrap.dataset.ourhomeTheaterThinking = 'true';
-  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;margin-top:0;padding:0;';
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.textContent = `💭 想了想${open ? ' ▲' : ' ▼'}`;
-  button.setAttribute('aria-expanded', open ? 'true' : 'false');
-  button.style.cssText = 'border:0;background:transparent;padding:0;color:#8B8177;font-family:inherit;font-size:10.5px;line-height:1.4;cursor:pointer;display:inline-flex;align-items:center;gap:3px;';
-  button.addEventListener('click', event => {
-    event.preventDefault();
-    event.stopPropagation();
-    setOpen(value => !value);
-  });
-  wrap.appendChild(button);
-  if (open) {
+
+  let wrap = column.querySelector('[data-ourhome-theater-thinking="true"]');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.dataset.ourhomeTheaterThinking = 'true';
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;margin:0 0 4px;padding:0;';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.ourhomeTheaterThinkingButton = 'true';
+    button.style.cssText = 'border:0;background:transparent;padding:0;color:#8B8177;font-family:inherit;font-size:10.5px;line-height:1.4;cursor:pointer;display:inline-flex;align-items:center;gap:3px;';
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(value => !value);
+    });
+    wrap.appendChild(button);
+
     const detail = document.createElement('div');
     detail.dataset.ourhomeTheaterThinkingDetail = 'true';
-    detail.textContent = thinking;
     detail.style.cssText = 'margin-top:4px;padding:8px 12px;border-radius:10px;background:rgba(120,100,80,.08);color:#8B8177;font-size:12px;line-height:1.6;white-space:pre-wrap;font-style:italic;box-shadow:0 4px 16px rgba(80,55,25,.08);max-width:min(420px,78vw);';
     wrap.appendChild(detail);
+
+    // Put the thinking block before the message bubble, matching formal Chat.
+    column.insertBefore(wrap, column.firstChild || null);
   }
-  column.appendChild(wrap);
+
+  const button = wrap.querySelector('[data-ourhome-theater-thinking-button="true"]');
+  if (button) {
+    button.textContent = `💭 想了想${open ? ' ▲' : ' ▼'}`;
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  const detail = wrap.querySelector('[data-ourhome-theater-thinking-detail="true"]');
+  if (detail) {
+    detail.textContent = thinking;
+    detail.style.display = open ? 'block' : 'none';
+  }
+
+  // Keep it above the bubble even if TheaterRoomV2 inserts/reorders message children.
+  if (column.firstChild !== wrap) column.insertBefore(wrap, column.firstChild);
 }
 
 export function TheaterRoom(props) {
@@ -154,8 +170,6 @@ export function TheaterRoom(props) {
     return () => document.removeEventListener('pointerdown', close);
   }, [contextOpen]);
 
-  // Do not leave an invisible full-screen layer mounted. Its descendants may
-  // override pointer-events and steal clicks from the formal Chat underneath.
   if (!props.visible) return null;
 
   return (
