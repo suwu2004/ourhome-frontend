@@ -113,8 +113,8 @@ export function AgentMailSettings({ apiFetch, backend, theme }) {
 
   return (
     <section>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 11 }}>
-        <div style={{ padding: '10px 11px', borderRadius: 12, background: theme.honeyLight, border: `1px solid ${theme.honeyMid}` }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+        <div style={{ padding: '11px 12px', borderRadius: 12, background: theme.honeyLight, border: `1px solid ${theme.honeyMid}` }}>
           <strong style={{ display: 'block', fontSize: 12, color: theme.honeyDeep }}>陆泽自主收发</strong>
           <span style={{ display: 'block', marginTop: 3, fontSize: 9.5, lineHeight: 1.5, color: theme.muted }}>是否读、回、寄，由陆泽判断</span>
         </div>
@@ -125,7 +125,7 @@ export function AgentMailSettings({ apiFetch, backend, theme }) {
       </div>
 
       <p style={{ margin: '0 2px 9px', color: theme.muted, fontSize: 9.5, lineHeight: 1.6 }}>
-        陆泽可以参考最近聊天、记忆、信件与日记，自主决定普通生活、感受和共同经历怎么表达。系统只拦设置密钥、账号凭证、身份证件与完整联系方式、精确定位、账户资料和高度私密内容；每次行动仍完整留痕。
+        陆泽可以参考最近聊天、记忆、信件与日记，自主决定普通生活、感受和共同经历怎么表达。系统只拦密钥、账号凭证、身份证件、完整联系方式、精确定位和高度私密内容；每次行动都会留痕。
       </p>
 
       <div style={{ display: 'grid', gap: 8, padding: 11, borderRadius: 13, background: theme.cream, border: `1px solid ${theme.borderLight}` }}>
