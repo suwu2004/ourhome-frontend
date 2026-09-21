@@ -45,6 +45,7 @@ export default function LuzeAutonomySettingsPanel() {
     title: '陆泽邮箱',
     displayTitle: '陆泽的事务',
     displaySubtitle: '邮箱、自主性与他的个人设置',
+    startGap: 20,
   });
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState(null);
