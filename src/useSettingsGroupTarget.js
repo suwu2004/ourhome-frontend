@@ -48,15 +48,21 @@ function portalTargetFor(content, { key, position }) {
 
 function polishStartEntry(mount, marginBottom = 14, paddingBottom = 12) {
   const entry = mount?.firstElementChild;
-  if (!entry || entry.dataset.settingsTopPolished === 'true') return;
+  if (!entry) return;
 
   const divider = entry.style.borderTop;
   entry.style.marginTop = '0';
   entry.style.paddingTop = '0';
   entry.style.borderTop = '0';
-  entry.style.marginBottom = `${marginBottom}px`;
+  entry.style.marginBottom = '0';
   entry.style.paddingBottom = `${paddingBottom}px`;
   if (divider) entry.style.borderBottom = divider;
+
+  // The portal mount is a real block sibling inside SettingsGroup. Putting
+  // the breathing room on the mount (rather than the first child) prevents
+  // the child's margin from collapsing and makes the vertical gap reliable.
+  mount.style.paddingBottom = `${marginBottom}px`;
+  mount.style.boxSizing = 'border-box';
   entry.dataset.settingsTopPolished = 'true';
 }
 
