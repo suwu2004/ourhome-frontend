@@ -46,7 +46,7 @@ function portalTargetFor(content, { key, position }) {
   return mount;
 }
 
-function polishStartEntry(mount) {
+function polishStartEntry(mount, marginBottom = 14, paddingBottom = 12) {
   const entry = mount?.firstElementChild;
   if (!entry || entry.dataset.settingsTopPolished === 'true') return;
 
@@ -54,13 +54,13 @@ function polishStartEntry(mount) {
   entry.style.marginTop = '0';
   entry.style.paddingTop = '0';
   entry.style.borderTop = '0';
-  entry.style.marginBottom = '14px';
-  entry.style.paddingBottom = '12px';
+  entry.style.marginBottom = `${marginBottom}px`;
+  entry.style.paddingBottom = `${paddingBottom}px`;
   if (divider) entry.style.borderBottom = divider;
   entry.dataset.settingsTopPolished = 'true';
 }
 
-export function useSettingsGroupTarget({ key, title, displayTitle = '', displaySubtitle = '', position = 'start' }) {
+export function useSettingsGroupTarget({ key, title, displayTitle = '', displaySubtitle = '', position = 'start', startGap = 14 }) {
   const [target, setTarget] = useState(null);
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export function useSettingsGroupTarget({ key, title, displayTitle = '', displayS
         const next = portalTargetFor(content, { key, position });
         if (position === 'start' && next) {
           ownedMount = next;
-          polishStartEntry(next);
+          polishStartEntry(next, startGap, startGap >= 18 ? 14 : 12);
         }
         setTarget(current => current === next ? current : next);
 
@@ -111,7 +111,7 @@ export function useSettingsGroupTarget({ key, title, displayTitle = '', displayS
       cancelAnimationFrame(frame);
       if (position === 'start' && ownedMount?.isConnected) ownedMount.remove();
     };
-  }, [key, title, displayTitle, displaySubtitle, position]);
+  }, [key, title, displayTitle, displaySubtitle, position, startGap]);
 
   return target && document.body.contains(target) ? target : null;
 }
