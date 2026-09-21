@@ -96,7 +96,7 @@ export default function LuzeAutonomySettingsPanel() {
   }, [load, open, settings]);
 
   const groupEntry = (
-    <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.borderLight}` }}>
+    <div style={{ marginTop: 14, marginBottom: 18, paddingTop: 12, borderTop: `1px solid ${C.borderLight}` }}>
       <div style={{ marginBottom: 8, color: C.mutedLight, fontSize: 8.5, letterSpacing: '.12em' }}>LU ZE · AUTONOMY</div>
       <button type="button" onClick={() => setOpen(true)} style={{ width: '100%', minHeight: 56, padding: '9px 10px', display: 'grid', gridTemplateColumns: '32px minmax(0,1fr) 18px', alignItems: 'center', gap: 9, textAlign: 'left', border: `1px solid ${C.borderLight}`, borderRadius: 12, background: `linear-gradient(145deg, ${C.honeyLight}, ${C.white})`, color: C.text, fontFamily: 'inherit', cursor: 'pointer', boxSizing: 'border-box' }}>
         <span style={{ width: 30, height: 30, display: 'grid', placeItems: 'center', borderRadius: 9, background: C.white, color: C.honeyDeep, border: `1px solid ${C.borderLight}`, fontSize: 15 }}>⌁</span>
