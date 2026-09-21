@@ -112,7 +112,7 @@ export function AgentMailSettings({ apiFetch, backend, theme }) {
   };
 
   return (
-    <section>
+    <section style={{ marginTop: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
         <div style={{ padding: '11px 12px', borderRadius: 12, background: theme.honeyLight, border: `1px solid ${theme.honeyMid}` }}>
           <strong style={{ display: 'block', fontSize: 12, color: theme.honeyDeep }}>陆泽自主收发</strong>
