@@ -568,6 +568,17 @@ export default function App({ initialView = 'chat', onHome }) {
     scrollChatToBottomNow();
   }, [ready, scrollChatToBottomNow, scrollToMsgId, sessionId, stage, view]);
 
+  // Returning to the main chat should reconcile with the cloud once. This
+  // catches replies completed while another room was open without polling
+  // during generation or overwriting the live in-memory turn mid-stream.
+  const previousViewRef = useRef(view);
+  useEffect(() => {
+    const wasChat = previousViewRef.current === 'chat';
+    previousViewRef.current = view;
+    if (view !== 'chat' || wasChat || !ready || !sessionId) return;
+    loadMessagesFor(sessionId).catch(error => console.error('返回主聊天后同步失败:', error));
+  }, [ready, sessionId, view]);
+
   useEffect(() => {
     if (scrollToMsgId) {
       const el = document.getElementById(`msg-${scrollToMsgId}`);
