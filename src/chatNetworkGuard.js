@@ -297,6 +297,15 @@ async function guardedChatFetch(input, init, info, headers, requestId) {
     return recoverChatResponse(info, headers, requestId, error);
   }
 
+  // Successful Chat responses are already consumed by the caller. Do not
+  // clone + parse the full payload here a second time; thinking responses can
+  // be large, and this duplicate parse made the main Chat feel unnecessarily
+  // sluggish after generation finished.
+  if (response.ok) {
+    forgetPendingSend(info, requestId);
+    return response;
+  }
+
   let parsed = null;
   let jsonReadable = false;
   try {
@@ -304,11 +313,6 @@ async function guardedChatFetch(input, init, info, headers, requestId) {
     jsonReadable = true;
   } catch {
     jsonReadable = false;
-  }
-
-  if (response.ok && jsonReadable) {
-    forgetPendingSend(info, requestId);
-    return response;
   }
 
   // A structured backend generation error is final. It must not be hidden behind
