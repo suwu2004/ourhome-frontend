@@ -96,7 +96,7 @@ export function ChatRoom(props) {
   const waitingForFreshMessagesRef = useRef(false);
   const showingCachedConversation = cachedSessionId === sessionId && cachedConversation !== null;
   const renderedMessages = showingCachedConversation ? cachedConversation : msgs;
-  const chatRefreshBlocked = chatRefreshing || thinking || regenerating || messageActionLoading || imageUploading;
+  const chatRefreshBlocked = chatRefreshing || regenerating || messageActionLoading || imageUploading;
   const visibleMessages = renderedMessages.slice(0, showingCachedConversation ? renderedMessages.length : Math.max(0, visible));
   const modelOptions = [...new Set([
     chatModel,
