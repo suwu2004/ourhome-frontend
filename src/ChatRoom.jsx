@@ -228,9 +228,9 @@ export function ChatRoom(props) {
             </div>
             <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", textAlign: "center" }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>陆泽</div>
-              <div style={{ fontSize: 10, color: thinking ? C.honey : C.muted, letterSpacing: ".18em", marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                <div style={{ width: 5, height: 5, borderRadius: "50%", background: thinking ? C.honey : C.mutedLight, boxShadow: thinking ? `0 0 5px ${C.honey}` : "none", transition: "background .3s, box-shadow .3s" }} />
-                <span>{thinking ? "想你中…" : "miss you"}</span>
+              <div style={{ fontSize: 10, color: thinking ? C.honey : C.muted, letterSpacing: ".06em", marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, maxWidth: 220, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                <div style={{ width: 5, height: 5, borderRadius: "50%", background: thinking ? C.honey : C.mutedLight, boxShadow: thinking ? `0 0 5px ${C.honey}` : "none", transition: "background .3s, box-shadow .3s", flexShrink: 0 }} />
+                <span>{chatModel || "暂无模型"}</span>
               </div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
