@@ -128,7 +128,15 @@ function isVisionUnavailableError(error) {
   return error?.code === 'vision_unavailable';
 }
 
+function isEmptyModelResponseError(error) {
+  return error?.code === 'empty_model_response'
+    || /模型返回了空正文/.test(String(error?.message || ''));
+}
+
 function friendlyGenerationError(error, retryAction = '再试一次') {
+  if (isEmptyModelResponseError(error)) {
+    return `模型这次没有返回正文。消息还在，直接${retryAction}就好。`;
+  }
   if (isModelUnavailableError(error)) {
     return `这个模型在当前 API 站点暂时没有可用线路。换一个模型后直接${retryAction}就好，刚才的内容还在。`;
   }
@@ -1557,6 +1565,12 @@ export default function App({ initialView = 'chat', onHome }) {
       });
       const data = await response.json();
       if (!response.ok) throw createRequestError(data, "重新发送失败");
+      const replyText = String(data.reply || '').trim();
+      if (!replyText) {
+        const error = new Error("模型返回了空正文，请重新发送。");
+        error.code = 'empty_model_response';
+        throw error;
+      }
       if (sessionIdRef.current !== editingSessionId) return;
       setLastRequestedModel(data.requestedModel || requestModel);
       setLastUsedModel(data.model || requestModel);
@@ -1570,7 +1584,7 @@ export default function App({ initialView = 'chat', onHome }) {
       const nextMessages = [...kept, {
           id: data.id,
           role: "ai",
-          text: data.reply || "（抱着你）嗯，我在呢。",
+          text: replyText,
           thinking: data.thinking || null,
           thinkingOpen: false,
           inputTokens: data.inputTokens || 0,
@@ -2077,6 +2091,12 @@ export default function App({ initialView = 'chat', onHome }) {
       });
       const data = await response.json();
       if (!response.ok) throw createRequestError(data, "重新生成失败");
+      const replyText = String(data.reply || '').trim();
+      if (!replyText) {
+        const error = new Error("模型返回了空正文，请重新生成。");
+        error.code = 'empty_model_response';
+        throw error;
+      }
       if (sessionIdRef.current !== regeneratingSessionId) return;
       setLastRequestedModel(data.requestedModel || requestModel);
       setLastUsedModel(data.model || requestModel);
@@ -2087,7 +2107,7 @@ export default function App({ initialView = 'chat', onHome }) {
         const nextReply = {
           id: data.id,
           role: "ai",
-          text: data.reply || last?.text || "（抱着你）嗯，我在呢。",
+          text: replyText,
           thinking: data.thinking || null,
           thinkingOpen: false,
           inputTokens: data.inputTokens || 0,
@@ -2149,6 +2169,12 @@ export default function App({ initialView = 'chat', onHome }) {
         }
         throw createRequestError(data, "发送失败");
       }
+      const replyText = String(data.reply || '').trim();
+      if (!replyText) {
+        const error = new Error("模型返回了空正文，请重新生成。");
+        error.code = 'empty_model_response';
+        throw error;
+      }
       setLastRequestedModel(data.requestedModel || requestModel);
       setLastUsedModel(data.model || requestModel);
       const replyCreatedAt = data.assistantMessage?.createdAt || data.createdAt || new Date().toISOString();
@@ -2163,7 +2189,7 @@ export default function App({ initialView = 'chat', onHome }) {
         {
           id: data.assistantMessage?.id || data.id || `temp-ai-${Date.now()}`,
           role: "ai",
-          text: data.reply || "（抱着你）嗯，我在呢。",
+          text: replyText,
           thinking: data.thinking || null,
           thinkingOpen: false,
           inputTokens: data.inputTokens || 0,
