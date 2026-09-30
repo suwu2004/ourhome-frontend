@@ -395,11 +395,14 @@ export default function App({ initialView = 'chat', onHome }) {
     setTimeout(() => setStage("home"), 1400);
   };
 
-  const loadMessagesFor = (id, { full = false } = {}) => {
+  const loadMessagesFor = (id, { full = false, aroundMessageId = null } = {}) => {
     const targetSessionId = String(id);
-    const historyUrl = full
-      ? `${BACKEND}/sessions/${id}/messages`
-      : `${BACKEND}/sessions/${id}/messages?limit=${CHAT_HISTORY_PAGE_SIZE}`;
+    const targetMessageId = aroundMessageId ? String(aroundMessageId) : '';
+    const historyUrl = targetMessageId
+      ? `${BACKEND}/sessions/${id}/messages/context?message_id=${encodeURIComponent(targetMessageId)}&before=120&after=120`
+      : full
+        ? `${BACKEND}/sessions/${id}/messages`
+        : `${BACKEND}/sessions/${id}/messages?limit=${CHAT_HISTORY_PAGE_SIZE}`;
     setSessionSummaryError('');
     return Promise.all([
       apiFetch(historyUrl).then(async response => {
@@ -416,8 +419,12 @@ export default function App({ initialView = 'chat', onHome }) {
         setMsgs(mapped);
         setVisible(mapped.length);
         setHasHistory(mapped.length > 0);
-        setHasMoreChatHistory(!full && !Array.isArray(data) && Boolean(data?.hasMore));
-        setChatHistoryBefore(!full && !Array.isArray(data) ? String(data?.nextBefore || '') : '');
+        setHasMoreChatHistory(targetMessageId
+          ? Boolean(data?.hasOlder)
+          : !full && !Array.isArray(data) && Boolean(data?.hasMore));
+        setChatHistoryBefore(targetMessageId
+          ? String(data?.nextBefore || '')
+          : !full && !Array.isArray(data) ? String(data?.nextBefore || '') : '');
         setSessionSummary(summary && summary.id ? summary : null);
         scrollChatToBottomNow();
         return mapped;
@@ -489,7 +496,7 @@ export default function App({ initialView = 'chat', onHome }) {
     sessionIdRef.current = targetSessionId;
     setSessionId(targetSessionId);
     localStorage.setItem(SESSION_KEY, targetSessionId);
-    loadMessagesFor(targetSessionId, { full: Boolean(targetMessageId) })
+    loadMessagesFor(targetSessionId, { aroundMessageId: targetMessageId })
       .then(() => {
         if (String(sessionIdRef.current) !== String(targetSessionId)) return;
         if (targetMessageId) {
@@ -1394,7 +1401,7 @@ export default function App({ initialView = 'chat', onHome }) {
       .catch(console.error);
   };
 
-  const switchSession = (id, { full = false } = {}) => {
+  const switchSession = (id, { full = false, aroundMessageId = null } = {}) => {
     const targetSessionId = String(id);
     if (String(sessionId) === targetSessionId) { setDrawerOpen(false); return; }
     if (editingMessage) {
@@ -1413,7 +1420,7 @@ export default function App({ initialView = 'chat', onHome }) {
     sessionIdRef.current = id;
     setSessionId(id);
     localStorage.setItem(SESSION_KEY, id);
-    loadMessagesFor(id, { full }).catch(console.error);
+    loadMessagesFor(id, { full, aroundMessageId }).catch(console.error);
     setDrawerOpen(false);
   };
 
@@ -1921,11 +1928,11 @@ export default function App({ initialView = 'chat', onHome }) {
     if (String(r.session_id) === String(sessionId)) {
       setPendingSearchJump(jump);
       if (!msgs.some(message => String(message.id) === String(r.id))) {
-        loadMessagesFor(sessionId, { full: true }).catch(console.error);
+        loadMessagesFor(sessionId, { aroundMessageId: r.id }).catch(console.error);
       }
     } else {
       setPendingSearchJump(jump);
-      switchSession(r.session_id, { full: true });
+      switchSession(r.session_id, { aroundMessageId: r.id });
     }
   };
 
