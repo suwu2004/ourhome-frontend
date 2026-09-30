@@ -10,6 +10,7 @@ import { applyAppFont, getSavedFont } from './fonts.js'
 import { MusicPlayerProvider } from './MusicPlayerContext.jsx'
 import { ThemeProvider } from './ThemeContext.jsx'
 import { installMessageModelLabels } from './messageModelLabels.js'
+import { installChatHeaderStatusPatch } from './chatHeaderStatusPatch.js'
 import CloudSyncBadge from './CloudSyncBadge.jsx'
 import { registerOfflineShell } from './offlineShell.js'
 import { initializeWebPushRepair } from './webPushRepair.js'
@@ -21,6 +22,7 @@ import { requestPersistentLocalStorage } from './localFirstStore.js'
 applyAppFont(getSavedFont(), { persist: false })
 installMessageModelLabels()
 installChatUsageLabelPatch()
+installChatHeaderStatusPatch()
 registerOfflineShell()
 initializeWebPushRepair()
 initializeInstallExperience()
