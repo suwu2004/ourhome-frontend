@@ -46,14 +46,18 @@ function rememberPayload(payload, pathname) {
   if (/\/sessions\/[^/]+\/messages\/?$/i.test(pathname) && Array.isArray(payload)) {
     payload.forEach(message => {
       if (message?.role !== 'assistant') return;
-      rememberModel(message.id, message.model_name || message.requested_model);
+      // 历史消息优先使用“请求时实际选择的模型”，避免后端返回的
+      // 实际线路/规范化 model_name 把 [A]/[B] 等调用标识吞掉。
+      rememberModel(message.id, message.requested_model || message.model_name || message.model);
     });
     return;
   }
 
   if (/\/chat(?:\/regenerate)?\/?$/i.test(pathname) && typeof payload === 'object') {
     const assistantId = payload.assistantMessage?.id || payload.id;
-    rememberModel(assistantId, payload.model || payload.requestedModel);
+    // 当前回复同样优先使用本次请求的 requestedModel；只有没有它时
+    // 才回退到后端返回的实际 model。
+    rememberModel(assistantId, payload.requestedModel || payload.model);
   }
 }
 
