@@ -13,10 +13,10 @@ test('Chat defaults to a bounded recent history page and can load older messages
   assert.match(roomSource, /查看更早的消息/);
 });
 
-test('search and notification jumps can request full history for an old target', () => {
-  assert.match(appSource, /full: Boolean\(targetMessageId\)/);
-  assert.match(appSource, /switchSession\(r\.session_id, \{ full: true \}\)/);
-  assert.match(appSource, /loadMessagesFor\(sessionId, \{ full: true \}\)/);
+test('search and notification jumps load only a bounded neighborhood around an old target', () => {
+  assert.match(appSource, /messages\/context\?message_id=\$\{encodeURIComponent\(targetMessageId\)\}&before=120&after=120/);
+  assert.match(appSource, /switchSession\(r\.session_id, \{ aroundMessageId: r\.id \}\)/);
+  assert.match(appSource, /loadMessagesFor\(sessionId, \{ aroundMessageId: r\.id \}\)/);
 });
 
 test('chat search opens on all conversations instead of silently limiting old-history searches to the current thread', () => {
