@@ -1,3 +1,4 @@
+# CI trigger: verify the signed Android 1.0.5 release path.
 name: Android APK
 
 on:
