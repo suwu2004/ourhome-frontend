@@ -14,7 +14,7 @@ test('Chat defaults to a bounded recent history page and can load older messages
 });
 
 test('search and notification jumps load only a bounded neighborhood around an old target', () => {
-  assert.match(appSource, /messages\/context\?message_id=\$\{encodeURIComponent\(targetMessageId\)\}&before=120&after=120/);
+  assert.match(appSource, /messages\/context\?message_id=\$\{encodeURIComponent\(targetMessageId\)\}&before=1000&after=1000/);
   assert.match(appSource, /switchSession\(r\.session_id, \{ aroundMessageId: r\.id \}\)/);
   assert.match(appSource, /loadMessagesFor\(sessionId, \{ aroundMessageId: r\.id \}\)/);
 });
