@@ -399,7 +399,7 @@ export default function App({ initialView = 'chat', onHome }) {
     const targetSessionId = String(id);
     const targetMessageId = aroundMessageId ? String(aroundMessageId) : '';
     const historyUrl = targetMessageId
-      ? `${BACKEND}/sessions/${id}/messages/context?message_id=${encodeURIComponent(targetMessageId)}&before=120&after=120`
+      ? `${BACKEND}/sessions/${id}/messages/context?message_id=${encodeURIComponent(targetMessageId)}&before=1000&after=1000`
       : full
         ? `${BACKEND}/sessions/${id}/messages`
         : `${BACKEND}/sessions/${id}/messages?limit=${CHAT_HISTORY_PAGE_SIZE}`;
