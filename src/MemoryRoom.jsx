@@ -5,6 +5,7 @@ import './MemoryRoom.css';
 
 const TheaterRuleLibrary = lazy(() => import('./TheaterRuleLibrary.jsx'));
 const WorldbookLibrary = lazy(() => import('./WorldbookLibrary.jsx'));
+const LuzeStyleLibrary = lazy(() => import('./LuzeStyleLibrary.jsx'));
 
 const MEMORY_LAYER_TABS = [
   { key: 'core', label: '核心记忆', description: '稳定身份、偏好、边界和重要约定' },
@@ -173,11 +174,12 @@ export function MemoryRoom({
           </div>
         </SettingsGroup>
 
-        <SettingsGroup theme={C} title="规则与世界" subtitle="写法归规则，背景进世界书" resetKey={resetKey} mountOnOpen>
+        <SettingsGroup theme={C} title="规则、文风与世界" subtitle="规则管行为，文风管写法，世界书管背景" resetKey={resetKey} mountOnOpen>
           <div className="memory-knowledge-grid">
             {visible && (
-              <Suspense fallback={<div style={{ gridColumn: '1 / -1', padding: '16px 0', textAlign: 'center', color: C.muted, fontSize: 11 }}>正在整理规则与世界书…</div>}>
+              <Suspense fallback={<div style={{ gridColumn: '1 / -1', padding: '16px 0', textAlign: 'center', color: C.muted, fontSize: 11 }}>正在整理规则、文风与世界书…</div>}>
                 <TheaterRuleLibrary />
+                <LuzeStyleLibrary />
                 <WorldbookLibrary />
               </Suspense>
             )}
