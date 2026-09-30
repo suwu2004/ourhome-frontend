@@ -9,6 +9,7 @@ on:
       - capacitor.config.ts
       - src/**
       - public/**
+      - scripts/**
       - package.json
       - package-lock.json
       - .env.android
@@ -20,6 +21,7 @@ on:
       - capacitor.config.ts
       - src/**
       - public/**
+      - scripts/**
       - package.json
       - package-lock.json
       - .env.android
