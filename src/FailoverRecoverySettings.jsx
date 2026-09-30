@@ -137,9 +137,9 @@ export default function FailoverRecoverySettings({ active = false }) {
     <section className="failover-recovery-card" style={{ padding: '12px 13px', border: '1px solid rgba(196,151,74,.22)', borderRadius: 14, background: 'rgba(255,255,255,.46)' }}>
       <div>
         <div style={{ fontSize: 11.5, fontWeight: 700 }}>主库与灾备</div>
-        <div style={{ marginTop: 3, fontSize: 9.8, opacity: .72, lineHeight: 1.5 }}>{primaryText}</div>
+        <div style={{ marginTop: 3, fontSize: 9.8, opacity: .88, lineHeight: 1.5 }}>{primaryText}</div>
         {status && (
-          <div style={{ marginTop: 3, fontSize: 9.5, opacity: .68, lineHeight: 1.5 }}>
+          <div style={{ marginTop: 3, fontSize: 9.5, opacity: .84, lineHeight: 1.5 }}>
             Neon 待回灌 {pending.rows} 行 / {pending.changes} 次变更 · 文件 {pendingObjects} 个{pendingObjects ? ` / ${formatBytes(status.pending_object_bytes)}` : ''}
             {pendingSecrets ? ` · 密钥 ${pendingSecrets}` : ''}
           </div>
@@ -153,7 +153,7 @@ export default function FailoverRecoverySettings({ active = false }) {
         style={{ marginTop: 10, minWidth: 94, padding: '7px 12px', borderRadius: 999, border: 0, background: canReplay ? '#C9974A' : 'rgba(196,151,74,.18)', color: canReplay ? '#fff' : 'inherit', fontSize: 9.8, cursor: loading || recovering ? 'default' : 'pointer' }}
       >{actionLabel}</button>
 
-      {notice && <div role="status" style={{ marginTop: 7, fontSize: 9.5, lineHeight: 1.5, opacity: .8 }}>{notice}</div>}
+      {notice && <div role="status" style={{ marginTop: 7, fontSize: 9.5, lineHeight: 1.5, opacity: .9 }}>{notice}</div>}
       {error && <div role="alert" style={{ marginTop: 7, fontSize: 9.5, lineHeight: 1.5, color: '#B86055' }}>{error}</div>}
     </section>
   );
