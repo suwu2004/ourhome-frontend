@@ -185,18 +185,3 @@ body[data-ourhome-room="toybox"] .toybox-game-card strong {
   }
 }
 
-/* Chat status: keep the model selector independent from the small emotional status line. */
-header.ourhome-safe-top > div:first-child > div[style*="translate(-50%, -50%)"] > div:nth-child(2) > span {
-  font-size: 0 !important;
-  letter-spacing: .06em !important;
-}
-
-header.ourhome-safe-top > div:first-child > div[style*="translate(-50%, -50%)"] > div:nth-child(2) > span::after {
-  content: "miss you";
-  font-size: 10px;
-  line-height: 1;
-}
-
-header.ourhome-safe-top > div:first-child > div[style*="translate(-50%, -50%)"] > div:nth-child(2):has(div[style*="box-shadow: 0 0 5px"]) > span::after {
-  content: "想你中…";
-}
