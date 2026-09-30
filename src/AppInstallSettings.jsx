@@ -149,7 +149,7 @@ export default function AppInstallSettings({ compact = false }) {
 
       <div className="app-device-status" style={{ display: 'grid', gap: 3, marginTop: 12 }}>
         <strong>设备与数据状态</strong>
-        <span style={{ fontSize: 10, opacity: .7, lineHeight: 1.45 }}>{status}</span>
+        <span style={{ fontSize: 10, opacity: .9, lineHeight: 1.45 }}>{status}</span>
       </div>
 
       {notice && <small role="status" style={{ display: 'block', marginTop: 8 }}>{notice}</small>}
