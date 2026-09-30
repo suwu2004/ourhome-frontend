@@ -67,10 +67,10 @@ export default function LocalFirstSettings() {
   return (
     <section className="local-first-settings-card" style={{ marginTop: 12, padding: '12px 13px', border: '1px solid rgba(196,151,74,.22)', borderRadius: 14, background: 'rgba(255,255,255,.46)' }}>
       <div style={{ fontSize: 11.5, fontWeight: 700 }}>设备里的 OurHome</div>
-      <div style={{ marginTop: 3, fontSize: 9.8, opacity: .72, lineHeight: 1.55 }}>
+      <div style={{ marginTop: 3, fontSize: 9.8, opacity: .88, lineHeight: 1.55 }}>
         已保留 {stats.entries} 份房间数据 · {formatBytes(stats.bytes)} · {formatSavedAt(stats.newestAt)}
       </div>
-      <div style={{ marginTop: 4, fontSize: 9.3, opacity: .62, lineHeight: 1.55 }}>
+      <div style={{ marginTop: 4, fontSize: 9.3, opacity: .84, lineHeight: 1.55 }}>
         房间成功打开后会自动更新设备副本；双云受限时先用这里的数据撑起页面。
         {persistent ? ' 系统已允许长期保留。' : ' 请勿清除应用数据，否则设备副本也会被移除。'}
       </div>
@@ -96,7 +96,7 @@ export default function LocalFirstSettings() {
           >恢复待同步内容</button>
         )}
       </div>
-      {notice && <div role="status" style={{ marginTop: 7, fontSize: 9.5, lineHeight: 1.5, opacity: .78 }}>{notice}</div>}
+      {notice && <div role="status" style={{ marginTop: 7, fontSize: 9.5, lineHeight: 1.5, opacity: .9 }}>{notice}</div>}
     </section>
   );
 }
