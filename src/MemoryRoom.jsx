@@ -79,6 +79,7 @@ export function MemoryRoom({
   savingPersona,
   personaSaveError = '',
   personaSaveNotice = '',
+  clearPersonaSaveFeedback = () => {},
   newMemory,
   setNewMemory,
   saveMemory,
@@ -147,14 +148,14 @@ export function MemoryRoom({
       </header>
       <div className="ourhome-scroll memory-room-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
         <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性" resetKey={resetKey}>
-          <textarea value={systemPromptInput} onChange={e => setSystemPromptInput(e.target.value)} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
+          <textarea value={systemPromptInput} onChange={e => { clearPersonaSaveFeedback(); setSystemPromptInput(e.target.value); }} rows={8} placeholder="陆泽的人设设定…" style={{ width: "100%", fontSize: 12.5, lineHeight: 1.6, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 12px", outline: "none", marginBottom: 8, resize: "vertical", fontFamily: "inherit" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 11.5, color: C.muted, flexShrink: 0 }}>随机性 {temperatureInput}</span>
-            <input type="range" min="0" max="1" step="0.1" value={temperatureInput} onChange={e => setTemperatureInput(e.target.value)} style={{ flex: 1 }} />
+            <input type="range" min="0" max="1" step="0.1" value={temperatureInput} onChange={e => { clearPersonaSaveFeedback(); setTemperatureInput(e.target.value); }} style={{ flex: 1 }} />
           </div>
           <div style={{ marginBottom: 10 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 5 }}>
-              <span style={{ fontSize: 11.5, color: C.muted }}>最低回复长度</span>
+              <span style={{ fontSize: 11.5, color: C.muted }}>回复长度偏好</span>
               <label style={{ display: "flex", alignItems: "center", gap: 4, color: C.mutedLight, fontSize: 10.5 }}>
                 <input
                   type="number"
@@ -162,14 +163,14 @@ export function MemoryRoom({
                   max="600"
                   step="10"
                   value={minReplyCharsInput}
-                  onChange={e => setMinReplyCharsInput(Math.min(600, Math.max(0, Number(e.target.value) || 0)))}
+                  onChange={e => { clearPersonaSaveFeedback(); setMinReplyCharsInput(Math.min(600, Math.max(0, Number(e.target.value) || 0))); }}
                   style={{ width: 62, border: `1px solid ${C.border}`, borderRadius: 8, background: C.surface, color: C.text, padding: "4px 6px", fontFamily: "inherit", textAlign: "right" }}
                 />
                 字
               </label>
             </div>
-            <input aria-label="陆泽最低回复长度" type="range" min="0" max="600" step="10" value={minReplyCharsInput} onChange={e => setMinReplyCharsInput(Number(e.target.value))} style={{ width: "100%" }} />
-            <div style={{ fontSize: 10.5, lineHeight: 1.55, color: C.mutedLight }}>陆泽仍会自己判断该说多长；不足下限时只把当前内容说完整，不会另起无关话题。设为 0 就只按语境决定。</div>
+            <input aria-label="陆泽回复长度偏好" type="range" min="0" max="600" step="10" value={minReplyCharsInput} onChange={e => { clearPersonaSaveFeedback(); setMinReplyCharsInput(Number(e.target.value)); }} style={{ width: "100%" }} />
+            <div style={{ fontSize: 10.5, lineHeight: 1.55, color: C.mutedLight }}>数值越高，越倾向充分回应重要细节；不强制凑字，简单互动仍按语境自然收尾。设为 0 就完全依语境决定。</div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <button
