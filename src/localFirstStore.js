@@ -164,7 +164,14 @@ export function localFirstMutation(value, options = {}, requestId = '', failureS
     }
   }
 
-  const id = `mutation:${simpleHash(`${method}\n${path}\n${body}`)}`;
+  const fingerprint = simpleHash(`${method}\n${path}\n${body}`);
+  const normalizedRequestId = String(requestId || '').trim();
+  const hasStableRequestId = /^[A-Za-z0-9._:-]{8,160}$/.test(normalizedRequestId);
+  // Deduplicate retries of the same operation, not two intentional writes that
+  // happen to share a path and identical JSON body.
+  const id = hasStableRequestId
+    ? `mutation:${fingerprint}:${normalizedRequestId}`
+    : `mutation:${fingerprint}`;
   const now = Date.now();
   return {
     id,
@@ -172,7 +179,7 @@ export function localFirstMutation(value, options = {}, requestId = '', failureS
     method,
     body,
     contentType: contentType || 'application/json',
-    requestId: String(requestId || id),
+    requestId: hasStableRequestId ? normalizedRequestId : id,
     replayable: Number(failureStatus) === 402,
     failureStatus: Number(failureStatus) || 0,
     createdAt: now,
@@ -230,8 +237,8 @@ export async function removePendingMutation(id) {
   emitLocalFirstUpdate();
 }
 
-export async function removeMatchingPendingMutation(value, options = {}) {
-  const record = localFirstMutation(value, options, '', 0);
+export async function removeMatchingPendingMutation(value, options = {}, requestId = '') {
+  const record = localFirstMutation(value, options, requestId, 0);
   if (record) await removePendingMutation(record.id);
 }
 

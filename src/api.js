@@ -450,7 +450,7 @@ export async function apiFetch(url, options = {}) {
   if (method !== 'GET' && response.status === 402) {
     await rememberPendingMutation(url, options, mutationRequestId, 402);
   } else if (method !== 'GET' && response.ok) {
-    await removeMatchingPendingMutation(url, options);
+    await removeMatchingPendingMutation(url, options, mutationRequestId);
   }
 
   if (response.ok && response.headers.get('X-OurHome-Cache') !== 'stale') {

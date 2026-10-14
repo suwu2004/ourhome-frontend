@@ -55,9 +55,11 @@ test('local-first outbox accepts only bounded, safe household mutations', () => 
     body: JSON.stringify({ content: '买花和牛奶' }),
   };
   const first = localFirstMutation('/api/home-memos', safeOptions, 'request-one', 402);
-  const duplicate = localFirstMutation('/api/home-memos', safeOptions, 'request-two', 402);
+  const distinctWrite = localFirstMutation('/api/home-memos', safeOptions, 'request-two', 402);
+  const sameRetry = localFirstMutation('/api/home-memos', safeOptions, 'request-one', 402);
   assert.equal(first?.replayable, true);
-  assert.equal(first?.id, duplicate?.id, 'the same logical write must deduplicate across retries');
+  assert.notEqual(first?.id, distinctWrite?.id, 'different writes must survive even when path and body match');
+  assert.equal(first?.id, sameRetry?.id, 'retries with the same request id must deduplicate');
 
   assert.ok(localFirstMutation('/api/lorebooks/book-1', {
     ...safeOptions,
@@ -83,7 +85,10 @@ test('explicit quota failures queue one safe write and recovery replays it only 
   storage.set('ourhome_token', 'test-token');
   const options = {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-OurHome-Request-Id': 'home-memo-save-0001',
+    },
     body: JSON.stringify({ content: '留在设备里', testMarker: 'quota-outbox' }),
   };
   globalThis.fetch = async () => new Response('{"message":"exceed_egress_quota"}', {
@@ -112,6 +117,29 @@ test('explicit quota failures queue one safe write and recovery replays it only 
   assert.equal(replayCalls, 1);
   pending = await listPendingMutations();
   assert.equal(pending.length, 0);
+});
+
+test('identical intentional writes with different request ids remain separate in the outbox', async () => {
+  await clearLocalFirstData();
+  storage.set('ourhome_token', 'test-token');
+  const body = JSON.stringify({ content: '同样内容的另一条备忘录', testMarker: 'distinct-identical-writes' });
+  const makeOptions = requestId => ({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-OurHome-Request-Id': requestId },
+    body,
+  });
+  globalThis.fetch = async () => new Response('{"message":"exceed_egress_quota"}', {
+    status: 402,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  await apiFetch('/api/home-memos', makeOptions('home-memo-save-001'));
+  await apiFetch('/api/home-memos', makeOptions('home-memo-save-002'));
+  const pending = await listPendingMutations({ replayableOnly: true });
+  assert.equal(pending.length, 2);
+  assert.deepEqual(pending.map(item => item.requestId).sort(), ['home-memo-save-001', 'home-memo-save-002']);
+
+  await clearLocalFirstData();
 });
 
 test('transient GET failure is retried exactly once', async () => {
