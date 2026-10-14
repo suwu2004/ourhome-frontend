@@ -237,8 +237,8 @@ export async function removePendingMutation(id) {
   emitLocalFirstUpdate();
 }
 
-export async function removeMatchingPendingMutation(value, options = {}) {
-  const record = localFirstMutation(value, options, '', 0);
+export async function removeMatchingPendingMutation(value, options = {}, requestId = '') {
+  const record = localFirstMutation(value, options, requestId, 0);
   if (record) await removePendingMutation(record.id);
 }
 
