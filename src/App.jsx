@@ -239,6 +239,8 @@ export default function App({ initialView = 'chat', onHome }) {
   const [temperatureInput, setTemperatureInput] = useState(0.8);
   const [minReplyCharsInput, setMinReplyCharsInput] = useState(80);
   const [savingPersona, setSavingPersona] = useState(false);
+  const [personaSaveError, setPersonaSaveError] = useState('');
+  const [personaSaveNotice, setPersonaSaveNotice] = useState('');
   const [view, setView] = useState(initialView);
   const [memoryGroupsResetKey, setMemoryGroupsResetKey] = useState(0);
   const [settingsGroupsResetKey, setSettingsGroupsResetKey] = useState(0);
@@ -792,20 +794,32 @@ export default function App({ initialView = 'chat', onHome }) {
     }).catch(console.error);
   };
 
-  const savePersona = () => {
-    if (!systemPromptInput.trim()) return;
+  const savePersona = async () => {
+    if (!systemPromptInput.trim() || savingPersona) return;
     setSavingPersona(true);
-    apiFetch(`${BACKEND}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_prompt: systemPromptInput,
-        temperature: Number(temperatureInput),
-        min_reply_chars: Number(minReplyCharsInput),
-      }),
-    })
-      .then(() => setSavingPersona(false))
-      .catch(err => { console.error(err); setSavingPersona(false); });
+    setPersonaSaveError('');
+    setPersonaSaveNotice('');
+    try {
+      const response = await apiFetch(`${BACKEND}/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_prompt: systemPromptInput,
+          temperature: Number(temperatureInput),
+          min_reply_chars: Number(minReplyCharsInput),
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || '人设设置没有保存成功，请检查云端连接后重试。');
+      }
+      setPersonaSaveNotice('人设与回复长度已保存');
+    } catch (err) {
+      console.error('保存人设失败:', err);
+      setPersonaSaveError(err?.message || '人设设置没有保存成功，请重试。');
+    } finally {
+      setSavingPersona(false);
+    }
   };
 
   const downloadBlob = (blob, filename) => {
@@ -2466,6 +2480,8 @@ export default function App({ initialView = 'chat', onHome }) {
         setMinReplyCharsInput={setMinReplyCharsInput}
         savePersona={savePersona}
         savingPersona={savingPersona}
+        personaSaveError={personaSaveError}
+        personaSaveNotice={personaSaveNotice}
         newMemory={newMemory}
         setNewMemory={setNewMemory}
         saveMemory={saveMemory}
