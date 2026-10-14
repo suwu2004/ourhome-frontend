@@ -16,6 +16,7 @@ import { getHomeWeatherCity, saveHomeWeatherCity } from './homePreferences.js';
 import { useTheme } from './ThemeContext.jsx';
 import { apiFetch, BACKEND, TOKEN_KEY } from './api.js';
 import { MILESTONE_KINDS, milestoneDisplay } from './milestoneDates.js';
+import { mergeRefreshedMessages } from './chatHistoryRefresh.js';
 import {
   cancelNativeScheduleReminder,
   getNativeNotificationPermission,
@@ -401,7 +402,7 @@ export default function App({ initialView = 'chat', onHome }) {
     setTimeout(() => setStage("home"), 1400);
   };
 
-  const loadMessagesFor = (id, { full = false, aroundMessageId = null } = {}) => {
+  const loadMessagesFor = (id, { full = false, aroundMessageId = null, preserveLoadedHistory = false } = {}) => {
     const targetSessionId = String(id);
     const targetMessageId = aroundMessageId ? String(aroundMessageId) : '';
     const historyUrl = targetMessageId
@@ -422,15 +423,23 @@ export default function App({ initialView = 'chat', onHome }) {
         const rows = Array.isArray(data) ? data : (Array.isArray(data?.messages) ? data.messages : []);
         const mapped = rows.map(mapDbMessage);
         if (String(sessionIdRef.current) !== targetSessionId) return mapped;
-        setMsgs(mapped);
-        setVisible(mapped.length);
-        setHasHistory(mapped.length > 0);
-        setHasMoreChatHistory(targetMessageId
-          ? Boolean(data?.hasOlder)
-          : !full && !Array.isArray(data) && Boolean(data?.hasMore));
-        setChatHistoryBefore(targetMessageId
-          ? String(data?.nextBefore || '')
-          : !full && !Array.isArray(data) ? String(data?.nextBefore || '') : '');
+        const preserveHistoryCursor = preserveLoadedHistory && hasMoreChatHistory && Boolean(chatHistoryBefore);
+        const mergedMessages = preserveLoadedHistory ? mergeRefreshedMessages(msgs, mapped) : mapped;
+        setMsgs(current => preserveLoadedHistory ? mergeRefreshedMessages(current, mapped) : mapped);
+        setVisible(current => preserveLoadedHistory ? Math.max(current, mergedMessages.length) : mapped.length);
+        setHasHistory(preserveLoadedHistory
+          ? (msgs.length > 0 || mapped.length > 0)
+          : mapped.length > 0);
+        setHasMoreChatHistory(preserveHistoryCursor
+          ? true
+          : targetMessageId
+            ? Boolean(data?.hasOlder)
+            : !full && !Array.isArray(data) && Boolean(data?.hasMore));
+        setChatHistoryBefore(preserveHistoryCursor
+          ? chatHistoryBefore
+          : targetMessageId
+            ? String(data?.nextBefore || '')
+            : !full && !Array.isArray(data) ? String(data?.nextBefore || '') : '');
         setSessionSummary(summary && summary.id ? summary : null);
         scrollChatToBottomNow();
         return mapped;
@@ -2354,7 +2363,7 @@ export default function App({ initialView = 'chat', onHome }) {
         loadActiveModels={loadActiveModels}
         modelsLoading={modelsLoading}
         modelsError={modelsError}
-        refreshMessages={() => loadMessagesFor(sessionId)}
+        refreshMessages={() => loadMessagesFor(sessionId, { preserveLoadedHistory: true })}
       />
 
       <LettersRoom

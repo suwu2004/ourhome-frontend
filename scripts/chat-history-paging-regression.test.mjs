@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { mergeRefreshedMessages } from '../src/chatHistoryRefresh.js';
 
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const roomSource = readFileSync(new URL('../src/ChatRoom.jsx', import.meta.url), 'utf8');
@@ -34,13 +35,32 @@ test('session preview cache stays bounded after deep history browsing', () => {
 test('Chat exposes a guarded refresh action for the current conversation', () => {
   assert.match(roomSource, /aria-label="刷新当前对话"/);
   assert.match(roomSource, /await refreshMessages\(\)/);
-  assert.match(roomSource, /chatRefreshBlocked = chatRefreshing \|\| regenerating \|\| messageActionLoading \|\| imageUploading/);
+  assert.match(roomSource, /chatRefreshBlocked = chatRefreshing \\|\\| regenerating \\|\\| messageActionLoading \\|\\| imageUploading \\|\\| chatHistoryLoading/);
   assert.match(roomSource, /if \(!sessionId \|\| chatRefreshBlocked \|\| !refreshMessages\) return/);
-  assert.match(appSource, /refreshMessages=\{\(\) => loadMessagesFor\(sessionId\)\}/);
+  assert.match(appSource, /refreshMessages=\{\(\) => loadMessagesFor\(sessionId, \{ preserveLoadedHistory: true \}\)\}/);
 });
 
 test('Chat keeps refresh at the far right of search', () => {
   const searchIndex = roomSource.indexOf('aria-label="搜索聊天记录"');
   const refreshIndex = roomSource.indexOf('aria-label="刷新当前对话"');
   assert.ok(searchIndex > 0 && refreshIndex > searchIndex);
+});
+
+test('refresh merges recent server messages without dropping loaded older history or duplicating IDs', () => {
+  const existing = [
+    { id: 'old-1', role: 'me', text: 'older loaded message', createdAt: '2026-10-01T10:00:00Z' },
+    { id: 'recent-1', role: 'ai', text: 'old copy', createdAt: '2026-10-02T10:00:00Z', thinkingOpen: true },
+  ];
+  const refreshed = [
+    { id: 'recent-1', role: 'ai', text: 'updated copy', createdAt: '2026-10-02T10:00:00Z', thinkingOpen: false },
+    { id: 'recent-2', role: 'me', text: 'new message', createdAt: '2026-10-03T10:00:00Z' },
+    { id: 'recent-2', role: 'me', text: 'new message', createdAt: '2026-10-03T10:00:00Z' },
+  ];
+
+  const merged = mergeRefreshedMessages(existing, refreshed);
+  assert.deepEqual(merged.map(message => message.id), ['old-1', 'recent-1', 'recent-2']);
+  assert.equal(merged[0].text, 'older loaded message');
+  assert.equal(merged[1].text, 'updated copy');
+  assert.equal(merged[1].thinkingOpen, true);
+  assert.equal(merged[2].text, 'new message');
 });
