@@ -241,6 +241,10 @@ export default function App({ initialView = 'chat', onHome }) {
   const [savingPersona, setSavingPersona] = useState(false);
   const [personaSaveError, setPersonaSaveError] = useState('');
   const [personaSaveNotice, setPersonaSaveNotice] = useState('');
+  const clearPersonaSaveFeedback = () => {
+    setPersonaSaveError('');
+    setPersonaSaveNotice('');
+  };
   const [view, setView] = useState(initialView);
   const [memoryGroupsResetKey, setMemoryGroupsResetKey] = useState(0);
   const [settingsGroupsResetKey, setSettingsGroupsResetKey] = useState(0);
@@ -2482,6 +2486,7 @@ export default function App({ initialView = 'chat', onHome }) {
         savingPersona={savingPersona}
         personaSaveError={personaSaveError}
         personaSaveNotice={personaSaveNotice}
+        clearPersonaSaveFeedback={clearPersonaSaveFeedback}
         newMemory={newMemory}
         setNewMemory={setNewMemory}
         saveMemory={saveMemory}
