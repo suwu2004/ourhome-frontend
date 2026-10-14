@@ -25,9 +25,14 @@ export function mergeRefreshedMessages(currentMessages, refreshedMessages) {
   });
 
   for (const message of refreshed) {
-    if (!message || message.id == null || !existingIds.has(String(message.id))) {
+    if (!message || message.id == null) {
       merged.push(message);
+      continue;
     }
+    const key = String(message.id);
+    if (existingIds.has(key)) continue;
+    existingIds.add(key);
+    merged.push(refreshedById.get(key) || message);
   }
 
   return merged
