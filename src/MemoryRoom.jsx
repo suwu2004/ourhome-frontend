@@ -77,6 +77,8 @@ export function MemoryRoom({
   setMinReplyCharsInput,
   savePersona,
   savingPersona,
+  personaSaveError = '',
+  personaSaveNotice = '',
   newMemory,
   setNewMemory,
   saveMemory,
@@ -169,8 +171,28 @@ export function MemoryRoom({
             <input aria-label="陆泽最低回复长度" type="range" min="0" max="600" step="10" value={minReplyCharsInput} onChange={e => setMinReplyCharsInput(Number(e.target.value))} style={{ width: "100%" }} />
             <div style={{ fontSize: 10.5, lineHeight: 1.55, color: C.mutedLight }}>陆泽仍会自己判断该说多长；不足下限时只把当前内容说完整，不会另起无关话题。设为 0 就只按语境决定。</div>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <span onClick={savePersona} style={{ fontSize: 12, color: C.white, cursor: "pointer", padding: "5px 14px", background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid, borderRadius: 999 }}>{savingPersona ? "存中…" : "保存人设"}</span>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+            <button
+              type="button"
+              onClick={savePersona}
+              disabled={savingPersona || !systemPromptInput.trim()}
+              style={{
+                fontSize: 12,
+                color: C.white,
+                cursor: savingPersona || !systemPromptInput.trim() ? "default" : "pointer",
+                padding: "5px 14px",
+                border: "none",
+                background: systemPromptInput.trim() ? `linear-gradient(150deg, ${C.honey}, ${C.honeyDeep})` : C.honeyMid,
+                borderRadius: 999,
+                opacity: savingPersona ? 0.75 : 1,
+                fontFamily: "inherit",
+              }}
+            >{savingPersona ? "保存中…" : "保存人设"}</button>
+            {personaSaveError ? (
+              <span role="alert" style={{ maxWidth: "100%", fontSize: 11, lineHeight: 1.5, color: C.danger || "#B54747", textAlign: "right" }}>{personaSaveError}</span>
+            ) : personaSaveNotice ? (
+              <span role="status" style={{ fontSize: 11, lineHeight: 1.5, color: C.muted, textAlign: "right" }}>{personaSaveNotice}</span>
+            ) : null}
           </div>
         </SettingsGroup>
 
