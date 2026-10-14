@@ -54,6 +54,7 @@ test('refresh merges recent server messages without dropping loaded older histor
   const refreshed = [
     { id: 'recent-1', role: 'ai', text: 'updated copy', createdAt: '2026-10-02T10:00:00Z', thinkingOpen: false },
     { id: 'recent-2', role: 'me', text: 'new message', createdAt: '2026-10-03T10:00:00Z' },
+    { id: 'recent-2', role: 'me', text: 'new message', createdAt: '2026-10-03T10:00:00Z' },
   ];
 
   const merged = mergeRefreshedMessages(existing, refreshed);
