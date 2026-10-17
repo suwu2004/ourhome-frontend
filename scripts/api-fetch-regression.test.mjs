@@ -14,6 +14,7 @@ function installBrowserGlobals() {
     clear() { storage.clear(); },
   };
   globalThis.location = { origin: 'https://ourhome.test' };
+  globalThis.indexedDB = undefined;
   globalThis.window = { dispatchEvent() {} };
   globalThis.Event = class Event {
     constructor(type) { this.type = type; }
@@ -413,4 +414,47 @@ test('auth cleanup removes cloud cache entries without touching unrelated prefer
   clearOurHomePrivateCache();
   assert.equal(storage.has('ourhome_cloud_read:/api/settings'), false);
   assert.equal(storage.get('ourhome_weather_city'), '武汉');
+});
+
+test('successful API reads do not wait forever for a stalled IndexedDB cache', async () => {
+  const originalIndexedDB = globalThis.indexedDB;
+  globalThis.indexedDB = {
+    open() {
+      // Simulate a browser storage initialization that never settles.
+      return {};
+    },
+  };
+  globalThis.fetch = async () => new Response('[{"id":"memo-cache-stall"}]', {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  let timer;
+  let result;
+  try {
+    result = await Promise.race([
+      apiFetch('/api/home-memos?cache-stall-regression=1'),
+      new Promise(resolve => { timer = setTimeout(() => resolve('timed-out'), 500); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    if (originalIndexedDB === undefined) delete globalThis.indexedDB;
+    else globalThis.indexedDB = originalIndexedDB;
+  }
+
+  assert.notEqual(result, 'timed-out', 'cache persistence must not block a successful network response');
+  assert.equal(result.status, 200);
+  assert.deepEqual(await result.json(), [{ id: 'memo-cache-stall' }]);
+});
+
+test('read requests use a finite timeout without changing mutation retry semantics', async () => {
+  const source = await readFile(new URL('../src/api.js', import.meta.url), 'utf8');
+  assert.match(source, /READ_REQUEST_TIMEOUT_MS = 12_000/);
+  assert.match(source, /function fetchWithReadTimeout/);
+  assert.match(source, /OURHOME_READ_TIMEOUT/);
+  assert.match(source, /CACHE_WRITE_MAX_WAIT_MS = 250/);
+  assert.match(source, /waitForCacheWrites/);
+  assert.match(source, /latestCacheWriteVersions/);
+  assert.doesNotMatch(source, /void Promise\.all\(cacheWrites\)\.catch/);
+  assert.doesNotMatch(source, /await Promise\.all\(cacheWrites\)/);
 });

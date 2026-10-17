@@ -19,10 +19,15 @@ const RETRYABLE_READ_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const CLOUD_CACHE_FALLBACK_STATUS = new Set([402, ...RETRYABLE_READ_STATUS]);
 const ROUTE_FALLBACK_STATUS = new Set([502, 504]);
 const READ_RETRY_DELAY_MS = 280;
+const READ_REQUEST_TIMEOUT_MS = 12_000;
+const CACHE_WRITE_MAX_WAIT_MS = 250;
 const CLOUD_CACHE_PREFIX = 'ourhome_cloud_read:';
 const CLOUD_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const SETTINGS_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const staleCloudReads = new Map();
+const latestCacheWriteVersions = new Map();
+let nextCacheWriteVersion = 0;
+let privateCacheGeneration = 0;
 let activeBackend = BACKEND;
 
 const SAFE_SETTINGS_CACHE_KEYS = new Set([
@@ -164,6 +169,7 @@ async function readBestAvailableCache(localPath, cloudPath, logicalUrl, reason) 
 }
 
 export function clearOurHomePrivateCache() {
+  privateCacheGeneration += 1;
   staleCloudReads.clear();
   if (typeof localStorage !== 'undefined') {
     for (let index = localStorage.length - 1; index >= 0; index -= 1) {
@@ -242,19 +248,42 @@ function readCloudCache(path, logicalUrl = '', reason = '') {
   }
 }
 
-async function rememberCloudRead(path, response) {
-  if (!path || !response?.ok || response.headers.get('X-OurHome-Cache') === 'stale' || typeof localStorage === 'undefined') return;
+async function rememberCloudRead(path, response, canCommit = () => true) {
+  if (!path || !response?.ok || response.headers.get('X-OurHome-Cache') === 'stale'
+    || typeof localStorage === 'undefined' || !canCommit()) return;
   try {
     const body = safeCachedBody(path, await response.clone().text());
+    if (!canCommit()) return;
     localStorage.setItem(cacheKey(path), JSON.stringify({
       savedAt: Date.now(),
       contentType: response.headers.get('Content-Type') || 'application/json',
       body,
     }));
-    markCloudFresh(path);
+    if (canCommit()) markCloudFresh(path);
   } catch {
     // Caching is only a visual resilience layer; a cache write must never break the real response.
   }
+}
+
+async function waitForCacheWrites(cacheWrites, disablePendingWrites) {
+  if (!cacheWrites.length) return true;
+  let timedOut = false;
+  let timeoutId;
+  try {
+    await Promise.race([
+      Promise.all(cacheWrites).catch(() => {}),
+      new Promise(resolve => {
+        timeoutId = setTimeout(() => {
+          timedOut = true;
+          disablePendingWrites();
+          resolve();
+        }, CACHE_WRITE_MAX_WAIT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
+  return !timedOut;
 }
 
 let cloudRecheckPromise = null;
@@ -333,6 +362,37 @@ export function syncLocalFirstOutbox() {
   return outboxSyncPromise;
 }
 
+async function fetchWithReadTimeout(url, options, headers) {
+  // Caller-owned abort signals keep their existing semantics. Only ordinary GETs
+  // receive our timeout; mutations must never be retried or silently re-routed.
+  if (!mayRetryRead(options)) {
+    return fetch(url, { ...options, headers });
+  }
+
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, READ_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (!timedOut) throw error;
+    const timeoutError = new Error(`读取请求超过 ${READ_REQUEST_TIMEOUT_MS / 1000} 秒仍未响应`);
+    timeoutError.code = 'OURHOME_READ_TIMEOUT';
+    timeoutError.cause = error;
+    throw timeoutError;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function fetchWithSafeReadRetry(url, options, headers) {
   const retryable = mayRetryRead(options);
   const attempts = retryable ? 2 : 1;
@@ -340,10 +400,7 @@ async function fetchWithSafeReadRetry(url, options, headers) {
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
+      const response = await fetchWithReadTimeout(url, options, headers);
       const shouldRetry = retryable
         && attempt + 1 < attempts
         && RETRYABLE_READ_STATUS.has(response.status);
@@ -365,10 +422,7 @@ async function fetchWithSafeReadRetry(url, options, headers) {
 async function fetchAlternateRead(logicalUrl, options, headers) {
   const alternateBase = alternateBackendBase();
   const alternateUrl = backendUrl(logicalUrl, alternateBase);
-  const response = await fetch(alternateUrl, {
-    ...options,
-    headers,
-  });
+  const response = await fetchWithReadTimeout(alternateUrl, options, headers);
   if (!ROUTE_FALLBACK_STATUS.has(response.status)) {
     useBackend(alternateBase, 'safe-read-fallback');
   }
@@ -384,6 +438,12 @@ export async function apiFetch(url, options = {}) {
   const cloudPath = cacheableCloudRead(url, options);
   const localPath = localFirstReadPath(url, options);
   const markerPath = cloudPath || localPath;
+  const cachePaths = [...new Set([cloudPath, localPath].filter(Boolean))];
+  const cacheGenerationAtStart = privateCacheGeneration;
+  const cacheWriteVersion = ++nextCacheWriteVersion;
+  for (const path of cachePaths) latestCacheWriteVersions.set(path, cacheWriteVersion);
+  const canCommitCache = () => cacheGenerationAtStart === privateCacheGeneration
+    && cachePaths.every(path => latestCacheWriteVersions.get(path) === cacheWriteVersion);
   const recheckingCloud = headers.get('X-OurHome-Cloud-Recheck') === '1';
   const method = requestMethod(options);
   const mutationRequestId = headers.get('X-OurHome-Request-Id') || '';
@@ -454,14 +514,18 @@ export async function apiFetch(url, options = {}) {
   }
 
   if (response.ok && response.headers.get('X-OurHome-Cache') !== 'stale') {
+    let cacheWriteActive = canCommitCache;
     const cacheWrites = [];
-    if (cloudPath) cacheWrites.push(rememberCloudRead(cloudPath, response));
+    if (cloudPath) cacheWrites.push(rememberCloudRead(cloudPath, response, () => cacheWriteActive()));
     if (localPath) cacheWrites.push(rememberLocalFirstRead(
       localPath,
       response,
       body => safeCachedBody(localPath, body),
+      () => cacheWriteActive(),
     ));
-    await Promise.all(cacheWrites);
+    // Let normal cache writes settle, but never let a slow browser storage operation
+    // keep the fresh cloud response from reaching the UI indefinitely.
+    await waitForCacheWrites(cacheWrites, () => { cacheWriteActive = () => false; });
     if (markerPath) markCloudFresh(markerPath);
   }
 
