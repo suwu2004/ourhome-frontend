@@ -452,6 +452,9 @@ test('read requests use a finite timeout without changing mutation retry semanti
   assert.match(source, /READ_REQUEST_TIMEOUT_MS = 12_000/);
   assert.match(source, /function fetchWithReadTimeout/);
   assert.match(source, /OURHOME_READ_TIMEOUT/);
-  assert.match(source, /void Promise\.all\(cacheWrites\)\.catch/);
+  assert.match(source, /CACHE_WRITE_MAX_WAIT_MS = 250/);
+  assert.match(source, /waitForCacheWrites/);
+  assert.match(source, /latestCacheWriteVersions/);
+  assert.doesNotMatch(source, /void Promise\.all\(cacheWrites\)\.catch/);
   assert.doesNotMatch(source, /await Promise\.all\(cacheWrites\)/);
 });
