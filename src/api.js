@@ -19,6 +19,7 @@ const RETRYABLE_READ_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const CLOUD_CACHE_FALLBACK_STATUS = new Set([402, ...RETRYABLE_READ_STATUS]);
 const ROUTE_FALLBACK_STATUS = new Set([502, 504]);
 const READ_RETRY_DELAY_MS = 280;
+const READ_REQUEST_TIMEOUT_MS = 12_000;
 const CLOUD_CACHE_PREFIX = 'ourhome_cloud_read:';
 const CLOUD_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const SETTINGS_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000;
@@ -333,6 +334,37 @@ export function syncLocalFirstOutbox() {
   return outboxSyncPromise;
 }
 
+async function fetchWithReadTimeout(url, options, headers) {
+  // Caller-owned abort signals keep their existing semantics. Only ordinary GETs
+  // receive our timeout; mutations must never be retried or silently re-routed.
+  if (!mayRetryRead(options)) {
+    return fetch(url, { ...options, headers });
+  }
+
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, READ_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (!timedOut) throw error;
+    const timeoutError = new Error(`读取请求超过 ${READ_REQUEST_TIMEOUT_MS / 1000} 秒仍未响应`);
+    timeoutError.code = 'OURHOME_READ_TIMEOUT';
+    timeoutError.cause = error;
+    throw timeoutError;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function fetchWithSafeReadRetry(url, options, headers) {
   const retryable = mayRetryRead(options);
   const attempts = retryable ? 2 : 1;
@@ -340,10 +372,7 @@ async function fetchWithSafeReadRetry(url, options, headers) {
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
+      const response = await fetchWithReadTimeout(url, options, headers);
       const shouldRetry = retryable
         && attempt + 1 < attempts
         && RETRYABLE_READ_STATUS.has(response.status);
@@ -365,10 +394,7 @@ async function fetchWithSafeReadRetry(url, options, headers) {
 async function fetchAlternateRead(logicalUrl, options, headers) {
   const alternateBase = alternateBackendBase();
   const alternateUrl = backendUrl(logicalUrl, alternateBase);
-  const response = await fetch(alternateUrl, {
-    ...options,
-    headers,
-  });
+  const response = await fetchWithReadTimeout(alternateUrl, options, headers);
   if (!ROUTE_FALLBACK_STATUS.has(response.status)) {
     useBackend(alternateBase, 'safe-read-fallback');
   }
@@ -461,7 +487,8 @@ export async function apiFetch(url, options = {}) {
       response,
       body => safeCachedBody(localPath, body),
     ));
-    await Promise.all(cacheWrites);
+    // Cache writes are best-effort; slow IndexedDB work must not hold up a fresh cloud response.
+    void Promise.all(cacheWrites).catch(() => {});
     if (markerPath) markCloudFresh(markerPath);
   }
 
