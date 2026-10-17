@@ -256,14 +256,16 @@ async function readRecord(path) {
   return requestValue(transaction.objectStore(RESPONSE_STORE).get(path));
 }
 
-async function putRecord(record) {
+async function putRecord(record, canCommit = () => true) {
   const database = await openDatabase();
+  if (!canCommit()) return false;
   if (!database) {
     memoryResponses.set(record.path, record);
-    return;
+    return true;
   }
   const transaction = database.transaction(RESPONSE_STORE, 'readwrite');
   await requestValue(transaction.objectStore(RESPONSE_STORE).put(record));
+  return canCommit();
 }
 
 async function touchRecord(record) {
@@ -335,26 +337,29 @@ function byteLength(value) {
   return String(value || '').length * 2;
 }
 
-export async function rememberLocalFirstRead(path, response, transformBody) {
-  if (!path || !response?.ok || response.headers.get('X-OurHome-Cache') === 'stale') return false;
+export async function rememberLocalFirstRead(path, response, transformBody, canCommit = () => true) {
+  if (!path || !response?.ok || response.headers.get('X-OurHome-Cache') === 'stale' || !canCommit()) return false;
   const contentType = response.headers.get('Content-Type') || 'application/json';
   if (!/(?:application\/json|text\/)/i.test(contentType)) return false;
 
   try {
     const rawBody = await response.clone().text();
+    if (!canCommit()) return false;
     const body = transformBody ? transformBody(rawBody) : rawBody;
     const size = byteLength(body);
     if (size > MAX_ENTRY_BYTES) return false;
     const now = Date.now();
     const record = { path, body, contentType, size, savedAt: now, lastAccessedAt: now };
     try {
-      await putRecord(record);
+      if (!(await putRecord(record, canCommit))) return false;
     } catch (error) {
       if (error?.name !== 'QuotaExceededError') throw error;
       const database = await openDatabase();
+      if (!canCommit()) return false;
       await pruneOldest(database, 32);
-      await putRecord(record);
+      if (!(await putRecord(record, canCommit))) return false;
     }
+    if (!canCommit()) return false;
     await pruneIfNeeded();
     emitLocalFirstUpdate();
     return true;
