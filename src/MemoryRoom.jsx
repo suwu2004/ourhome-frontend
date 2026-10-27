@@ -86,6 +86,7 @@ export function MemoryRoom({
   savingMemory,
   memoryActionError = '',
   memoriesLoading,
+  memoryLoadError = '',
   memories,
   editingMemoryId,
   editingMemoryText,
@@ -262,10 +263,13 @@ export function MemoryRoom({
               {memoriesLoading && (
                 <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".1em", padding: "20px 0" }}>翻找中…</div>
               )}
-              {!memoriesLoading && selectedPersistentMemories.length === 0 && (
+              {!memoriesLoading && memoryLoadError && (
+                <div role="alert" style={{ fontSize: 11.5, lineHeight: 1.6, color: C.blushDeep, padding: '10px 0' }}>{memoryLoadError}</div>
+              )}
+              {!memoriesLoading && !memoryLoadError && selectedPersistentMemories.length === 0 && (
                 <div style={{ textAlign: "center", fontSize: 12, color: C.muted, letterSpacing: ".08em", padding: "20px 0" }}>{memoryLayer === 'core' ? '还没有被提炼成核心的记忆。' : '还没有存下来的阶段记忆。'}</div>
               )}
-              {!memoriesLoading && selectedPersistentMemories.map((memory, idx) => (
+              {!memoriesLoading && !memoryLoadError && selectedPersistentMemories.map((memory, idx) => (
                 <div key={memory.id ?? idx} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: idx === selectedPersistentMemories.length - 1 ? "none" : `1px solid ${C.borderLight}` }}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, marginBottom: 5 }}>
