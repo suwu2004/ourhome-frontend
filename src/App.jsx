@@ -188,6 +188,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const [ready, setReady] = useState(false);
   const [memories, setMemories] = useState([]);
   const [memoriesLoading, setMemoriesLoading] = useState(false);
+  const [memoryLoadError, setMemoryLoadError] = useState('');
   const [favorites, setFavorites] = useState([]);
   const [favoriteDraft, setFavoriteDraft] = useState(EMPTY_FAVORITE_DRAFT);
   const [savingFavorite, setSavingFavorite] = useState(false);
@@ -1716,19 +1717,29 @@ export default function App({ initialView = 'chat', onHome }) {
     setView('memories');
     setDrawerOpen(false);
     setMemoriesLoading(true);
+    setMemoryLoadError('');
+    const readJson = async (response, fallbackMessage) => {
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || fallbackMessage);
+      if (data == null) throw new Error(fallbackMessage);
+      return data;
+    };
     Promise.all([
-      apiFetch(`${BACKEND}/memories`).then(r => r.json()),
-      apiFetch(`${BACKEND}/memory-favorites`).then(r => r.json()),
+      apiFetch(`${BACKEND}/memories`).then(response => readJson(response, '长期记忆读取失败，原有内容已保留。')),
+      apiFetch(`${BACKEND}/memory-favorites`).then(response => readJson(response, '记忆收藏读取失败，原有内容已保留。')),
     ])
       .then(([memoryData, favoriteData]) => {
-        setMemories(Array.isArray(memoryData) ? memoryData : []);
-        setFavorites(Array.isArray(favoriteData) ? favoriteData : []);
-        setMemoriesLoading(false);
+        if (!Array.isArray(memoryData) || !Array.isArray(favoriteData)) {
+          throw new Error('服务器返回的记忆数据格式不正确，原有内容已保留。');
+        }
+        setMemories(memoryData);
+        setFavorites(favoriteData);
       })
-      .catch(err => {
-        console.error(err);
-        setMemoriesLoading(false);
-      });
+      .catch(error => {
+        console.error('[memory-room] load failed:', error);
+        setMemoryLoadError(error?.message || '记忆没有读取成功，请稍后重试。');
+      })
+      .finally(() => setMemoriesLoading(false));
   };
 
   useEffect(() => {
@@ -2525,6 +2536,7 @@ export default function App({ initialView = 'chat', onHome }) {
         savingMemory={savingMemory}
         memoryActionError={memoryActionError}
         memoriesLoading={memoriesLoading}
+        memoryLoadError={memoryLoadError}
         memories={memories}
         editingMemoryId={editingMemoryId}
         editingMemoryText={editingMemoryText}
