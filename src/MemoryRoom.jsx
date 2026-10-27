@@ -84,6 +84,7 @@ export function MemoryRoom({
   setNewMemory,
   saveMemory,
   savingMemory,
+  memoryActionError = '',
   memoriesLoading,
   memories,
   editingMemoryId,
@@ -214,6 +215,7 @@ export function MemoryRoom({
             <input value={newMemory} onChange={e => setNewMemory(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveMemory(); }} placeholder="记下点什么…" style={{ flex: 1, fontSize: 13, color: C.text, background: C.white, border: `1px solid ${C.border}`, borderRadius: 999, padding: "7px 14px", outline: "none" }} />
             <button onClick={saveMemory} disabled={!newMemory.trim() || savingMemory} style={{ fontSize: 12, color: C.white, background: newMemory.trim() ? C.honey : C.honeyMid, border: "none", borderRadius: 999, padding: "0 16px", cursor: newMemory.trim() ? "pointer" : "default", letterSpacing: ".05em" }}>{savingMemory ? "存中…" : "记住"}</button>
           </div>
+          {memoryActionError && <p role="alert" style={{ margin: '7px 2px 0', fontSize: 11.5, lineHeight: 1.6, color: C.blushDeep }}>{memoryActionError}</p>}
           <p className="memory-active-note">这类内容会先进入阶段记忆，后续再根据重要程度沉淀；原文始终可以在这里查看和修改。</p>
         </SettingsGroup>
 
