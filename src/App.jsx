@@ -196,6 +196,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const [editingMemoryId, setEditingMemoryId] = useState(null);
   const [editingMemoryText, setEditingMemoryText] = useState("");
   const [savingMemory, setSavingMemory] = useState(false);
+  const [memoryActionError, setMemoryActionError] = useState('');
   const [myAvatar, setMyAvatar] = useState(null);
   const [partnerAvatar, setPartnerAvatar] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(null);
@@ -1737,54 +1738,76 @@ export default function App({ initialView = 'chat', onHome }) {
     else setView(initialView);
   }, [initialView]);
 
-  const saveMemory = () => {
-    if (!newMemory.trim() || savingMemory) return;
+  const saveMemory = async () => {
+    const summary = newMemory.trim();
+    if (!summary || savingMemory) return;
     setSavingMemory(true);
-    apiFetch(`${BACKEND}/memories`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ summary: newMemory.trim() })
-    })
-      .then(r => r.json())
-      .then(data => {
-        setMemories(ms => [data, ...ms]);
-        setNewMemory("");
-        setSavingMemory(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setSavingMemory(false);
+    setMemoryActionError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/memories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summary }),
       });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.id) {
+        throw new Error(data?.error || '服务器没有确认这条记忆已保存，请保留原文后重试。');
+      }
+      setMemories(ms => [data, ...ms]);
+      setNewMemory('');
+    } catch (error) {
+      console.error('[memory-room] save failed:', error);
+      setMemoryActionError(error?.message || '记忆没有保存成功，请保留原文后重试。');
+    } finally {
+      setSavingMemory(false);
+    }
   };
 
   const startEditMemory = (m) => {
+    setMemoryActionError('');
     setEditingMemoryId(m.id);
     setEditingMemoryText(m.summary);
   };
   const cancelEditMemory = () => {
     setEditingMemoryId(null);
-    setEditingMemoryText("");
+    setEditingMemoryText('');
   };
-  const saveEditMemory = () => {
-    if (!editingMemoryText.trim()) return;
-    apiFetch(`${BACKEND}/memories/${editingMemoryId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ summary: editingMemoryText.trim() })
-    })
-      .then(r => r.json())
-      .then(data => {
-        setMemories(ms => ms.map(m => m.id === editingMemoryId ? data : m));
-        cancelEditMemory();
-      })
-      .catch(console.error);
+  const saveEditMemory = async () => {
+    const summary = editingMemoryText.trim();
+    if (!summary || !editingMemoryId) return;
+    setMemoryActionError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/memories/${editingMemoryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ summary }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.id) {
+        throw new Error(data?.error || '服务器没有确认修改已保存，请稍后重试。');
+      }
+      setMemories(ms => ms.map(m => m.id === editingMemoryId ? data : m));
+      cancelEditMemory();
+    } catch (error) {
+      console.error('[memory-room] edit failed:', error);
+      setMemoryActionError(error?.message || '修改没有保存成功，请稍后重试。');
+    }
   };
 
-  const deleteMemory = (id) => {
-    if (!window.confirm("确定要删掉这条记忆吗？")) return;
-    apiFetch(`${BACKEND}/memories/${id}`, { method: 'DELETE' })
-      .then(() => setMemories(ms => ms.filter(m => m.id !== id)))
-      .catch(console.error);
+  const deleteMemory = async (id) => {
+    if (!window.confirm('确定要删掉这条记忆吗？')) return;
+    setMemoryActionError('');
+    try {
+      const response = await apiFetch(`${BACKEND}/memories/${id}`, { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.error || '服务器没有确认删除成功，请稍后重试。');
+      }
+      setMemories(ms => ms.filter(m => m.id !== id));
+    } catch (error) {
+      console.error('[memory-room] delete failed:', error);
+      setMemoryActionError(error?.message || '删除没有完成，请稍后重试。');
+    }
   };
 
   const orderFavorites = (items) => [...items].sort((left, right) => {
@@ -2500,6 +2523,7 @@ export default function App({ initialView = 'chat', onHome }) {
         setNewMemory={setNewMemory}
         saveMemory={saveMemory}
         savingMemory={savingMemory}
+        memoryActionError={memoryActionError}
         memoriesLoading={memoriesLoading}
         memories={memories}
         editingMemoryId={editingMemoryId}
