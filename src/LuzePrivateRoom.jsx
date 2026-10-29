@@ -16,6 +16,7 @@ const TABS = [
   ['note', '学习笔记'],
   ['idea', '奇思妙想'],
 ];
+const ROOM_PAGE_SIZE = 120;
 const SHANGHAI_CLOCK_FORMATTER = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',
   month: '2-digit',
@@ -185,6 +186,9 @@ export default function LuzePrivateRoom({ onClose }) {
   const [doorMessage, setDoorMessage] = useState('');
   const [knocking, setKnocking] = useState(false);
   const [entries, setEntries] = useState([]);
+  const [hasMoreEntries, setHasMoreEntries] = useState(false);
+  const [loadingMoreEntries, setLoadingMoreEntries] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState('');
   const [tab, setTab] = useState('trail');
   const [loading, setLoading] = useState(Boolean(pass));
   const [error, setError] = useState('');
@@ -204,6 +208,9 @@ export default function LuzePrivateRoom({ onClose }) {
     sessionStorage.removeItem(PASS_KEY);
     setPass('');
     setEntries([]);
+    setHasMoreEntries(false);
+    setLoadingMoreEntries(false);
+    setLoadMoreError('');
     setSettings(null);
     setDoorMessage(message || '这次门票已经过期了。再敲一次门吧。');
   }, []);
@@ -214,7 +221,7 @@ export default function LuzePrivateRoom({ onClose }) {
     setError('');
     try {
       const [entryResponse, settingResponse] = await Promise.all([
-        roomFetch('/luze-room/entries?limit=120'),
+        roomFetch(`/luze-room/entries?limit=${ROOM_PAGE_SIZE}&offset=0`),
         roomFetch('/luze-room/settings'),
       ]);
       if (entryResponse.status === 403 || settingResponse.status === 403) {
@@ -225,7 +232,10 @@ export default function LuzePrivateRoom({ onClose }) {
       const settingData = await settingResponse.json();
       if (!entryResponse.ok) throw new Error(entryData.error || '房间里的纸页没有翻出来');
       if (!settingResponse.ok) throw new Error(settingData.error || '房间状态没有读出来');
-      setEntries(Array.isArray(entryData.entries) ? entryData.entries : []);
+      const firstPage = Array.isArray(entryData.entries) ? entryData.entries : [];
+      setEntries(firstPage);
+      setHasMoreEntries(firstPage.length === ROOM_PAGE_SIZE);
+      setLoadMoreError('');
       setSettings(settingData);
     } catch (err) {
       setError(err.message || '房间暂时没有打开好');
@@ -235,6 +245,31 @@ export default function LuzePrivateRoom({ onClose }) {
   }, [lockAgain, pass, roomFetch]);
 
   useEffect(() => { loadRoom(); }, [loadRoom]);
+
+  const loadMoreEntries = useCallback(async () => {
+    if (!pass || loadingMoreEntries || !hasMoreEntries) return;
+    setLoadingMoreEntries(true);
+    setLoadMoreError('');
+    try {
+      const response = await roomFetch(`/luze-room/entries?limit=${ROOM_PAGE_SIZE}&offset=${entries.length}`);
+      if (response.status === 403) {
+        lockAgain('刚才那次进门许可已经结束了。');
+        return;
+      }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '更早的纸页暂时没有翻出来');
+      const nextPage = Array.isArray(data.entries) ? data.entries : [];
+      setEntries(current => {
+        const known = new Set(current.map(item => String(item.id)));
+        return [...current, ...nextPage.filter(item => !known.has(String(item.id)))];
+      });
+      setHasMoreEntries(nextPage.length === ROOM_PAGE_SIZE);
+    } catch (err) {
+      setLoadMoreError(err.message || '更早的纸页暂时没有翻出来');
+    } finally {
+      setLoadingMoreEntries(false);
+    }
+  }, [entries.length, hasMoreEntries, loadingMoreEntries, lockAgain, pass, roomFetch]);
 
   const knock = async () => {
     setKnocking(true);
@@ -336,6 +371,28 @@ export default function LuzePrivateRoom({ onClose }) {
         )}
 
         {grouped[tab].length > 0 && <DailyFolderList kind={tab} items={grouped[tab]} />}
+
+        {loadMoreError && <div className="luze-room-error luze-room-error--card">{loadMoreError}</div>}
+        {hasMoreEntries && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0 24px' }}>
+            <button
+              type="button"
+              onClick={loadMoreEntries}
+              disabled={loadingMoreEntries}
+              style={{
+                border: `1px solid ${C.border}`,
+                borderRadius: 999,
+                background: C.white,
+                color: C.honeyDeep,
+                padding: '9px 18px',
+                fontFamily: 'inherit',
+                fontSize: 12,
+                cursor: loadingMoreEntries ? 'wait' : 'pointer',
+                opacity: loadingMoreEntries ? 0.7 : 1,
+              }}
+            >{loadingMoreEntries ? '继续翻找中…' : '翻看更早的记录'}</button>
+          </div>
+        )}
       </main>
     </div>
   );
