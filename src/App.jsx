@@ -2518,6 +2518,7 @@ export default function App({ initialView = 'chat', onHome }) {
         theme={C}
         visible={stage === "home" && view === "memories"}
         leaveRoom={leaveRoom}
+        refreshMemories={openMemories}
         resetKey={memoryGroupsResetKey}
         systemPromptInput={systemPromptInput}
         setSystemPromptInput={setSystemPromptInput}
