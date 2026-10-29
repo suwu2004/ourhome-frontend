@@ -68,6 +68,7 @@ export function MemoryRoom({
   theme: C,
   visible,
   leaveRoom,
+  refreshMemories = () => {},
   resetKey,
   systemPromptInput,
   setSystemPromptInput,
@@ -146,7 +147,15 @@ export function MemoryRoom({
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none", transition: "opacity .4s ease", background: C.cream }}>
       <header className="ourhome-safe-top" style={{ background: C.white, borderBottom: `1px solid ${C.border}`, paddingLeft: 16, paddingRight: 16, paddingBottom: 12, flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
         <span onClick={leaveRoom} style={{ fontSize: 18, color: C.honeyDeep, cursor: "pointer", padding: 4 }}>←</span>
-        <span style={{ fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 陆泽的大脑</span>
+        <span style={{ flex: 1, fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 陆泽的大脑</span>
+        <button
+          type="button"
+          onClick={refreshMemories}
+          disabled={memoriesLoading}
+          aria-label="刷新记忆"
+          title="刷新记忆"
+          style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, padding: '5px 10px', fontFamily: 'inherit', fontSize: 12, cursor: memoriesLoading ? 'wait' : 'pointer', opacity: memoriesLoading ? 0.6 : 1 }}
+        >{memoriesLoading ? '翻找中…' : '↻ 刷新'}</button>
       </header>
       <div className="ourhome-scroll memory-room-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
         <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性" resetKey={resetKey}>
