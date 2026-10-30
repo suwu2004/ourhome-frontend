@@ -101,6 +101,7 @@ export function MemoryRoom({
   const [workingMemories, setWorkingMemories] = useState([]);
   const [workingLoading, setWorkingLoading] = useState(false);
   const [workingError, setWorkingError] = useState('');
+  const [workingRefreshKey, setWorkingRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!visible) return undefined;
@@ -120,7 +121,7 @@ export function MemoryRoom({
         if (!cancelled) setWorkingLoading(false);
       });
     return () => { cancelled = true; };
-  }, [visible]);
+  }, [visible, workingRefreshKey]);
 
   const coreMemories = useMemo(
     () => memories.filter(memory => memory.memory_tier === 'core' || memory.is_protected),
@@ -150,11 +151,14 @@ export function MemoryRoom({
         <span style={{ flex: 1, fontSize: 16, fontWeight: 700, color: C.text, letterSpacing: ".04em" }}>✦ 陆泽的大脑</span>
         <button
           type="button"
-          onClick={refreshMemories}
-          disabled={memoriesLoading}
-          aria-label="刷新记忆"
-          title="刷新记忆"
-          style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, width: 36, height: 36, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', fontSize: 19, lineHeight: 1, cursor: memoriesLoading ? 'wait' : 'pointer', opacity: memoriesLoading ? 0.6 : 1 }}
+          onClick={() => {
+            refreshMemories();
+            setWorkingRefreshKey(key => key + 1);
+          }}
+          disabled={memoriesLoading || workingLoading}
+          aria-label="刷新全部记忆"
+          title="刷新全部记忆"
+          style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, width: 36, height: 36, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', fontSize: 19, lineHeight: 1, cursor: memoriesLoading || workingLoading ? 'wait' : 'pointer', opacity: memoriesLoading || workingLoading ? 0.6 : 1 }}
         >🔄</button>
       </header>
       <div className="ourhome-scroll memory-room-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
