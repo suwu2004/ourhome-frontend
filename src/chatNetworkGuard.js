@@ -1,6 +1,7 @@
 const RETRYABLE_CHAT_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RECOVERY_WINDOW_MS = 5 * 60 * 1000;
-const PERSISTED_SEND_TTL_MS = 15 * 60 * 1000;
+// Keep the idempotency marker across Android process eviction and long background pauses.
+const PERSISTED_SEND_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const PERSISTED_SEND_STORAGE_KEY = 'ourhome_chat_pending_sends:v1';
 const MAX_PERSISTED_SENDS = 6;
 const DIRECT_BACKEND = String(import.meta.env?.VITE_DIRECT_BACKEND_URL || 'https://ourhome-backend.onrender.com').replace(/\/$/, '');
