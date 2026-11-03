@@ -28,7 +28,7 @@ import {
   requestNativeNotificationPermission,
   syncNativeScheduleReminders,
 } from './nativeNotifications.js';
-import { normalizeModelOptions, normalizeCalendarDayColors, newestFirst, oldestFirst, formatMsgTime, mapDbMessage, shanghaiDateKey, createRequestError, isModelUnavailableError, isVisionUnavailableError, isEmptyModelResponseError, friendlyGenerationError } from './appHelpers.js';
+import { normalizeModelOptions, normalizeCalendarDayColors, newestFirst, oldestFirst, formatMsgTime, mapDbMessage, shanghaiDateKey, createRequestError, isModelUnavailableError, isVisionUnavailableError, isEmptyModelResponseError, friendlyGenerationError, orderFavorites, readJson, urlBase64ToUint8Array, pushKeysMatch } from './appHelpers.js';
 
 const SESSION_KEY = "ourhome_session_id";
 const MAX_BACKGROUND_IMAGE_BYTES = 6 * 1024 * 1024;
@@ -1622,12 +1622,6 @@ export default function App({ initialView = 'chat', onHome }) {
     setDrawerOpen(false);
     setMemoriesLoading(true);
     setMemoryLoadError('');
-    const readJson = async (response, fallbackMessage) => {
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error || fallbackMessage);
-      if (data == null) throw new Error(fallbackMessage);
-      return data;
-    };
     Promise.all([
       apiFetch(`${BACKEND}/memories`).then(response => readJson(response, '长期记忆读取失败，原有内容已保留。')),
       apiFetch(`${BACKEND}/memory-favorites`).then(response => readJson(response, '记忆收藏读取失败，原有内容已保留。')),
@@ -1724,13 +1718,6 @@ export default function App({ initialView = 'chat', onHome }) {
       setMemoryActionError(error?.message || '删除没有完成，请稍后重试。');
     }
   };
-
-  const orderFavorites = (items) => [...items].sort((left, right) => {
-    if (Boolean(left.is_pinned) !== Boolean(right.is_pinned)) return left.is_pinned ? -1 : 1;
-    const rightTime = Date.parse(right.created_at || '') || 0;
-    const leftTime = Date.parse(left.created_at || '') || 0;
-    return rightTime - leftTime;
-  });
 
   const saveManualFavorite = async () => {
     if (savingFavorite) return;
@@ -1954,23 +1941,6 @@ export default function App({ initialView = 'chat', onHome }) {
       removeTokenListener();
     };
   }, []);
-
-  function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
-    return outputArray;
-  }
-
-  function pushKeysMatch(subscription, expectedKey) {
-    const existingKey = subscription?.options?.applicationServerKey;
-    if (!existingKey) return false;
-    const existing = new Uint8Array(existingKey);
-    if (existing.length !== expectedKey.length) return false;
-    return existing.every((value, index) => value === expectedKey[index]);
-  }
 
   const enablePushNotifications = async () => {
     if (isNativeAndroidApp()) {

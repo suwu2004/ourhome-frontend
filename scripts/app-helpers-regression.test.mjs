@@ -13,6 +13,10 @@ import {
   isVisionUnavailableError,
   isEmptyModelResponseError,
   friendlyGenerationError,
+  orderFavorites,
+  readJson,
+  urlBase64ToUint8Array,
+  pushKeysMatch,
 } from '../src/appHelpers.js';
 
 test('model options keep the preferred model first and remove empty duplicates', () => {
@@ -99,4 +103,49 @@ test('model failure classification and friendly messages remain stable', () => {
   assert.equal(isEmptyModelResponseError({ message: '模型返回了空正文' }), true);
   assert.equal(friendlyGenerationError({ code: 'empty_model_response' }, '重新生成'), '模型这次没有返回正文。消息还在，直接重新生成就好。');
   assert.equal(friendlyGenerationError({ message: 'network down' }), 'network down');
+});
+
+test('favorite ordering puts pinned entries first, then newest first, without mutating input', () => {
+  const rows = [
+    { id: 1, is_pinned: false, created_at: '2026-11-03T08:00:00Z' },
+    { id: 2, is_pinned: true, created_at: '2026-11-02T08:00:00Z' },
+    { id: 3, is_pinned: false, created_at: '2026-11-03T09:00:00Z' },
+    { id: 4, is_pinned: true, created_at: '2026-11-03T07:00:00Z' },
+  ];
+  assert.deepEqual(orderFavorites(rows).map(row => row.id), [4, 2, 3, 1]);
+  assert.deepEqual(rows.map(row => row.id), [1, 2, 3, 4]);
+});
+
+test('JSON response reader rejects HTTP errors and malformed response bodies safely', async () => {
+  assert.deepEqual(await readJson({
+    ok: true,
+    json: async () => ({ value: 42 }),
+  }, 'fallback'), { value: 42 });
+  await assert.rejects(
+    readJson({ ok: false, json: async () => ({ error: 'server error' }) }, 'fallback'),
+    /server error/,
+  );
+  await assert.rejects(
+    readJson({ ok: true, json: async () => { throw new Error('invalid json'); } }, 'fallback'),
+    /fallback/,
+  );
+  await assert.rejects(
+    readJson({ ok: true, json: async () => null }, 'fallback'),
+    /fallback/,
+  );
+});
+
+test('base64url application server keys decode to their exact byte sequence', () => {
+  const expected = Uint8Array.from([1, 2, 250, 251, 255]);
+  const encoded = Buffer.from(expected).toString('base64url');
+  assert.deepEqual(urlBase64ToUint8Array(encoded), expected);
+});
+
+test('push subscription matching compares exact application server key bytes', () => {
+  const expected = Uint8Array.from([4, 8, 15, 16, 23, 42]);
+  const same = { options: { applicationServerKey: expected.buffer.slice(0) } };
+  const different = { options: { applicationServerKey: Uint8Array.from([4, 8, 15, 16, 23, 43]).buffer } };
+  assert.equal(pushKeysMatch(same, expected), true);
+  assert.equal(pushKeysMatch(different, expected), false);
+  assert.equal(pushKeysMatch({}, expected), false);
 });
