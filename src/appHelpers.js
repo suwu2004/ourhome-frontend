@@ -96,3 +96,35 @@ export function friendlyGenerationError(error, retryAction = '再试一次') {
   }
   return error?.message || '连接好像有点问题，请再试一次。';
 }
+export function orderFavorites(items) {
+  return [...items].sort((left, right) => {
+    if (Boolean(left.is_pinned) !== Boolean(right.is_pinned)) return left.is_pinned ? -1 : 1;
+    const rightTime = Date.parse(right.created_at || '') || 0;
+    const leftTime = Date.parse(left.created_at || '') || 0;
+    return rightTime - leftTime;
+  });
+}
+
+export async function readJson(response, fallbackMessage) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || fallbackMessage);
+  if (data == null) throw new Error(fallbackMessage);
+  return data;
+}
+
+export function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = globalThis.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+export function pushKeysMatch(subscription, expectedKey) {
+  const existingKey = subscription?.options?.applicationServerKey;
+  if (!existingKey) return false;
+  const existing = new Uint8Array(existingKey);
+  if (existing.length !== expectedKey.length) return false;
+  return existing.every((value, index) => value === expectedKey[index]);
+}
