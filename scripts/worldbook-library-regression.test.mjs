@@ -28,6 +28,13 @@ test('active memory stays separate while the three automatic layers share one ov
   assert.doesNotMatch(memory, /title="记忆分层"/);
 });
 
+test('memory refresh uses the same clean typographic glyph as API usage records', () => {
+  assert.match(memory, /aria-label="刷新全部记忆"/);
+  assert.match(memory, /fontFamily: 'Arial, sans-serif', fontSize: 20/);
+  assert.match(memory, />↻<\/button>/);
+  assert.doesNotMatch(memory, />🔄<\/button>/);
+});
+
 test('worldbook shelf keeps creation upload activation and scope simple', () => {
   assert.match(worldbooks, /手动创建/);
   assert.match(worldbooks, /上传文件/);
