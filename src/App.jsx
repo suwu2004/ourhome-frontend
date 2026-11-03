@@ -71,6 +71,7 @@ export default function App({ initialView = 'chat', onHome }) {
   const [chatHistoryBefore, setChatHistoryBefore] = useState('');
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
   const [thinking, setThinking] = useState(false);
+  const sendLockRef = useRef(false);
   const [scrollToMsgId, setScrollToMsgId] = useState(null);
   const [highlightMsgId, setHighlightMsgId] = useState(null);
   const [highlightQuery, setHighlightQuery] = useState('');
@@ -2075,7 +2076,9 @@ export default function App({ initialView = 'chat', onHome }) {
       await saveEditMsg(modelOverride);
       return;
     }
-    if ((!input.trim() && !pendingFile) || !sessionId || thinking || messageActionLoading) return;
+    if ((!input.trim() && !pendingFile) || !sessionId || thinking || messageActionLoading || sendLockRef.current) return;
+    // React state updates are asynchronous; this ref closes the same-tick double-submit gap.
+    sendLockRef.current = true;
     const txt = input.trim();
     const requestModel = String(modelOverride || '').trim() || selectedModelRef.current || selectedModel;
     const sendingSessionId = sessionId;
@@ -2159,6 +2162,7 @@ export default function App({ initialView = 'chat', onHome }) {
       }]);
       setVisible(v => v + 1);
     } finally {
+      sendLockRef.current = false;
       setThinking(false);
     }
   };
