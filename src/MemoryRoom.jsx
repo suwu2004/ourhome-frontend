@@ -158,8 +158,8 @@ export function MemoryRoom({
           disabled={memoriesLoading || workingLoading}
           aria-label="刷新全部记忆"
           title="刷新全部记忆"
-          style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, width: 36, height: 36, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit', fontSize: 19, lineHeight: 1, cursor: memoriesLoading || workingLoading ? 'wait' : 'pointer', opacity: memoriesLoading || workingLoading ? 0.6 : 1 }}
-        >🔄</button>
+          style={{ border: `1px solid ${C.border}`, borderRadius: 999, background: C.white, color: C.honeyDeep, width: 36, height: 36, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Arial, sans-serif', fontSize: 20, lineHeight: 1, cursor: memoriesLoading || workingLoading ? 'wait' : 'pointer', opacity: memoriesLoading || workingLoading ? 0.6 : 1 }}
+        >↻</button>
       </header>
       <div className="ourhome-scroll memory-room-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
         <SettingsGroup theme={C} title="人设" subtitle="陆泽的核心设定与回复随机性" resetKey={resetKey}>
