@@ -293,7 +293,7 @@ export function MemoryRoom({
                       <div className="memory-history-row" key={memory.id ?? idx}>
                         <div className="memory-history-row-head">
                           <strong>{memory.topic || '近期话题'}</strong>
-                          <span>{memory.status === 'archived' ? '已归档' : memory.status === 'expired' ? '已到期' : '已完成'}</span>
+                          <span>{memory.status === 'archived' ? '已归档' : memory.status === 'expired' ? '已到期' : memory.status === 'resolved' ? '已完成' : '较早记录 · 保留中'}</span>
                         </div>
                         <div className="memory-history-row-date">{displayDate(memory.created_at || memory.updated_at)}</div>
                         <div className="memory-history-row-summary">{memory.summary}</div>
