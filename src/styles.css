@@ -752,9 +752,9 @@ textarea { display: block; margin: 0; }
   bottom: 2px;
   display: flex;
   width: max-content;
-  transform: translateX(calc(-50% - var(--timeline-shift, 0px)));
-  transition: transform 0.8s ease;
-  will-change: transform;
+  transform: translateX(-50%);
+  transition: none;
+  will-change: auto;
 }
 
 .home-moving-scale > span {
