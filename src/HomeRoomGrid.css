@@ -271,33 +271,6 @@
   pointer-events: none;
 }
 
-.home-window-sweep {
-  position: absolute;
-  top: -18%;
-  left: -72%;
-  width: 58%;
-  height: 138%;
-  opacity: 0;
-  background: linear-gradient(104deg, transparent 8%, rgba(255, 239, 183, .08) 30%, rgba(255, 220, 126, .34) 52%, rgba(255, 247, 213, .12) 68%, transparent 88%);
-  filter: blur(8px);
-  transform: skewX(-9deg);
-  mix-blend-mode: soft-light;
-  animation: home-window-cross 13s ease-in-out infinite;
-}
-
-.home-scene--night .home-window-sweep {
-  background: linear-gradient(104deg, transparent 8%, rgba(255, 226, 154, .04) 30%, rgba(255, 202, 101, .19) 52%, rgba(255, 235, 186, .07) 68%, transparent 88%);
-  mix-blend-mode: screen;
-}
-
-@keyframes home-window-cross {
-  0% { left: -72%; opacity: 0; }
-  7% { opacity: .32; }
-  24% { left: 18%; opacity: .72; }
-  38% { left: 82%; opacity: 0; }
-  100% { left: 82%; opacity: 0; }
-}
-
 .home-weather-particles {
   position: absolute;
   inset: 0;
