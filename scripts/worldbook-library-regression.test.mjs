@@ -35,11 +35,10 @@ test('memory refresh uses the same clean typographic glyph as API usage records'
   assert.doesNotMatch(memory, />🔄<\/button>/);
 });
 
-test('temporary memory includes current notes, archived history and daily summaries', () => {
+test('temporary memory includes current notes and archived history without duplicating diary summaries', () => {
   assert.match(memory, /setWorkingHistory\(Array\.isArray\(payload\?\.historyMarks\)/);
-  assert.match(memory, /setDailySummaries\(Array\.isArray\(payload\?\.summaries\)/);
+  assert.doesNotMatch(memory, /dailySummaries|setDailySummaries|每日摘要/);
   assert.match(memory, /历史临时记忆/);
-  assert.match(memory, /每日摘要/);
   assert.match(memory, /72 小时仅用于聊天接续检索/);
   assert.match(memory, /memory\.should_continue \? '待续' : '近况'/);
   assert.match(memoryCss, /\.memory-history-disclosure/);
