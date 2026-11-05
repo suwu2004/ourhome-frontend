@@ -100,7 +100,6 @@ export function MemoryRoom({
   const [memoryLayer, setMemoryLayer] = useState('core');
   const [workingMemories, setWorkingMemories] = useState([]);
   const [workingHistory, setWorkingHistory] = useState([]);
-  const [dailySummaries, setDailySummaries] = useState([]);
   const [workingLoading, setWorkingLoading] = useState(false);
   const [workingError, setWorkingError] = useState('');
   const [workingRefreshKey, setWorkingRefreshKey] = useState(0);
@@ -117,7 +116,6 @@ export function MemoryRoom({
         if (!cancelled) {
           setWorkingMemories(Array.isArray(payload?.openMarks) ? payload.openMarks : []);
           setWorkingHistory(Array.isArray(payload?.historyMarks) ? payload.historyMarks : []);
-          setDailySummaries(Array.isArray(payload?.summaries) ? payload.summaries : []);
         }
       })
       .catch(error => {
@@ -311,23 +309,6 @@ export function MemoryRoom({
                         </div>
                         <div className="memory-history-row-date">{displayDate(memory.created_at || memory.updated_at)}</div>
                         <div className="memory-history-row-summary">{memory.summary}</div>
-                      </div>
-                    ))}
-                  </details>
-                  <details className="memory-history-disclosure">
-                    <summary>每日摘要 · {dailySummaries.length} 天</summary>
-                    {dailySummaries.length === 0 ? (
-                      <div className="memory-history-empty">还没有每日摘要。</div>
-                    ) : dailySummaries.map((summary, idx) => (
-                      <div className="memory-history-row" key={summary.summary_date || idx}>
-                        <div className="memory-history-row-head">
-                          <strong>{summary.summary_date || '每日摘要'}</strong>
-                          {summary.mood && <span>{summary.mood}</span>}
-                        </div>
-                        <div className="memory-history-row-summary">{summary.summary}</div>
-                        {Array.isArray(summary.highlights) && summary.highlights.length > 0 && (
-                          <div className="memory-history-row-date">重点：{summary.highlights.filter(Boolean).join(' · ')}</div>
-                        )}
                       </div>
                     ))}
                   </details>
