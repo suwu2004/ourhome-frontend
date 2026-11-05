@@ -10,7 +10,7 @@ const LuzeStyleLibrary = lazy(() => import('./LuzeStyleLibrary.jsx'));
 const MEMORY_LAYER_TABS = [
   { key: 'core', label: '核心记忆', description: '稳定身份、偏好、边界和重要约定' },
   { key: 'episodic', label: '阶段记忆', description: '重要经历、关系片段和项目进展' },
-  { key: 'temporary', label: '临时记忆', description: '近期没聊完、还需要接上的事情' },
+  { key: 'temporary', label: '临时记忆', description: '近期近况、待续话题与历史记录' },
 ];
 
 const MEMORY_KIND_LABELS = {
@@ -99,6 +99,8 @@ export function MemoryRoom({
 }) {
   const [memoryLayer, setMemoryLayer] = useState('core');
   const [workingMemories, setWorkingMemories] = useState([]);
+  const [workingHistory, setWorkingHistory] = useState([]);
+  const [dailySummaries, setDailySummaries] = useState([]);
   const [workingLoading, setWorkingLoading] = useState(false);
   const [workingError, setWorkingError] = useState('');
   const [workingRefreshKey, setWorkingRefreshKey] = useState(0);
@@ -112,7 +114,11 @@ export function MemoryRoom({
       .then(async response => {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload?.error || '临时记忆没有打开');
-        if (!cancelled) setWorkingMemories(Array.isArray(payload?.openMarks) ? payload.openMarks : []);
+        if (!cancelled) {
+          setWorkingMemories(Array.isArray(payload?.openMarks) ? payload.openMarks : []);
+          setWorkingHistory(Array.isArray(payload?.historyMarks) ? payload.historyMarks : []);
+          setDailySummaries(Array.isArray(payload?.summaries) ? payload.summaries : []);
+        }
       })
       .catch(error => {
         if (!cancelled) setWorkingError(error.message || '临时记忆没有打开');
@@ -134,6 +140,10 @@ export function MemoryRoom({
   const activeWorkingMemories = useMemo(
     () => workingMemories.filter(memory => !memory.expires_at || Date.parse(memory.expires_at) > Date.now()),
     [workingMemories],
+  );
+  const historicalWorkingMemories = useMemo(
+    () => workingHistory.filter(memory => ['archived', 'expired', 'resolved'].includes(memory.status)),
+    [workingHistory],
   );
 
   const selectedPersistentMemories = memoryLayer === 'core' ? coreMemories : episodicMemories;
@@ -255,21 +265,60 @@ export function MemoryRoom({
           </div>
           {memoryLayer === 'temporary' ? (
             <>
-              {workingLoading && <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: '20px 0' }}>整理近期话题中…</div>}
+              {workingLoading && <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, padding: '20px 0' }}>整理近期记忆中…</div>}
               {!workingLoading && workingError && <div style={{ fontSize: 11.5, lineHeight: 1.6, color: C.blushDeep, padding: '10px 0' }}>{workingError}</div>}
               {!workingLoading && !workingError && activeWorkingMemories.length === 0 && (
-                <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, letterSpacing: '.08em', padding: '20px 0' }}>现在没有挂着没聊完的事情。</div>
+                <div style={{ textAlign: 'center', fontSize: 12, color: C.muted, letterSpacing: '.04em', padding: '20px 0' }}>目前没有仍在保留期内的临时记忆。</div>
               )}
               {!workingLoading && !workingError && activeWorkingMemories.map((memory, idx) => (
                 <div key={memory.id ?? idx} style={{ marginBottom: 13, paddingBottom: 13, borderBottom: idx === activeWorkingMemories.length - 1 ? 'none' : `1px solid ${C.borderLight}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 5 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: C.honeyDeep }}>{memory.topic || '近期话题'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: C.honeyDeep }}>{memory.topic || '近期话题'}</span>
+                      <span style={{ flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: C.honeyLight, color: C.honeyDeep, fontSize: 9 }}>{memory.should_continue ? '待续' : '近况'}</span>
+                    </div>
                     <span style={{ fontSize: 9.5, color: C.mutedLight, flexShrink: 0 }}>{displayDate(memory.created_at)}</span>
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.7, color: C.text, whiteSpace: 'pre-wrap' }}>{memory.summary}</div>
-                  <div style={{ marginTop: 6, fontSize: 9.5, color: C.mutedLight }}>会在话题结束、被新进展替代或到期后自然归档。</div>
+                  <div style={{ marginTop: 6, fontSize: 9.5, color: C.mutedLight }}>{memory.expires_at ? `按记录保留至 ${displayDate(memory.expires_at)}` : '未设置固定到期时间'} · 72 小时仅用于聊天接续检索</div>
                 </div>
               ))}
+              {!workingLoading && !workingError && (
+                <>
+                  <details className="memory-history-disclosure">
+                    <summary>历史临时记忆 · {historicalWorkingMemories.length} 条</summary>
+                    {historicalWorkingMemories.length === 0 ? (
+                      <div className="memory-history-empty">还没有历史记录。</div>
+                    ) : historicalWorkingMemories.map((memory, idx) => (
+                      <div className="memory-history-row" key={memory.id ?? idx}>
+                        <div className="memory-history-row-head">
+                          <strong>{memory.topic || '近期话题'}</strong>
+                          <span>{memory.status === 'archived' ? '已归档' : memory.status === 'expired' ? '已到期' : '已完成'}</span>
+                        </div>
+                        <div className="memory-history-row-date">{displayDate(memory.created_at || memory.updated_at)}</div>
+                        <div className="memory-history-row-summary">{memory.summary}</div>
+                      </div>
+                    ))}
+                  </details>
+                  <details className="memory-history-disclosure">
+                    <summary>每日摘要 · {dailySummaries.length} 天</summary>
+                    {dailySummaries.length === 0 ? (
+                      <div className="memory-history-empty">还没有每日摘要。</div>
+                    ) : dailySummaries.map((summary, idx) => (
+                      <div className="memory-history-row" key={summary.summary_date || idx}>
+                        <div className="memory-history-row-head">
+                          <strong>{summary.summary_date || '每日摘要'}</strong>
+                          {summary.mood && <span>{summary.mood}</span>}
+                        </div>
+                        <div className="memory-history-row-summary">{summary.summary}</div>
+                        {Array.isArray(summary.highlights) && summary.highlights.length > 0 && (
+                          <div className="memory-history-row-date">重点：{summary.highlights.filter(Boolean).join(' · ')}</div>
+                        )}
+                      </div>
+                    ))}
+                  </details>
+                </>
+              )}
             </>
           ) : (
             <>

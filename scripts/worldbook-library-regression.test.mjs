@@ -35,6 +35,16 @@ test('memory refresh uses the same clean typographic glyph as API usage records'
   assert.doesNotMatch(memory, />🔄<\/button>/);
 });
 
+test('temporary memory includes current notes, archived history and daily summaries', () => {
+  assert.match(memory, /setWorkingHistory\(Array\.isArray\(payload\?\.historyMarks\)/);
+  assert.match(memory, /setDailySummaries\(Array\.isArray\(payload\?\.summaries\)/);
+  assert.match(memory, /历史临时记忆/);
+  assert.match(memory, /每日摘要/);
+  assert.match(memory, /72 小时仅用于聊天接续检索/);
+  assert.match(memory, /memory\.should_continue \? '待续' : '近况'/);
+  assert.match(memoryCss, /\.memory-history-disclosure/);
+});
+
 test('worldbook shelf keeps creation upload activation and scope simple', () => {
   assert.match(worldbooks, /手动创建/);
   assert.match(worldbooks, /上传文件/);
