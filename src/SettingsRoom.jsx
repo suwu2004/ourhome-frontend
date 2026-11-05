@@ -149,7 +149,7 @@ export function SettingsRoom(props) {
               <input type="time" value={dailyJournalTime} disabled={!dailyJournalEnabled} onChange={event => { setDailyJournalTime(event.target.value); setDailyJournalSaved(false); }} style={{ flex: 1, minWidth: 0, padding: '8px 10px', color: C.text, background: C.cream, border: `1px solid ${C.border}`, borderRadius: 10, fontSize: 12 }} />
               <button type="button" onClick={saveDailyJournalSchedule} style={{ padding: '8px 13px', color: C.white, background: C.honey, border: 0, borderRadius: 10, cursor: 'pointer', fontSize: 11.5 }}>保存</button>
             </div>
-            <div style={{ marginTop: 6, color: dailyJournalSaved ? C.honeyDeep : C.muted, fontSize: 9.5 }}>{dailyJournalSaved ? '已经按中国时间保存好。' : '按中国时间执行；记忆页的今日摘要会按聊天另行整理。'}</div>
+            <div style={{ marginTop: 6, color: dailyJournalSaved ? C.honeyDeep : C.muted, fontSize: 9.5 }}>{dailyJournalSaved ? '已经按中国时间保存好。' : '按中国时间执行；每日摘要只在幸福日记中查看。'}</div>
           </div>
           <div style={{ padding: 12, marginBottom: 18, background: C.white, border: `1px solid ${C.border}`, borderRadius: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
