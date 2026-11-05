@@ -186,3 +186,31 @@
   background: var(--night-surface-raised);
   color: var(--night-text);
 }
+
+
+:root[data-theme="dark"] .memory-history-disclosure {
+  border-color: var(--night-border);
+}
+
+:root[data-theme="dark"] .memory-history-disclosure > summary {
+  color: var(--night-honey);
+}
+
+:root[data-theme="dark"] .memory-history-disclosure > summary::after {
+  color: var(--night-muted);
+}
+
+:root[data-theme="dark"] .memory-history-row {
+  border-color: var(--night-border);
+}
+
+:root[data-theme="dark"] .memory-history-row-head,
+:root[data-theme="dark"] .memory-history-row-summary {
+  color: var(--night-text);
+}
+
+:root[data-theme="dark"] .memory-history-row-head span,
+:root[data-theme="dark"] .memory-history-row-date,
+:root[data-theme="dark"] .memory-history-empty {
+  color: var(--night-muted);
+}
