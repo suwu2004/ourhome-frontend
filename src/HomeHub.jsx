@@ -488,8 +488,7 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
             <span>{city ? `${weather?.displayName || city} · ${weatherLine}` : weatherLine}</span>
           </div>
           <div className="home-timeline-window">
-            <span className="home-now-glow" aria-hidden="true" />
-            <div className="home-moving-scale" style={{ '--timeline-shift': `${timeline.offset * 68}px` }} aria-hidden="true">
+            <div className="home-moving-scale" aria-hidden="true">
               {timeline.ticks.map(tick => <span className={tick.major ? 'is-major' : ''} key={tick.key}><i /><b>{tick.label}</b></span>)}
             </div>
             <button className="home-companion-station" type="button" onClick={() => onOpen('calendar')} aria-label="打开心情日历" title="心情日历"><MoodCalendarMark /></button>
