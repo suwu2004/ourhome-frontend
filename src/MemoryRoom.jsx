@@ -280,6 +280,20 @@ export function MemoryRoom({
                     <span style={{ fontSize: 9.5, color: C.mutedLight, flexShrink: 0 }}>{displayDate(memory.created_at)}</span>
                   </div>
                   <div style={{ fontSize: 13, lineHeight: 1.7, color: C.text, whiteSpace: 'pre-wrap' }}>{memory.summary}</div>
+                  {Array.isArray(memory.metadata?.memory_versions) && memory.metadata.memory_versions.length > 0 && (
+                    <details className="memory-history-disclosure">
+                      <summary>合并前的摘要 · {memory.metadata.memory_versions.length} 条</summary>
+                      {memory.metadata.memory_versions.slice().reverse().map((version, versionIndex) => (
+                        <div className="memory-history-row" key={version.message_id || version.recorded_at || versionIndex}>
+                          <div className="memory-history-row-head">
+                            <strong>{version.topic || '较早的话题'}</strong>
+                            <span>{displayDate(version.recorded_at)}</span>
+                          </div>
+                          <div className="memory-history-row-summary">{version.summary}</div>
+                        </div>
+                      ))}
+                    </details>
+                  )}
                   <div style={{ marginTop: 6, fontSize: 9.5, color: C.mutedLight }}>{memory.expires_at ? `按记录保留至 ${displayDate(memory.expires_at)}` : '未设置固定到期时间'} · 72 小时仅用于聊天接续检索</div>
                 </div>
               ))}
