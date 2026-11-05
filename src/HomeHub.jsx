@@ -467,7 +467,6 @@ export function HomeHub({ onOpen, onRefresh, refreshToken = 0 }) {
     <main className={`home-scene ourhome-shell ${darkMode ? 'home-scene--night' : 'home-scene--day'} home-scene--weather-${atmosphere} ${homeBackground ? 'home-scene--custom' : ''}`} style={homeBackgroundStyle}>
       <div className="home-room-light" aria-hidden="true"><i /><i /><i /></div>
       <div className="home-atmosphere" aria-hidden="true">
-        <i className="home-window-sweep" />
         <div className="home-weather-particles">
           {Array.from({ length: 12 }, (_, index) => <span key={index} />)}
         </div>
