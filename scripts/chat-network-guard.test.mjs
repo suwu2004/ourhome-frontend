@@ -128,7 +128,8 @@ test('an unfinished Chat send survives a page refresh and the rebuilt page perfo
     body: JSON.stringify({ session_id: 22, message: 'survive refresh', model: 'model-a' }),
   };
   const info = guardTest.chatRequestInfo('https://ourhome.example/api/chat', options);
-  info.startedAt = Date.now() - 40_000;
+  // Simulate Android suspending or evicting the WebView for several hours.
+  info.startedAt = Date.now() - 6 * 60 * 60 * 1000;
   guardTest.rememberPendingSend(info, 'chat-before-refresh-12345678');
 
   const response = await globalThis.fetch('https://ourhome.example/api/chat', options);
