@@ -17,7 +17,36 @@ import {
   readJson,
   urlBase64ToUint8Array,
   pushKeysMatch,
+  isSessionSummaryNewer,
+  formatSessionSummaryUpdatedAt,
 } from '../src/appHelpers.js';
+
+test('session summary sync accepts newer rows but ignores stale polling responses', () => {
+  const current = {
+    id: 1,
+    updated_at: '2026-11-06T10:00:00.000Z',
+    message_count: 30,
+    last_message_id: 120,
+    summary: '旧简介',
+  };
+  const newer = {
+    ...current,
+    updated_at: '2026-11-06T10:01:00.000Z',
+    message_count: 40,
+    last_message_id: 140,
+    summary: '新简介',
+  };
+  const stale = { ...current, updated_at: '2026-11-06T09:59:00.000Z', message_count: 20 };
+  assert.equal(isSessionSummaryNewer(current, newer), true);
+  assert.equal(isSessionSummaryNewer(current, stale), false);
+  assert.equal(isSessionSummaryNewer(null, current), true);
+  assert.equal(isSessionSummaryNewer(current, null), false);
+});
+
+test('session summary update label uses Shanghai time and handles invalid dates', () => {
+  assert.equal(formatSessionSummaryUpdatedAt('2026-11-06T10:00:00.000Z'), '11/06 18:00');
+  assert.equal(formatSessionSummaryUpdatedAt('invalid'), '');
+});
 
 test('model options keep the preferred model first and remove empty duplicates', () => {
   assert.deepEqual(normalizeModelOptions(['a', 'b', 'a', ''], ' b '), ['b', 'a']);
