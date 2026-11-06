@@ -5,6 +5,46 @@ export function normalizeModelOptions(models, preferredModel = '') {
   return [...new Set([preferredModel, ...list].map(model => String(model || '').trim()).filter(Boolean))];
 }
 
+export function isSessionSummaryNewer(current, incoming) {
+  if (!incoming?.id) return false;
+  if (!current?.id) return true;
+
+  const incomingTime = Date.parse(incoming.updated_at || '');
+  const currentTime = Date.parse(current.updated_at || '');
+  if (Number.isFinite(incomingTime) && Number.isFinite(currentTime) && incomingTime !== currentTime) {
+    return incomingTime > currentTime;
+  }
+  if (Number.isFinite(incomingTime) && !Number.isFinite(currentTime)) return true;
+  if (!Number.isFinite(incomingTime) && Number.isFinite(currentTime)) return false;
+
+  const incomingCount = Number(incoming.message_count) || 0;
+  const currentCount = Number(current.message_count) || 0;
+  if (incomingCount !== currentCount) return incomingCount > currentCount;
+
+  const incomingCheckpoint = Number(incoming.last_message_id);
+  const currentCheckpoint = Number(current.last_message_id);
+  if (Number.isFinite(incomingCheckpoint) && Number.isFinite(currentCheckpoint)
+    && incomingCheckpoint !== currentCheckpoint) {
+    return incomingCheckpoint > currentCheckpoint;
+  }
+  return incoming.summary !== current.summary
+    || incoming.title !== current.title
+    || incoming.last_message_id !== current.last_message_id;
+}
+
+export function formatSessionSummaryUpdatedAt(value) {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
 export function normalizeCalendarDayColors(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return Object.fromEntries(Object.entries(value).filter(([date, color]) => (
