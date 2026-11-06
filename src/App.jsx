@@ -28,7 +28,7 @@ import {
   requestNativeNotificationPermission,
   syncNativeScheduleReminders,
 } from './nativeNotifications.js';
-import { normalizeModelOptions, normalizeCalendarDayColors, newestFirst, oldestFirst, formatMsgTime, mapDbMessage, shanghaiDateKey, createRequestError, isModelUnavailableError, isVisionUnavailableError, isEmptyModelResponseError, friendlyGenerationError, orderFavorites, readJson, urlBase64ToUint8Array, pushKeysMatch } from './appHelpers.js';
+import { normalizeModelOptions, normalizeCalendarDayColors, newestFirst, oldestFirst, formatMsgTime, mapDbMessage, shanghaiDateKey, createRequestError, isModelUnavailableError, isVisionUnavailableError, isEmptyModelResponseError, friendlyGenerationError, orderFavorites, readJson, urlBase64ToUint8Array, pushKeysMatch, isSessionSummaryNewer } from './appHelpers.js';
 
 const SESSION_KEY = "ourhome_session_id";
 const MAX_BACKGROUND_IMAGE_BYTES = 6 * 1024 * 1024;
@@ -161,6 +161,39 @@ export default function App({ initialView = 'chat', onHome }) {
   useEffect(() => {
     sessionIdRef.current = sessionId;
   }, [sessionId]);
+
+  // The backend may update the rolling session summary after the Chat response.
+  // Refresh only while the user has the context panel open; GET is a database read,
+  // not another paid model call. Reopening the panel always fetches the latest row.
+  useEffect(() => {
+    if (locked || view !== 'chat' || !tokenUsageOpen || !sessionId) return undefined;
+
+    const targetSessionId = String(sessionId);
+    let active = true;
+    let requestInFlight = false;
+    const refreshSummary = async () => {
+      if (requestInFlight) return;
+      requestInFlight = true;
+      try {
+        const response = await apiFetch(`${BACKEND}/sessions/${targetSessionId}/summary`);
+        if (!response.ok) return;
+        const data = await response.json().catch(() => null);
+        if (!active || String(sessionIdRef.current) !== targetSessionId || !data?.id) return;
+        setSessionSummary(current => isSessionSummaryNewer(current, data) ? data : current);
+      } catch {
+        // A temporary network failure should not disturb the last saved summary.
+      } finally {
+        requestInFlight = false;
+      }
+    };
+
+    refreshSummary();
+    const timer = window.setInterval(refreshSummary, 10_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [locked, sessionId, tokenUsageOpen, view]);
 
   useEffect(() => {
     if (view !== 'settings') return;
