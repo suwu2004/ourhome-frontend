@@ -1,9 +1,8 @@
 const RETRYABLE_CHAT_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RECOVERY_WINDOW_MS = 5 * 60 * 1000;
-// Match the backend's 60-minute idempotency reservation. A mobile client can
-// remain offline/backgrounded longer than the old 15-minute marker; expiring
-// it early could turn a later retry into a second paid POST.
-const PERSISTED_SEND_TTL_MS = 60 * 60 * 1000;
+// Keep an unfinished-send marker across long Android WebView pauses and process eviction.
+// Recovery with an existing marker performs history GETs only; it never repeats the paid Chat POST.
+const PERSISTED_SEND_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const PERSISTED_SEND_STORAGE_KEY = 'ourhome_chat_pending_sends:v1';
 const MAX_PERSISTED_SENDS = 6;
 const DIRECT_BACKEND = String(import.meta.env?.VITE_DIRECT_BACKEND_URL || 'https://ourhome-backend.onrender.com').replace(/\/$/, '');
