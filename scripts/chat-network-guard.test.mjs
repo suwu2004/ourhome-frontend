@@ -128,7 +128,8 @@ test('an unfinished Chat send survives a page refresh and the rebuilt page perfo
     body: JSON.stringify({ session_id: 22, message: 'survive refresh', model: 'model-a' }),
   };
   const info = guardTest.chatRequestInfo('https://ourhome.example/api/chat', options);
-  info.startedAt = Date.now() - 40_000;
+  // Simulate Android suspending or evicting the WebView for several hours.
+  info.startedAt = Date.now() - 6 * 60 * 60 * 1000;
   guardTest.rememberPendingSend(info, 'chat-before-refresh-12345678');
 
   const response = await globalThis.fetch('https://ourhome.example/api/chat', options);
@@ -142,7 +143,7 @@ test('an unfinished Chat send survives a page refresh and the rebuilt page perfo
   assert.equal(guardTest.pendingSendFor(info), null);
 });
 
-test('an uncertain mobile send remains reserved for one hour across long offline gaps', () => {
+test('an uncertain mobile send remains reserved for seven days across long offline gaps', () => {
   const options = {
     method: 'POST',
     headers: {
@@ -152,13 +153,13 @@ test('an uncertain mobile send remains reserved for one hour across long offline
     body: JSON.stringify({ session_id: 22, message: 'late retry', model: 'model-a' }),
   };
   const info = guardTest.chatRequestInfo('https://ourhome.example/api/chat', options);
-  info.startedAt = Date.now() - 30 * 60 * 1000;
+  info.startedAt = Date.now() - 6 * 60 * 60 * 1000;
   guardTest.rememberPendingSend(info, 'chat-offline-12345678');
 
   const pending = guardTest.pendingSendFor(info);
-  assert.equal(guardTest.PERSISTED_SEND_TTL_MS, 60 * 60 * 1000);
+  assert.equal(guardTest.PERSISTED_SEND_TTL_MS, 7 * 24 * 60 * 60 * 1000);
   assert.equal(pending?.requestId, 'chat-offline-12345678');
-  assert.equal(pending?.expiresAt, info.startedAt + 60 * 60 * 1000);
+  assert.equal(pending?.expiresAt, info.startedAt + 7 * 24 * 60 * 60 * 1000);
 });
 
 test('after a completed turn clears its refresh marker, the same text can be intentionally sent again', async () => {
