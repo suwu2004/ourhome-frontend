@@ -7,6 +7,7 @@ import {
   oldestFirst,
   formatMsgTime,
   mapDbMessage,
+  readStoredThinkingSummary,
   shanghaiDateKey,
   createRequestError,
   isModelUnavailableError,
@@ -79,7 +80,7 @@ test('message mapper preserves attachments, thinking, tokens and local display t
     attachment_url: 'https://example.test/photo.png',
     attachment_type: 'image/png',
     attachment_name: 'photo.png',
-    reasoning_content: 'thinking',
+    reasoning_content: '【OurHome可见思考摘要v1】: thinking',
     input_tokens: 120,
     output_tokens: 8,
     created_at: date.toISOString(),
@@ -106,6 +107,8 @@ test('message mapper preserves attachments, thinking, tokens and local display t
     created_at: date.toISOString(),
   });
   assert.equal(file.role, 'ai');
+  assert.equal(mapDbMessage({ id: 9, role: 'assistant', content: 'legacy', reasoning_content: 'legacy raw reasoning' }).thinking, null);
+  assert.equal(readStoredThinkingSummary('【OurHome可见思考摘要v1】:   '), null);
   assert.deepEqual(file.file, { url: 'https://example.test/notes.pdf', name: 'notes.pdf' });
   assert.equal(file.image, null);
 });

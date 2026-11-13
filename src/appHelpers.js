@@ -74,6 +74,15 @@ export function formatMsgTime(date) {
   return `${hh}:${mi}`;
 }
 
+const STORED_VISIBLE_THINKING_PREFIX = '【OurHome可见思考摘要v1】: ';
+
+export function readStoredThinkingSummary(value) {
+  const stored = String(value || '');
+  if (!stored.startsWith(STORED_VISIBLE_THINKING_PREFIX)) return null;
+  const summary = stored.slice(STORED_VISIBLE_THINKING_PREFIX.length).trim();
+  return summary || null;
+}
+
 export function mapDbMessage(m) {
   return {
     id: m.id,
@@ -81,7 +90,7 @@ export function mapDbMessage(m) {
     text: m.content,
     image: (m.attachment_url && (!m.attachment_type || m.attachment_type.startsWith('image/'))) ? m.attachment_url : null,
     file: (m.attachment_url && m.attachment_type && !m.attachment_type.startsWith('image/')) ? { url: m.attachment_url, name: m.attachment_name || '文件' } : null,
-    thinking: m.reasoning_content || null,
+    thinking: readStoredThinkingSummary(m.reasoning_content),
     inputTokens: m.input_tokens || 0,
     outputTokens: m.output_tokens || 0,
     thinkingOpen: false,

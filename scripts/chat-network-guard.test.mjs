@@ -8,6 +8,7 @@ const originalLocalStorage = globalThis.localStorage;
 
 let mode = 'dedupe';
 let historyMessage = 'recover me';
+let historyReasoning = 'native thought';
 let postCalls = 0;
 let historyCalls = 0;
 const storageValues = new Map();
@@ -46,7 +47,7 @@ globalThis.fetch = async (input, init = {}) => {
     historyCalls += 1;
     return new Response(JSON.stringify([
       { id: 77, session_id: 22, role: 'user', content: historyMessage, attachment_url: null, created_at: new Date().toISOString() },
-      { id: 78, session_id: 22, role: 'assistant', content: 'recovered reply', reasoning_content: 'native thought', requested_model: 'model-a', model_name: 'model-a', input_tokens: 10, output_tokens: 20, created_at: new Date(Date.now() + 10).toISOString() },
+      { id: 78, session_id: 22, role: 'assistant', content: 'recovered reply', reasoning_content: historyReasoning, requested_model: 'model-a', model_name: 'model-a', input_tokens: 10, output_tokens: 20, created_at: new Date(Date.now() + 10).toISOString() },
     ]), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
   throw new Error(`unexpected fetch ${method} ${url}`);
@@ -55,6 +56,7 @@ globalThis.fetch = async (input, init = {}) => {
 const { __chatNetworkGuardTest: guardTest } = await import(`../src/chatNetworkGuard.js?test=${Date.now()}`);
 
 test.afterEach(() => {
+  historyReasoning = 'native thought';
   guardTest.clearPersistedSendsForTest();
 });
 
@@ -92,6 +94,7 @@ test('two concurrent copies of one Chat send produce one POST', async () => {
 
 test('a lost Chat response is recovered with GET only and never POSTed twice', async () => {
   mode = 'recover';
+  historyReasoning = '【OurHome可见思考摘要v1】: 我先核对这条消息的重点，再补回回复。';
   historyMessage = 'recover me';
   postCalls = 0;
   historyCalls = 0;
@@ -108,6 +111,7 @@ test('a lost Chat response is recovered with GET only and never POSTed twice', a
   assert.equal(postCalls, 1);
   assert.equal(historyCalls, 1);
   assert.equal(data.reply, 'recovered reply');
+  assert.equal(data.thinking, '我先核对这条消息的重点，再补回回复。');
   assert.equal(data.recoveredAfterNetworkLoss, true);
   assert.equal(response.headers.get('X-OurHome-Chat-Recovered'), '1');
 });
