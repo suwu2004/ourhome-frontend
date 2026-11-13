@@ -1,3 +1,5 @@
+import { readStoredThinkingSummary } from './appHelpers.js';
+
 const RETRYABLE_CHAT_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RECOVERY_WINDOW_MS = 5 * 60 * 1000;
 // Keep an unfinished-send marker across long Android WebView pauses and process eviction.
@@ -226,7 +228,7 @@ function matchingRecoveredTurn(rows, info) {
     pending: false,
     payload: {
       reply: String(assistant.content || ''),
-      thinking: assistant.reasoning_content || null,
+      thinking: readStoredThinkingSummary(assistant.reasoning_content),
       id: assistant.id,
       createdAt: assistant.created_at,
       userMessage: { id: user.id, createdAt: user.created_at },
