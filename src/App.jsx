@@ -2180,7 +2180,7 @@ export default function App({ initialView = 'chat', onHome }) {
     } catch (err) {
       if (sessionIdRef.current !== sendingSessionId) return;
       if (!isModelUnavailableError(err)) console.error(err);
-      const friendlyError = friendlyGenerationError(err, '发送消息');
+      const friendlyError = friendlyGenerationError(err, '重新发送');
       setMessageActionError(friendlyError);
       const errorCreatedAt = new Date().toISOString();
       setMsgs(ms => [...ms, {
