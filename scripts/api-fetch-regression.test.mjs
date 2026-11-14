@@ -334,8 +334,12 @@ test('cloud recheck rotates across stale endpoints and never clears unrelated fa
     });
   };
 
-  assert.equal(await fresh.recheckCloudSync(), false, 'one recovered route must not clear another stale route');
-  assert.ok(probed.some(url => url.includes('/milestones')), 'the next probe must rotate to milestones');
+  assert.equal(await fresh.recheckCloudSync(), false, 'a failed settings probe must leave both paths stale');
+  assert.ok(probed.some(url => url.includes('/settings')), 'the first check probes only the current target');
+  assert.deepEqual(fresh.getCloudSyncState().paths, ['/api/settings', '/api/milestones']);
+
+  assert.equal(await fresh.recheckCloudSync(), false, 'a recovered milestones route must not clear the failing settings route');
+  assert.ok(probed.some(url => url.includes('/milestones')), 'the next recheck must rotate to milestones');
   assert.deepEqual(fresh.getCloudSyncState().paths, ['/api/settings']);
 
   globalThis.fetch = async url => new Response('{"dark_mode":true}', {
