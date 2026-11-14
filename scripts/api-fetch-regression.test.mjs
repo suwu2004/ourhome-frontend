@@ -306,6 +306,50 @@ test('one stale recheck stops the round instead of probing every cached home end
   assert.equal(fresh.getCloudSyncState().paths.length, 2);
 });
 
+test('cloud recheck rotates across stale endpoints and never clears unrelated failures', async () => {
+  const fresh = await import(`../src/api.js?cloud-recheck-rotation=${Date.now()}`);
+  storage.set('ourhome_token', 'test-token');
+  fresh.clearOurHomePrivateCache();
+
+  globalThis.fetch = async url => new Response(
+    String(url).includes('settings') ? '{"dark_mode":false}' : '[{"id":"m1"}]',
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
+  );
+  await fresh.apiFetch('/api/settings');
+  await fresh.apiFetch('/api/milestones');
+
+  globalThis.fetch = async () => { throw new TypeError('shared cloud outage'); };
+  await fresh.apiFetch('/api/settings');
+  await fresh.apiFetch('/api/milestones');
+  assert.deepEqual(fresh.getCloudSyncState().paths, ['/api/settings', '/api/milestones']);
+
+  const probed = [];
+  globalThis.fetch = async url => {
+    const value = String(url);
+    probed.push(value);
+    if (value.includes('/settings')) throw new TypeError('settings route remains unavailable');
+    return new Response('[{"id":"m1"}]', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  assert.equal(await fresh.recheckCloudSync(), false, 'a failed settings probe must leave both paths stale');
+  assert.ok(probed.some(url => url.includes('/settings')), 'the first check probes only the current target');
+  assert.deepEqual(fresh.getCloudSyncState().paths, ['/api/settings', '/api/milestones']);
+
+  assert.equal(await fresh.recheckCloudSync(), false, 'a recovered milestones route must not clear the failing settings route');
+  assert.ok(probed.some(url => url.includes('/milestones')), 'the next recheck must rotate to milestones');
+  assert.deepEqual(fresh.getCloudSyncState().paths, ['/api/settings']);
+
+  globalThis.fetch = async url => new Response('{"dark_mode":true}', {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+  assert.equal(await fresh.recheckCloudSync(), true);
+  assert.equal(fresh.getCloudSyncState().state, 'online');
+});
+
 test('chat and session reads use their own device snapshot after both routes fail', async () => {
   let calls = 0;
   globalThis.fetch = async () => {
