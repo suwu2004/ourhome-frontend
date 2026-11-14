@@ -287,28 +287,59 @@ async function waitForCacheWrites(cacheWrites, disablePendingWrites) {
 }
 
 let cloudRecheckPromise = null;
+let nextCloudRecheckUrl = '';
+
+function chooseCloudRecheckTarget() {
+  const entries = [...staleCloudReads.values()];
+  const quotaUrls = [...new Set(entries
+    .filter(value => value?.reason === 'quota')
+    .map(value => value?.logicalUrl)
+    .filter(Boolean))];
+  const logicalUrls = [...new Set(entries.map(value => value?.logicalUrl).filter(Boolean))];
+  // A confirmed quota probe can reopen the shared data plane. Otherwise rotate
+  // one unreachable endpoint per recheck so one permanently broken route cannot
+  // prevent healthy endpoints from clearing their own stale state.
+  const candidates = quotaUrls.length ? quotaUrls : logicalUrls;
+  if (!candidates.length) return null;
+  const selected = candidates.includes(nextCloudRecheckUrl)
+    ? nextCloudRecheckUrl
+    : candidates[0];
+  const index = candidates.indexOf(selected);
+  nextCloudRecheckUrl = candidates[(index + 1) % candidates.length] || '';
+  return {
+    logicalUrl: selected,
+    quotaProbe: quotaUrls.includes(selected),
+  };
+}
+
+function clearRecoveredCloudReads(target) {
+  if (!target?.logicalUrl) return;
+  for (const [path, value] of staleCloudReads.entries()) {
+    if (value?.logicalUrl === target.logicalUrl
+      || (target.quotaProbe && value?.reason === 'quota')) {
+      staleCloudReads.delete(path);
+    }
+  }
+  if (!staleCloudReads.size) nextCloudRecheckUrl = '';
+  emitCloudSyncState();
+}
 
 export function recheckCloudSync() {
   if (cloudRecheckPromise) return cloudRecheckPromise;
-  const logicalUrls = [...new Set(
-    [...staleCloudReads.values()]
-      .map(value => value?.logicalUrl)
-      .filter(Boolean),
-  )];
-  if (!logicalUrls.length) return Promise.resolve(staleCloudReads.size === 0);
+  const target = chooseCloudRecheckTarget();
+  if (!target) return Promise.resolve(staleCloudReads.size === 0);
 
   cloudRecheckPromise = (async () => {
     try {
-      const response = await apiFetch(logicalUrls[0], {
+      const response = await apiFetch(target.logicalUrl, {
         headers: { 'X-OurHome-Cloud-Recheck': '1' },
       });
       if (response.headers.get('X-OurHome-Cache') === 'stale' || !response.ok) return false;
-      // Quota restrictions are shared by the whole data plane. One real probe is
-      // enough to reopen normal reads; room data refreshes only when it is viewed.
-      staleCloudReads.clear();
-      emitCloudSyncState();
-      syncLocalFirstOutbox().catch(() => {});
-      return true;
+      clearRecoveredCloudReads(target);
+      const fullyRecovered = staleCloudReads.size === 0;
+      // Do not replay queued writes until every tracked read has a fresh probe.
+      if (fullyRecovered) syncLocalFirstOutbox().catch(() => {});
+      return fullyRecovered;
     } catch {
       return false;
     }
